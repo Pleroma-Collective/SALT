@@ -146,7 +146,12 @@ async function main() {
     } } },
   });
   assert.strictEqual(guildResponse.statusCode, 200);
-  assert.deepStrictEqual(guildResponse.body.guilds[0].servers, [{ id: 22, name: 'Chernarus' }],
+  // Session fields ride along for the guild-card indicator (card t_c1de9125);
+  // the mock has no server_session_state row, so they are null/0.
+  assert.deepStrictEqual(guildResponse.body.guilds[0].servers, [{
+    id: 22, name: 'Chernarus',
+    sessionStartedAt: null, nextRestartAt: null, fundedUntil: null, daysFunded: 0,
+  }],
     'guild discovery must return only exact servers authorized by active player membership');
 
   let dataQueryRan = false;

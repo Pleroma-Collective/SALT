@@ -6,6 +6,7 @@
   <title>Player Portal - DayZ Dashboard</title>
   <link rel="stylesheet" href="/css/theme.css">
   <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="/css/components.css">
   <link rel="stylesheet" href="/css/portal.css">
   <style>
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -155,7 +156,7 @@
         <p class="text-gray-300 mb-1 font-semibold">Can't find your account?</p>
         <p class="text-gray-400 text-sm mb-3">Search by gamertag to locate and link your game account manually.</p>
         <div class="flex gap-2 dzc-search-row">
-          <input type="text" id="searchGamertag" placeholder="Enter your gamertag..."
+          <input type="text" id="searchGamertag" aria-label="Gamertag" placeholder="Enter your gamertag..."
                  class="bg-gray-600 p-3 rounded flex-1 focus:ring-2 focus:ring-green-500 outline-none" />
           <button id="searchGamertagBtn" class="bg-green-600 hover:bg-green-700 px-6 py-3 rounded font-semibold">
             🔍 Search
@@ -322,7 +323,7 @@
     <div id="leaderboard" class="bg-gray-800 p-6 rounded-lg shadow-lg" style="display: none;">
       <h2 class="text-3xl mb-4 font-bold">🏆 Leaderboard</h2>
       <div class="mb-4">
-        <label class="block text-sm text-gray-400 mb-2">Sort By</label>
+        <label class="block text-sm text-gray-400 mb-2" for="sortBy">Sort By</label>
         <select id="sortBy" class="bg-gray-700 p-3 rounded focus:ring-2 focus:ring-green-500 outline-none">
           <option value="kills">Kills</option>
           <option value="deaths">Deaths</option>
@@ -485,7 +486,7 @@
 
         <!-- Wager row -->
         <div class="flex items-center gap-3 justify-center mb-3">
-          <label class="text-gray-400 text-sm font-semibold">Wager:</label>
+          <label class="text-gray-400 text-sm font-semibold" for="slots-wager">Wager:</label>
           <input type="number" id="slots-wager"
                  class="bg-gray-900 border border-gray-600 focus:border-purple-500 rounded-lg px-3 py-2 w-32 text-center text-lg outline-none"
                  value="10" min="1" step="1">
@@ -612,7 +613,7 @@
         <!-- Wager row (shown when idle) -->
         <div id="bj-wager-wrap" class="mb-4">
           <div class="flex justify-center items-center gap-3 mb-3">
-            <label class="text-sm text-gray-400 font-semibold">Wager:</label>
+            <label class="text-sm text-gray-400 font-semibold" for="bj-wager">Wager:</label>
             <input id="bj-wager" type="number" min="1" step="1" placeholder="100"
                    class="bg-gray-900 border border-gray-600 rounded px-3 py-2 w-32 text-white text-center focus:outline-none focus:border-purple-500">
           </div>
@@ -745,7 +746,7 @@
       <!-- Wager controls -->
       <div id="hr-wager-wrap" class="bg-gray-800 rounded-xl border border-gray-700 p-5 mb-4">
         <div class="flex items-center gap-3 mb-3">
-          <label class="text-sm text-gray-400 whitespace-nowrap">Wager</label>
+          <label class="text-sm text-gray-400 whitespace-nowrap" for="hr-wager">Wager</label>
           <input id="hr-wager" type="number" min="1" step="1" placeholder="0"
                  class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-center focus:outline-none focus:border-purple-500"/>
         </div>
@@ -823,7 +824,7 @@
       <!-- Wager controls -->
       <div id="coursing-wager-wrap" class="bg-gray-800 rounded-xl border border-gray-700 p-5 mb-4">
         <div class="flex items-center gap-3 mb-3">
-          <label class="text-sm text-gray-400 whitespace-nowrap">Wager</label>
+          <label class="text-sm text-gray-400 whitespace-nowrap" for="coursing-wager">Wager</label>
           <input id="coursing-wager" type="number" min="1" step="1" placeholder="0"
                  class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-center focus:outline-none focus:border-purple-500"/>
         </div>
@@ -940,7 +941,7 @@
           <button class="baccarat-quick-bet bg-gray-700 hover:bg-gray-600 border border-gray-600 text-white text-xs font-semibold px-3 py-1 rounded transition-colors" data-amount="250">$250</button>
         </div>
         <div class="flex gap-3">
-          <input id="baccarat-wager" type="number" min="1" step="any" placeholder="Enter wager…"
+          <input id="baccarat-wager" aria-label="Baccarat wager" type="number" min="1" step="any" placeholder="Enter wager…"
                  class="flex-1 bg-gray-900 border border-gray-600 text-white rounded px-3 py-2 text-sm focus:outline-none focus:border-yellow-500" />
           <button id="baccarat-deal-btn"
                   class="bg-yellow-700 hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold px-6 py-2 rounded transition-colors">
@@ -1038,7 +1039,7 @@
           <button class="craps-quick-bet bg-gray-700 hover:bg-gray-600 border border-gray-600 text-white text-xs font-semibold px-3 py-1 rounded transition-colors" data-amount="250">$250</button>
         </div>
         <div class="flex gap-3">
-          <input id="craps-wager" type="number" min="1" step="any" placeholder="Enter wager…"
+          <input id="craps-wager" aria-label="Craps wager" type="number" min="1" step="any" placeholder="Enter wager…"
                  class="flex-1 bg-gray-900 border border-gray-600 text-white rounded px-3 py-2 text-sm focus:outline-none focus:border-red-500" />
           <button id="craps-roll-btn"
                   class="bg-red-700 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold px-6 py-2 rounded transition-colors">
@@ -1147,7 +1148,7 @@
           <button class="holdem-quick-bet bg-gray-700 hover:bg-gray-600 border border-gray-600 text-white text-xs font-semibold px-3 py-1 rounded transition-colors" data-amount="250">$250</button>
         </div>
         <div class="flex gap-3">
-          <input id="holdem-wager" type="number" min="1" step="any" placeholder="Enter ante…"
+          <input id="holdem-wager" aria-label="Hold'em ante" type="number" min="1" step="any" placeholder="Enter ante…"
                  class="flex-1 bg-gray-900 border border-gray-600 text-white rounded px-3 py-2 text-sm focus:outline-none focus:border-green-500" />
           <button id="holdem-deal-btn"
                   class="bg-green-700 hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold px-6 py-2 rounded transition-colors">
@@ -1235,7 +1236,7 @@
           <button class="roulette-quick-bet bg-gray-700 hover:bg-gray-600 border border-gray-600 text-white text-xs font-semibold px-3 py-1 rounded transition-colors" data-amount="250">$250</button>
         </div>
         <div class="flex gap-3">
-          <input id="roulette-wager" type="number" min="1" step="any" placeholder="Enter wager…"
+          <input id="roulette-wager" aria-label="Roulette wager" type="number" min="1" step="any" placeholder="Enter wager…"
                  class="flex-1 bg-gray-900 border border-gray-600 text-white rounded px-3 py-2 text-sm focus:outline-none focus:border-purple-500" />
           <button id="roulette-spin-btn"
                   class="bg-purple-700 hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold px-6 py-2 rounded transition-colors">
@@ -1400,11 +1401,11 @@
 
   <!-- Deposit Modal -->
   <div id="depositModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
-    <div class="bg-gray-800 p-8 rounded-lg shadow-xl max-w-md w-full">
+    <div class="bg-gray-800 p-8 rounded-lg shadow-xl max-w-md w-full" role="dialog" aria-modal="true" aria-label="Deposit to bank">
       <h2 class="text-2xl font-bold mb-4">⬆️ Deposit to Bank</h2>
       <p class="text-gray-400 mb-1 text-sm">Available wallet balance: <span id="depositWalletBalance" class="text-green-400 font-semibold"></span></p>
       <div class="mb-4">
-        <label class="block text-sm text-gray-300 mb-1">Amount</label>
+        <label class="block text-sm text-gray-300 mb-1" for="depositAmount">Amount</label>
         <input type="number" id="depositAmount" min="0.01" step="0.01"
                class="bg-gray-700 p-3 rounded w-full focus:ring-2 focus:ring-green-500 outline-none" placeholder="0.00" />
       </div>
@@ -1425,11 +1426,11 @@
 
   <!-- Withdraw Modal -->
   <div id="withdrawModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
-    <div class="bg-gray-800 p-8 rounded-lg shadow-xl max-w-md w-full">
+    <div class="bg-gray-800 p-8 rounded-lg shadow-xl max-w-md w-full" role="dialog" aria-modal="true" aria-label="Withdraw from bank">
       <h2 class="text-2xl font-bold mb-4">⬇️ Withdraw from Bank</h2>
       <p class="text-gray-400 mb-1 text-sm">Available bank balance: <span id="withdrawBankBalance" class="text-blue-400 font-semibold"></span></p>
       <div class="mb-4">
-        <label class="block text-sm text-gray-300 mb-1">Amount</label>
+        <label class="block text-sm text-gray-300 mb-1" for="withdrawAmount">Amount</label>
         <input type="number" id="withdrawAmount" min="0.01" step="0.01"
                class="bg-gray-700 p-3 rounded w-full focus:ring-2 focus:ring-blue-500 outline-none" placeholder="0.00" />
       </div>
@@ -1450,12 +1451,12 @@
 
   <!-- Transfer Modal -->
   <div id="transferModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
-    <div class="bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4">
+    <div class="bg-gray-800 p-6 rounded-lg max-w-md w-full mx-4" role="dialog" aria-modal="true" aria-label="Send money">
       <h3 class="text-2xl font-bold mb-4">💸 Send Money</h3>
 
       <!-- Recipient Search -->
       <div class="mb-4">
-        <label class="block text-sm font-semibold mb-2">Recipient</label>
+        <label class="block text-sm font-semibold mb-2" for="recipientSearch">Recipient</label>
         <input type="text" id="recipientSearch" class="w-full bg-gray-700 p-3 rounded focus:ring-2 focus:ring-purple-500 outline-none" placeholder="Search by gamertag...">
         <div id="recipientResults" class="mt-2 max-h-48 overflow-y-auto bg-gray-700 rounded hidden"></div>
         <div id="selectedRecipient" class="mt-2 hidden bg-gray-600 p-3 rounded">
@@ -1467,7 +1468,7 @@
 
       <!-- Amount -->
       <div class="mb-4">
-        <label class="block text-sm font-semibold mb-2">Amount</label>
+        <label class="block text-sm font-semibold mb-2" for="transferAmount">Amount</label>
         <input type="number" id="transferAmount" class="w-full bg-gray-700 p-3 rounded focus:ring-2 focus:ring-purple-500 outline-none" min="0" step="0.01" placeholder="0.00">
         <p class="text-sm text-gray-400 mt-1">Available: <span id="transferAvailable">$0.00</span></p>
         <p class="text-sm text-gray-400" id="transferLimits"></p>
@@ -1475,7 +1476,7 @@
 
       <!-- Message -->
       <div class="mb-4">
-        <label class="block text-sm font-semibold mb-2">Message (Optional)</label>
+        <label class="block text-sm font-semibold mb-2" for="transferMessage">Message (Optional)</label>
         <input type="text" id="transferMessage" class="w-full bg-gray-700 p-3 rounded focus:ring-2 focus:ring-purple-500 outline-none" maxlength="200" placeholder="Add a note...">
       </div>
 
@@ -1503,7 +1504,7 @@
 
   <!-- Transfer History Modal -->
   <div id="transferHistoryModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
-    <div class="bg-gray-800 p-6 rounded-lg max-w-2xl w-full mx-4" style="max-height: 80vh; overflow-y: auto;">
+    <div class="bg-gray-800 p-6 rounded-lg max-w-2xl w-full mx-4" style="max-height: 80vh; overflow-y: auto;" role="dialog" aria-modal="true" aria-label="Transfer history">
       <h3 class="text-2xl font-bold mb-4">📜 Transfer History</h3>
 
       <div class="mb-4 flex gap-2">

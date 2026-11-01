@@ -212,6 +212,13 @@ function registerMiddleware(app, db, csrfProtection) {
     }
     return next();
   });
+  // Map data (data/<map>/) is served ONLY by the role-gated /data/:map/:file
+  // route (see registerRoutes) — spawn rates in items.json are admin-only. A
+  // local-dev convenience symlink public/data/data -> data would otherwise let
+  // express.static expose the raw files (rates included) at /data/data/<map>/…,
+  // bypassing that gating. Block the path so the gated route is the only way
+  // to map data, in every environment.
+  app.use('/data/data', (req, res) => res.status(404).end());
   app.use(express.static('public', {
     index: false,
     redirect: false,

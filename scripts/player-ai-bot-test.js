@@ -3,7 +3,7 @@
 /*
  * scripts/player-ai-bot-test.js
  *
- * Player-facing Discord AI:
+ * Player-facing Discord AI (kanban t_7b81ec8d, feature 6/7):
  *   1. /ask + /setup-ai commands load and are classified
  *      (ask: general, setup-ai: guild_admin).
  *   2. botAiRouterService: per-user daily quota (atomic increment +

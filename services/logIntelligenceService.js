@@ -168,7 +168,56 @@ const SEED_DAYZ_ISSUES = [
     fix: 'Read the full stack trace in the crash log. This is the most likely direct cause of a crash window.',
     actionable: true,
   },
+  // ── DayZ 1.30 boot-noise classes (audit t_ac25cb2b; all benign) ──────────
+  {
+    id: 'anim-skeleton-preload-130',
+    patterns: [/ANIMATION\s*\(E\)\s*: Can't load [^ ]*\/Anims\/cfg\/skeletons\.anim\.xml/i],
+    severity: 'info',
+    title: 'Per-map anim skeleton preload failed (1.30 boot noise)',
+    cause: 'The 1.30 engine preloads every installed map anim skeleton at boot; the load error for maps that are not the active one is benign and pairs with an "ANIMATION (E): Failed to open file, line 0, column 0" line.',
+    fix: 'Safe to ignore.',
+    actionable: false,
+  },
+  {
+    id: 'obsolete-api-130',
+    patterns: [/is obsolete: [\d.]+:/i],
+    severity: 'info',
+    title: 'Obsolete API warning (1.30 engine guidance)',
+    cause: 'A vanilla script calls a method the 1.30 engine marks obsolete; the engine prints the replacement to use (e.g. "is obsolete: 1.30: Use UpdatePathgraphEntityState"). Engine guidance, not a server problem.',
+    fix: 'Safe to ignore; mods using the same deprecated API print the same warning.',
+    actionable: false,
+  },
+  {
+    id: 'humaninput-method-not-linked-130',
+    patterns: [/Method not linked 'HumanInputController\./i, /Missing script declaration for method 'HumanInputController\./i],
+    severity: 'info',
+    title: 'HumanInputController method not linked (vanilla 1.30 typo)',
+    cause: 'Vanilla 1.30 logs "Method not linked" for HumanInputController methods that carry an engine typo (DisableCrouchCameratHorizontalRotation / DisableErectCameratHorizontalRotation) and pairs it with "Missing script declaration for method ..." lines. Benign until the engine fixes the declaration.',
+    fix: 'Safe to ignore.',
+    actionable: false,
+  },
+  {
+    id: 'datacache-lock-retry-130',
+    patterns: [/Load: opening .*cache\.ch failed with error \d+/i],
+    severity: 'info',
+    title: 'DataCache lock retry at startup (1.30 boot noise)',
+    cause: 'The engine retries opening config/DataCache/cache.ch while the previous process still holds the lock; a handful of "Trying again. Attempt N/5" lines at boot are benign.',
+    fix: 'Safe to ignore; it persists only if the server is started while another instance still has the cache open.',
+    actionable: false,
+  },
 ];
+
+// High-volume 1.30 network-reconciliation noise: thousands of lines per run
+// (correlates with the new FEATURE_NETWORK_RECONCILIATION define). These are
+// skipped BEFORE issue matching so they can never pollute the warning
+// clusters. If the LOG-MINE card later decides these are a tracked telemetry
+// class instead of pure noise, move them out of this list into a SEED entry
+// (or a dedicated signal) — the rest of the pipeline is unchanged.
+const SERVER_LOG_NOISE_PATTERNS = Object.freeze([
+  /NETWORK\s*:\s+Simulate networked players/i,
+  /NETWORK\s*:\s+Simulate networked player entity /i,
+  /PLAYER\s*:\s+Player Simulation entity /i,
+]);
 
 /**
  * Load the effective known-issue table: embedded seed overlaid by an
@@ -232,9 +281,12 @@ function extractTimeMs(line, logDate, chronology) {
 
 /**
  * Extract the signals we care about from already-read RPT/crash text.
- * Returns { warnings, ceLoops, shutdowns, firstMs, lastMs } where `warnings`
- * are individual matched known-issue rows (for clustering/drift) and
- * `ceLoops` are timed tick-spike samples.
+ * Returns { warnings, ceLoops, shutdowns, firstMs, lastMs, errorLines,
+ * warningLines } where `warnings` are individual matched known-issue rows
+ * (for clustering/drift), `ceLoops` are timed tick-spike samples, and
+ * `errorLines` / `warningLines` are raw RPT volume counters for the
+ * server-health indicator (`!!!` error lines vs `Warning` lines — the two
+ * engine markers; the known-issue `warnings` list only covers table entries).
  */
 function extractSignals(lines, issues, logDate = null) {
   const chronology = { dayOffset: 0, previousMs: null };
@@ -243,6 +295,8 @@ function extractSignals(lines, issues, logDate = null) {
   const shutdowns = [];
   let firstMs = null;
   let lastMs = null;
+  let errorLines = 0;
+  let warningLines = 0;
 
   // The `players: N, loot: N, infected: N, animals: N` line that DayZ emits as
   // part of a CE Loop tick is normally on the line *after* the CE Loop line
@@ -260,6 +314,15 @@ function extractSignals(lines, issues, logDate = null) {
     const raw = lines[li];
     const line = String(raw).replace(/\r$/, '');
     if (!line.trim()) continue;
+    // High-volume 1.30 network-reconciliation noise is skipped before any
+    // signal extraction. None of these patterns matches a CE Loop, shutdown,
+    // or known-issue line, so no real signal is lost — the noise can never
+    // pollute the warning clusters.
+    if (SERVER_LOG_NOISE_PATTERNS.some(re => re.test(line))) continue;
+    // Raw engine-marker volume (health indicator): `!!!` = engine error line,
+    // `Warning` = engine warning line (e.g. "Warning Message: ...").
+    if (line.includes('!!!')) errorLines += 1;
+    if (line.includes('Warning')) warningLines += 1;
     const ts = extractTimeMs(line, logDate, chronology);
     if (ts !== null) {
       if (firstMs === null) firstMs = ts;
@@ -306,7 +369,7 @@ function extractSignals(lines, issues, logDate = null) {
     }
   }
 
-  return { warnings, ceLoops, shutdowns, firstMs, lastMs };
+  return { warnings, ceLoops, shutdowns, firstMs, lastMs, errorLines, warningLines };
 }
 
 // ─── File discovery + bounded reading (dependency-injectable) ───────────────
@@ -413,7 +476,10 @@ function clusterWarnings(warnings) {
 function buildCrashWindows(warnings, shutdowns, { windowMs = 10 * 60 * 1000 } = {}) {
   const ends = [];
   for (const w of warnings) if (w.severity === 'fatal' && w.atMs) ends.push({ atMs: w.atMs, kind: 'fatal', signal: w });
-  for (const s of shutdowns) ends.push({ atMs: s.atMs, kind: 'restart', signal: { sample: `[Shutdown] ${s.remainingSeconds}s`, title: 'Scheduled shutdown' } });
+  for (const s of shutdowns) {
+    if (s.atMs === null) continue; // undated line (e.g. pre-date server.log tail)
+    ends.push({ atMs: s.atMs, kind: 'restart', signal: { sample: `[Shutdown] ${s.remainingSeconds}s`, title: 'Scheduled shutdown' } });
+  }
   if (ends.length === 0) return [];
   ends.sort((a, b) => a.atMs - b.atMs);
 
@@ -469,6 +535,17 @@ function summarizeRptErrors({ listFiles, readTail, configDir, rptFiles, issues =
   const ceLoops = [];
   const shutdowns = [];
   const perFile = [];
+  let totalErrorLines = 0;
+  let totalWarningLines = 0;
+
+  // Reference date for the time-only server.log timestamps: the newest RPT
+  // that is actually scanned (its filename carries the real date), else today.
+  const scannedRpt = files.length
+    ? files[files.length - 1]
+    : (discovered.rpt.length ? discovered.rpt[discovered.rpt.length - 1] : null);
+  const serverLogLogDate = scannedRpt
+    ? logDateFromRptFilename(scannedRpt)
+    : new Date().toISOString().slice(0, 10);
 
   for (const file of files) {
     const lines = readTail(configDir, file, MAX_RPT_SCAN_BYTES);
@@ -482,9 +559,38 @@ function summarizeRptErrors({ listFiles, readTail, configDir, rptFiles, issues =
       warnings: signals.warnings.length,
       ceLoopSamples: signals.ceLoops.length,
       shutdowns: signals.shutdowns.length,
+      errorLines: signals.errorLines,
+      warningLines: signals.warningLines,
       firstAt: iso(signals.firstMs),
       lastAt: iso(signals.lastMs),
     });
+    totalErrorLines += signals.errorLines;
+    totalWarningLines += signals.warningLines;
+  }
+
+  // DayZ 1.30 moved the [Shutdown] lines (countdown + "Saving players...")
+  // OUT of the per-run RPT into the rolling console server.log (verified:
+  // 1.30 RPTs contain zero such lines). Scan the server.log tail for the
+  // restart/shutdown signals so 1.30 runs still produce restart windows.
+  // Only `shutdowns` are merged from here: the 1.30 boot-noise lines that the
+  // new seed entries classify also appear in the RPT, so merging server.log
+  // warnings would double-count them. In 1.29 the same lines are in both
+  // files; buildCrashWindows coalesces the duplicate shutdown endpoints.
+  if (discovered.serverLog) {
+    try {
+      const serverLogLines = readTail(configDir, discovered.serverLog, MAX_RPT_SCAN_BYTES);
+      const serverLogSignals = extractSignals(serverLogLines, issues, serverLogLogDate);
+      shutdowns.push(...serverLogSignals.shutdowns);
+      perFile.push({
+        file: discovered.serverLog,
+        lines: serverLogLines.length,
+        warnings: 0,
+        ceLoopSamples: 0,
+        shutdowns: serverLogSignals.shutdowns.length,
+        firstAt: iso(serverLogSignals.firstMs),
+        lastAt: iso(serverLogSignals.lastMs),
+      });
+    } catch (_error) { /* unreadable server.log is non-fatal */ }
   }
 
   // Crash-log signals (fatal root causes).
@@ -493,6 +599,8 @@ function summarizeRptErrors({ listFiles, readTail, configDir, rptFiles, issues =
       const crashLines = readTail(configDir, file, MAX_CRASH_SCAN_BYTES);
       const crashSignals = extractSignals(crashLines, issues, null);
       for (const w of crashSignals.warnings) { w.sourceFile = file; warnings.push(w); }
+      totalErrorLines += crashSignals.errorLines;
+      totalWarningLines += crashSignals.warningLines;
       for (const line of crashLines) {
         if (w_lineIsFatal(line, issues)) {
           warnings.push({
@@ -512,6 +620,8 @@ function summarizeRptErrors({ listFiles, readTail, configDir, rptFiles, issues =
     server: configDir,
     filesScanned: perFile,
     totalWarnings: warnings.length,
+    totalErrorLines,
+    totalWarningLines,
     repeatedOffenders: offenders,
     crashWindows,
     ceLoop: ceStats,
@@ -844,6 +954,7 @@ function defaultDeps(configDir) {
 
 module.exports = {
   SEED_DAYZ_ISSUES,
+  SERVER_LOG_NOISE_PATTERNS,
   loadKnownIssues,
   extractSignals,
   clusterWarnings,

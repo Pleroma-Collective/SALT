@@ -6,6 +6,7 @@
   <title>Console - DayZ Dashboard</title>
   <link rel="stylesheet" href="/css/theme.css">
   <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="/css/components.css">
   <script src="/js/instance-config.js" defer></script>
 </head>
 <body class="bg-gray-900 text-white">
@@ -24,7 +25,7 @@
 
     <!-- Server selector -->
     <div class="bg-gray-800 p-4 rounded-lg mb-6 border border-gray-700">
-      <label class="block mb-2 font-semibold">Select Server</label>
+      <label class="block mb-2 font-semibold" for="serverSelect">Select Server</label>
       <select id="serverSelect" class="bg-gray-700 p-2 rounded w-full max-w-sm">
         <option value="">Loading servers…</option>
       </select>
@@ -35,7 +36,7 @@
       <div class="bg-gray-800 p-6 rounded-lg border border-gray-700 mb-6">
         <h2 class="text-xl font-bold mb-4">Send Command</h2>
         <div class="flex gap-3 mb-4">
-          <input id="commandInput" type="text" placeholder="e.g. say Hello players" maxlength="256"
+          <input id="commandInput" aria-label="Console command" type="text" placeholder="e.g. say Hello players" maxlength="256"
             class="flex-1 bg-gray-700 border border-gray-600 p-3 rounded font-mono text-sm"
             autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
           <button id="sendBtn"

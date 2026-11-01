@@ -14,7 +14,7 @@ const fs = require('fs');
 const passport = require('passport');
 const axios = require('../../utils/nitradoHttp');
 
-const { ensureAuthenticated, ensureAdmin } = require('../../middleware/auth');
+const { ensureAuthenticated, ensureAdmin, isDashboardAdmin } = require('../../middleware/auth');
 const {
   ensureHasOperableServers,
   ensureHasModeratableServers,
@@ -55,6 +55,7 @@ const {
 const { getFleetStats } = require('../../services/fleetStatsService');
 const { getRepoMetrics } = require('../../services/githubRepoMetricsService');
 const missionFilesRoutes = require('../../routes/missionFiles');
+const dynamicMessagesRoutes = require('../../routes/dynamicMessages');
 const missionInitRoutes = require('../../routes/missionInit');
 const validationRoutes = require('../../routes/validation');
 const logParserRoutes = require('../../routes/logParser');
@@ -88,18 +89,21 @@ const shopRoutes = require('../../routes/shop');
 const mapHeatmapRoutes = require('../../routes/mapHeatmap');
 const operationsMapRoutes = require('../../routes/operationsMap');
 const factionTerritoriesRoutes = require('../../routes/factionTerritories');
+const factionWarRoutes = require('../../routes/factionWar');
 const spawnExclusionsRoutes = require('../../routes/spawnExclusions');
 const tasksRoutes = require('../../routes/tasks');
 const serverControlRoutes = require('../../routes/serverControl');
 const backupsRoutes = require('../../routes/backups');
 const serverStatsRoutes = require('../../routes/serverStats');
 const activityLogRoutes = require('../../routes/activityLog');
+const ceDynamicEventRatesRoutes = require('../../routes/ceDynamicEventRates');
 const consoleRoutes = require('../../routes/console');
 const boostRoutes = require('../../routes/boost');
 const supportHubRoutes = require('../../routes/supportHub');
 const rotationRoutes = require('../../routes/rotation');
 const aiRoutes       = require('../../routes/ai');
 const eventHealthRoutes = require('../../routes/eventHealth');
+const testAuthRoutes = require('../../routes/testAuth'); // local-testing backdoor (inert unless local + TEST_ADMIN_TOKEN)
 
 const nitradoService = createNitradoService();
 
@@ -229,6 +233,7 @@ function registerRoutes(app, csrfProtection) {
   // API – file-based route modules
   // -------------------------------------------------------------------------
   app.use('/api', missionFilesRoutes);
+  app.use('/api', dynamicMessagesRoutes);
   app.use('/api', missionInitRoutes);
   app.use('/api', validationRoutes);
   app.use('/api', logParserRoutes);
@@ -260,12 +265,14 @@ function registerRoutes(app, csrfProtection) {
   app.use('/api/map', ensureAuthenticated, ensurePlayerApproved, mapHeatmapRoutes);
   app.use('/api/operations-map', ensureAuthenticated, operationsMapRoutes);
   app.use('/api/faction-territories', ensureAuthenticated, factionTerritoriesRoutes);
+  app.use('/api/faction-war', ensureAuthenticated, factionWarRoutes);
   app.use('/api/spawn-exclusions', ensureAuthenticated, spawnExclusionsRoutes);
   app.use('/api/tasks', ensureAuthenticated, ensureApproved, tasksRoutes);
   app.use('/api/control', ensureAuthenticated, ensureApproved, serverControlRoutes);
   app.use('/api/backups', ensureAuthenticated, ensureApproved, backupsRoutes);
   app.use('/api/stats', ensureAuthenticated, ensureApproved, serverStatsRoutes);
   app.use('/api/activity', ensureAuthenticated, ensureApproved, activityLogRoutes);
+  app.use('/api/dynamic-event-rates', ensureAuthenticated, ceDynamicEventRatesRoutes);
   app.use('/api/console', ensureAuthenticated, ensureApproved, consoleRoutes);
   app.use('/api/boost', ensureAuthenticated, ensureApproved, boostRoutes);
   app.use('/api/rotation', ensureAuthenticated, ensureApproved, rotationRoutes);
@@ -547,8 +554,14 @@ function registerRoutes(app, csrfProtection) {
       if (!/^[a-z0-9]+$/.test(mapName)) {
         return res.status(400).json({ success: false, message: 'Invalid map name' });
       }
+      // Optional: active mission folder (e.g. "ChristmasOffline.ChernarusPlus") so a map
+      // with multiple mission dirs (base + holiday pack) resolves to the live one.
+      const mission = String(req.query.mission || '');
+      if (mission && !/^[A-Za-z0-9._-]+$/.test(mission)) {
+        return res.status(400).json({ success: false, message: 'Invalid mission name' });
+      }
       const serverPath = getGuildDownloadPath(req.platformServerAccess.discordGuildId, serverId);
-      const result = getEventSpawnLocations(serverPath, mapName, { missionSubdirs: MISSION_SUBDIRS });
+      const result = getEventSpawnLocations(serverPath, mapName, { missionSubdirs: MISSION_SUBDIRS, preferredMission: mission || null });
       if (result.configurationError) {
         return res.json({ success: false, message: result.configurationError });
       }
@@ -929,7 +942,18 @@ function registerRoutes(app, csrfProtection) {
     }
   );
 
+  // Local-testing backdoor (inert unless DEPLOYMENT_MODE=local && NODE_ENV!=production):
+  // issues a real admin session so automated/manual tests skip Discord OAuth.
+  if (process.env.DEPLOYMENT_MODE === 'local' && process.env.NODE_ENV !== 'production') {
+    app.use('/auth/test-login', testAuthRoutes);
+  }
+
   const pub = (...parts) => path.join(__dirname, '..', '..', 'public', ...parts);
+
+  // UX review probed the page filename as a URL; alias it to the real route so it does not 404.
+  app.get('/logout-confirm', apiLimiter, ensureAuthenticated, (req, res) => {
+    res.redirect('/logout');
+  });
 
   app.get('/logout', apiLimiter, ensureAuthenticated, (req, res) => {
     renderWithCsrf(pub('logout-confirm.html'), req, res);
@@ -1010,7 +1034,7 @@ function registerRoutes(app, csrfProtection) {
       // only to self to prevent data exfiltration.
       const csp = [
         "default-src 'self'",
-        "script-src 'self' 'sha384-iGbFBTDYNUD4m++6sH3RYWHWW6SQBNmkleVhBSisrtd1kJOotn35QkTZwNtOEWJW'",
+        "script-src 'self' 'sha384-KsjX2Ofy9I+xVjju6WNFtrU4AcZJp96+RaZgLlvCXSyv3oTdDu4v6IzjVpryRg8q'",
         "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: https://cdn.discordapp.com",
         "connect-src 'self'",
@@ -1160,6 +1184,28 @@ function registerRoutes(app, csrfProtection) {
     });
   });
 
+  app.get('/dashboard/death-causes', apiLimiter, ensureAuthenticated, ensureHasModeratableServers,async (req, res) => {
+    console.log('☠️ Dashboard death-causes accessed by:', req.user?.username);
+    const guildName = await displayGuildName(req.app.locals.db, req.user.id);
+    return renderShellPage(pub('dashboard', 'death-causes.html'), req, res, {
+      surface: 'owner',
+      activePath: '/dashboard/death-causes',
+      crumbs: [{ label: 'DayZ Ops', href: '/dashboard' }, { label: 'Deaths & PVP', href: '/dashboard/death-causes' }],
+      serverContext: { kind: 'guild', guildName },
+    });
+  });
+
+  app.get('/dashboard/dynamic-event-rates', apiLimiter, ensureAuthenticated, ensureHasOperableServers,async (req, res) => {
+    console.log('🎲 CE dynamic event rates accessed by:', req.user?.username);
+    const guildName = await displayGuildName(req.app.locals.db, req.user.id);
+    return renderShellPage(pub('dashboard', 'dynamic-event-rates.html'), req, res, {
+      surface: 'owner',
+      activePath: '/dashboard/dynamic-event-rates',
+      crumbs: [{ label: 'DayZ Ops', href: '/dashboard' }, { label: 'Dynamic Event Rates', href: '/dashboard/dynamic-event-rates' }],
+      serverContext: { kind: 'guild', guildName },
+    });
+  });
+
   app.get('/dashboard/activity-log', apiLimiter, ensureAuthenticated, ensureHasServers,async (req, res) => {
     console.log('📋 Activity log accessed by:', req.user?.username);
     const guildName = await displayGuildName(req.app.locals.db, req.user.id);
@@ -1255,20 +1301,107 @@ function registerRoutes(app, csrfProtection) {
   });
 
   // Server tools
-  app.get('/map', apiLimiter, ensureAuthenticated, ensureHasModeratableServers, async (req, res) => {
+  // Merged map page (2026-10-27): the staff admin map and the former
+  // standalone /loot-finder are one page. Any logged-in user reaches it —
+  // staff sections render for users with moderatable servers, while the rest
+  // degrade to player map mode (loot layer over static terrain; servers from
+  // the registry). Every staff DATA endpoint keeps its own per-user gate, so
+  // opening the page grants no data access.
+  app.get('/map', apiLimiter, ensureAuthenticated, async (req, res) => {
     console.log('🗺️  Map page accessed by:', req.user?.username);
     const guildName = await displayGuildName(req.app.locals.db, req.user.id);
     return renderShellPage(pub('map.html'), req, res, {
-      surface: 'owner',
+      surface: guildName ? 'owner' : 'player',
       activePath: '/map',
       crumbs: [{ label: 'DayZ Ops', href: '/dashboard' }, { label: 'Map', href: '/map' }],
-      serverContext: { kind: 'server', guildName },
+      serverContext: guildName ? { kind: 'server', guildName } : { kind: 'player' },
     });
   });
 
+  // Generated map data (P0/P2 extraction: scripts/extract-dayz-data.js) — item
+  // catalog + spawn-group marker GeoJSON + cfgspawnabletypes tuning under
+  // data/<map>/. Path-restricted to the known output files for a valid map key
+  // so nothing else in data/ (session DBs, backups) is reachable.
+  //
+  // SENSITIVITY (roadmap P0 map/data decision, 2026-10-22): spawn rates are
+  // ADMIN-ONLY. items.json is the types.xml extraction and carries the actual
+  // spawn tuning (nominal/lifetime/restock/min/quantmin/quantmax + the
+  // nominalChance/lifetimeChance/minChance weights the Loot Probability
+  // Calculator turns into per-group odds). For non-admin requests we serve a
+  // "what can spawn" view — identity, building groups (usages), spawn locations
+  // (flags) and presence — with every numeric rate stripped, so the raw rates
+  // never reach a non-admin browser. This is enforced HERE, in the route (the
+  // data layer), not hidden in the UI. markers.geojson / settlements.json are
+  // location-only and stay public.
+  const MAP_DATA_FILES = new Set(['items.json', 'markers.geojson', 'spawnables.json', 'settlements.json', 'floor_grid.json', 'floor_elevation.png', 'object_dims.jsonl']);
+
+  // Public ("what can spawn") projection of an items.json doc: identity +
+  // building groups + spawn locations + presence + vanilla item stats
+  // (storage/insulation/description — cfg facts, not spawn rates), no numeric
+  // spawn rates.
+  function stripSpawnRates(doc) {
+    const items = (doc.items || []).map(function (it) {
+      return {
+        classname: it.classname,
+        name: it.name,
+        category: it.category,
+        tier: it.tier == null ? null : it.tier,
+        unique: !!it.unique,
+        usages: it.usages || [],
+        flags: it.flags || {},
+        cost: it.cost == null ? null : it.cost,
+        storageGrid: it.storageGrid == null ? null : it.storageGrid,
+        storageSlots: it.storageSlots == null ? null : it.storageSlots,
+        insulation: it.insulation == null ? null : it.insulation,
+        description: it.description == null ? null : it.description,
+        spawnable: (it.nominal || 0) > 0
+      };
+    });
+    return { map: doc.map, event: doc.event, count: items.length, items };
+  }
+
+  // The file is static (regenerated only by the extractor) — cache the stripped
+  // view per map, invalidated by mtime, so public /items loads don't re-parse
+  // the ~1.2MB doc on every request.
+  const publicItemsCache = new Map(); // mapKey -> { mtimeMs, doc }
+  function servePublicItems(req, res, filePath, mapKey) {
+    fs.stat(filePath, (statErr, stat) => {
+      if (statErr) return res.status(404).end();
+      const mtimeMs = stat.mtimeMs;
+      const hit = publicItemsCache.get(mapKey);
+      if (hit && hit.mtimeMs === mtimeMs) return res.json(hit.doc);
+      fs.readFile(filePath, 'utf8', (readErr, text) => {
+        if (readErr) return res.status(404).end();
+        let doc;
+        try { doc = JSON.parse(text); } catch (e) { return res.status(500).end(); }
+        const publicDoc = stripSpawnRates(doc);
+        publicItemsCache.set(mapKey, { mtimeMs, doc: publicDoc });
+        res.json(publicDoc);
+      });
+    });
+  }
+
+  app.get('/data/:map/:file', (req, res) => {
+    const mapKey = String(req.params.map || '');
+    const file = String(req.params.file || '');
+    if (!/^[a-z0-9]+$/.test(mapKey) || !MAP_DATA_FILES.has(file)) {
+      return res.status(404).end();
+    }
+    const filePath = path.join(__dirname, '..', '..', 'data', mapKey, file);
+    if (file === 'items.json' && !isDashboardAdmin(req)) {
+      return servePublicItems(req, res, filePath, mapKey);
+    }
+    res.sendFile(filePath, (err) => {
+      if (err) return res.status(404).end();
+    });
+  });
+
+  // Former standalone loot-finder page — merged into /map (2026-10-27).
+  // Keep the URL working via a hard redirect so old bookmarks, bot map links
+  // and the loot-probability card all land on the merged page.
   app.get('/loot-finder', apiLimiter, ensureAuthenticated, (req, res) => {
-    console.log('🔍 Loot finder accessed by:', req.user?.username);
-    renderWithCsrf(pub('loot-finder.html'), req, res);
+    console.log('🔍 Loot finder accessed by:', req.user?.username, '→ redirecting to /map');
+    res.redirect(301, '/map');
   });
 
   app.get('/mission-editor', apiLimiter, ensureAuthenticated, ensureHasServers,async (req, res) => {
@@ -1363,6 +1496,39 @@ function registerRoutes(app, csrfProtection) {
     });
   });
 
+  app.get('/admin/bot-config', async (req, res) => {
+    console.log('🤖 Admin bot config page accessed by:', req.user?.username);
+    const guildName = await displayGuildName(req.app.locals.db, req.user.id);
+    return renderShellPage(pub('admin', 'bot-config.html'), req, res, {
+      surface: 'admin',
+      activePath: '/admin/bot-config',
+      crumbs: [{ label: 'Platform Admin', href: '/admin' }, { label: 'Bot Config', href: '/admin/bot-config' }],
+      serverContext: { kind: 'guild', guildName },
+    });
+  });
+
+  app.get('/admin/zones', async (req, res) => {
+    console.log('🎯 Admin activity zones page accessed by:', req.user?.username);
+    const guildName = await displayGuildName(req.app.locals.db, req.user.id);
+    return renderShellPage(pub('admin', 'zones.html'), req, res, {
+      surface: 'admin',
+      activePath: '/admin/zones',
+      crumbs: [{ label: 'Platform Admin', href: '/admin' }, { label: 'Activity Zones', href: '/admin/zones' }],
+      serverContext: { kind: 'guild', guildName },
+    });
+  });
+
+  app.get('/admin/faction-war', async (req, res) => {
+    console.log('⚔️ Admin faction war page accessed by:', req.user?.username);
+    const guildName = await displayGuildName(req.app.locals.db, req.user.id);
+    return renderShellPage(pub('admin', 'faction-war.html'), req, res, {
+      surface: 'admin',
+      activePath: '/admin/faction-war',
+      crumbs: [{ label: 'Platform Admin', href: '/admin' }, { label: 'Faction War', href: '/admin/faction-war' }],
+      serverContext: { kind: 'guild', guildName },
+    });
+  });
+
   app.get('/admin/theme', async (req, res) => {
     console.log('🎨 Admin theme page accessed by:', req.user?.username);
     const guildName = await displayGuildName(req.app.locals.db, req.user.id);
@@ -1392,6 +1558,17 @@ function registerRoutes(app, csrfProtection) {
       surface: 'admin',
       activePath: '/admin/servers',
       crumbs: [{ label: 'Platform Admin', href: '/admin' }, { label: 'Servers', href: '/admin/servers' }],
+      serverContext: { kind: 'guild', guildName },
+    });
+  });
+
+  app.get('/admin/holiday-events', async (req, res) => {
+    console.log('📅 Admin holiday events page accessed by:', req.user?.username);
+    const guildName = await displayGuildName(req.app.locals.db, req.user.id);
+    return renderShellPage(pub('admin', 'holiday.html'), req, res, {
+      surface: 'admin',
+      activePath: '/admin/holiday-events',
+      crumbs: [{ label: 'Platform Admin', href: '/admin' }, { label: 'Holiday Events', href: '/admin/holiday-events' }],
       serverContext: { kind: 'guild', guildName },
     });
   });
@@ -1487,7 +1664,7 @@ function registerRoutes(app, csrfProtection) {
   });
 
   // -------------------------------------------------------------------------
-  // DayZ Toolkit — public, fully client-side tools.
+  // DayZ Toolkit — public, fully client-side tools (card t_0743c982).
   // These pages run entirely in the user's browser: no auth, no server-side
   // file processing, no upload endpoints. The render is a static pass-through.
   // -------------------------------------------------------------------------
@@ -1506,11 +1683,40 @@ function registerRoutes(app, csrfProtection) {
   app.get('/tools/duplicate-checker', apiLimiter, (req, res) => {
     renderWithCsrf(pub('tools', 'duplicate-checker.html'), req, res);
   });
+  // Admin-only (Kitty, 2026-10-22): spawn rates stay private — the public
+  // surfaces show only what can spawn. All other toolkit routes remain public.
+  app.get('/tools/loot-probability', apiLimiter, ensureAdmin, (req, res) => {
+    console.log('🎲 Loot probability (admin) accessed by:', req.user?.username);
+    renderWithCsrf(pub('tools', 'loot-probability.html'), req, res);
+  });
   app.get('/tools/event-conflicts', apiLimiter, (req, res) => {
     renderWithCsrf(pub('tools', 'event-conflicts.html'), req, res);
   });
   app.get('/tools/paa-converter', apiLimiter, (req, res) => {
     renderWithCsrf(pub('tools', 'paa-converter.html'), req, res);
+  });
+  // Loadout Generator (card t_3ed714bd) — composes kitty_loadouts/CE-format
+  // spawn configs client-side from the extracted item catalog; no uploads.
+  app.get('/tools/loadout-generator', apiLimiter, (req, res) => {
+    renderWithCsrf(pub('tools', 'loadout-generator.html'), req, res);
+  });
+  // Spawnabletypes Generator (card t_14209206) — composes CE
+  // cfgspawnabletypes.xml client-side from the extracted item catalog; no uploads.
+  app.get('/tools/spawnabletypes-generator', apiLimiter, (req, res) => {
+    renderWithCsrf(pub('tools', 'spawnabletypes-generator.html'), req, res);
+  });
+
+  // Loadout Browser (roadmap P1) — public to all players (roadmap non-negotiable:
+  // no account wall on public pages). Server-curated spawn configs, static data.
+  app.get('/loadouts', apiLimiter, (req, res) => {
+    renderWithCsrf(pub('loadouts.html'), req, res);
+  });
+
+  // Item Catalog (roadmap P2) — public like /loadouts. Server-tuned catalog:
+  // what actually spawns on this server (types.xml nominal/tier +
+  // cfgspawnabletypes spawn tuning), served from data/<map>/ JSON.
+  app.get('/items', apiLimiter, (req, res) => {
+    renderWithCsrf(pub('items.html'), req, res);
   });
 
   // Root

@@ -1,6 +1,6 @@
 /* global document, navigator */
 /*
- * XML Validator page. Client-side only.
+ * XML Validator page (card t_0743c982). Client-side only.
  */
 (function () {
   'use strict';
@@ -68,13 +68,23 @@
 
   function runOn(items) {
     results.textContent = '';
-    var title = dom.el('p', 'tk-results-title', items.length + ' document(s) — all checks ran locally');
-    results.appendChild(title);
-    items.forEach(function (item) {
-      var type = typeSelect.value || undefined;
-      var report = core.validateXml(item.name, item.text, parser, type);
+    var type = typeSelect.value || undefined;
+    var reports = items.map(function (item) {
+      return core.validateXml(item.name, item.text, parser, type);
+    });
+    var errors = 0, warnings = 0, ok = 0;
+    reports.forEach(function (r) {
+      errors += r.summary.errorCount;
+      warnings += r.summary.warningCount;
+      if (r.summary.valid) ok++;
+    });
+    dom.renderResultSummary(results, {
+      total: reports.length, ok: ok, errors: errors, warnings: warnings,
+      note: 'all checks ran locally'
+    });
+    reports.forEach(function (report, i) {
       dom.renderReport(results, report);
-      results.appendChild(actionsFor(item, report));
+      results.appendChild(actionsFor(items[i], report));
     });
   }
 
@@ -82,6 +92,8 @@
     multiple: true,
     accept: '.xml,.txt',
     allowPaste: true,
+    pastePlaceholder: 'Paste XML here (single document)…',
+    title: 'Drop XML files here',
     onFiles: runOn
   });
   app.appendChild(results);

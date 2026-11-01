@@ -6,6 +6,7 @@
   <title>Role Management - Admin Panel</title>
   <link rel="stylesheet" href="/css/theme.css">
   <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="/css/components.css">
   <style>
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .spinner { animation: spin 1s linear infinite; }
@@ -28,7 +29,7 @@
     <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-6">
       <div class="flex gap-4 items-center">
         <div class="flex-1">
-          <input type="text" id="searchInput" placeholder="Search by username or Discord ID..."
+          <input type="text" id="searchInput" aria-label="Search users by username or Discord ID" placeholder="Search by username or Discord ID..."
                  class="bg-gray-700 p-3 rounded w-full focus:ring-2 focus:ring-orange-500 outline-none" />
         </div>
         <div>
@@ -75,7 +76,7 @@
       <section id="ownership-transfer-panel" class="hidden border-t border-gray-700 pt-4 mt-5">
         <h3 class="text-xl font-semibold mb-2">Transfer Guild Ownership</h3>
         <p class="text-sm text-yellow-300 mb-3">Explicit transfer only. The previous owner is retained as Guild Admin.</p>
-        <select id="transfer-owner-select" class="w-full bg-gray-700 p-3 rounded mb-3"></select>
+        <select id="transfer-owner-select" aria-label="Owner to transfer to" class="w-full bg-gray-700 p-3 rounded mb-3"></select>
         <button id="transfer-owner-btn" class="bg-yellow-700 hover:bg-yellow-600 px-4 py-2 rounded font-semibold">Transfer Ownership</button>
       </section>
     </div>

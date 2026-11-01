@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Loadout Browser - DayZ Dashboard</title>
+  <link rel="stylesheet" href="/css/theme.css">
+  <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <style>
+    body { background: var(--dzc-bg, #0f172a); color: var(--dzc-text, #e2e8f0); font-family: var(--dzc-font-body, system-ui, sans-serif); }
+    .topbar { background: var(--dzc-surface, #1e293b); border-bottom: 1px solid var(--dzc-border, #334155); padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .tier-heading { margin: 24px 24px 8px; font-family: var(--dzc-font-display, inherit); font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dzc-text, #e2e8f0); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; padding: 0 24px; }
+    .card { background: var(--dzc-surface-2, #1e293b); border: 1px solid var(--dzc-border, #334155); border-radius: var(--dzc-radius-md, 8px); padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+    .card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .card h3 { margin: 0; font-size: 15px; }
+    .tier-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--dzc-surface-3, #334155); color: var(--dzc-text-muted, #94a3b8); white-space: nowrap; }
+    .tier-badge.t-holiday { background: #7c3aed; color: #fff; }
+    .tier-badge.t-themed { background: #2563eb; color: #fff; }
+    .tier-badge.t-vanillaplus { background: #059669; color: #fff; }
+    .char-type { font-size: 12px; color: var(--dzc-text-muted, #94a3b8); }
+    .item-list { max-height: 140px; overflow-y: auto; font-size: 12px; line-height: 1.5; color: var(--dzc-text-muted, #94a3b8); background: var(--dzc-bg-tint, rgba(15,23,42,.4)); border: 1px solid var(--dzc-border, #334155); border-radius: var(--dzc-radius-sm, 6px); padding: 8px 10px; }
+    .item-list .group { color: var(--dzc-text, #e2e8f0); font-weight: 600; }
+    .item-list .item-stats { color: var(--dzc-text-faint, #64748b); font-size: 11px; white-space: nowrap; }
+    .item-list .item-desc { color: var(--dzc-text-faint, #64748b); font-size: 11px; font-style: italic; }
+    .card-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; }
+    .item-count { font-size: 12px; color: var(--dzc-text-faint, #64748b); }
+    .copy-btn { padding: 6px 12px; border-radius: var(--dzc-radius-sm, 6px); font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--dzc-border-strong, #475569); background: var(--dzc-accent, #3b82f6); color: #fff; }
+    .copy-btn:hover { filter: brightness(1.1); }
+    .copy-btn.copied { background: #059669; border-color: #059669; }
+    .fineprint { font-size: 11px; color: var(--dzc-text-faint, #64748b); padding: 4px 24px 24px; }
+    .load-error { color: var(--dzc-danger, #ef4444); font-size: 12px; }
+  </style>
+  <script src="/js/instance-config.js" defer></script>
+</head>
+<body class="min-h-screen">
+  <div class="topbar">
+    <div class="flex items-center gap-4">
+      <a href="/dashboard" style="color: var(--dzc-text-muted, #94a3b8); font-size: 14px;">← Dashboard</a>
+      <h1 style="margin: 0; font-size: 18px;">🎒 Loadout Browser</h1>
+    </div>
+    <div style="display:flex; align-items:center; gap:12px;">
+      <span class="item-count" id="loadout-count">Loading…</span>
+      <div id="loadouts-freshness" class="flex items-center gap-2"></div>
+    </div>
+  </div>
+
+  <div id="loadout-content"><div class="dzc-empty" data-dzc-loading><span class="dzc-spinner" role="status" aria-label="Loading"></span><div class="dzc-empty-title">Loading loadouts…</div></div></div>
+  <p class="fineprint">Spawn configs sourced from <code>dayz-library/community_builds/loadouts/kitty_loadouts</code> (versioned there; this copy is refreshed from that source). Per-item stats (tier, storage, insulation, description) are vanilla cfg values joined from the item catalog. “Copy spawn config” copies the raw loadout JSON to your clipboard for pasting into a mission.</p>
+
+  <script src="/js/data-freshness.js"></script>
+  <script src="/js/loadouts-page.js"></script>
+</body>
+</html>

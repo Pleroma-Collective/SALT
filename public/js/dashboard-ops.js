@@ -202,10 +202,30 @@
       '</div>';
   }
 
+  // Server-health indicator (crash + error/warning volume from the ingested
+  // logs; state computed server-side in opsIntelligenceService.warningSummary).
+  function healthBlock(summary) {
+    var h = summary && summary.health;
+    if (!h) return '';
+    var state = h.state || 'unknown';
+    var icon = state === 'critical' ? '🔴' : state === 'degraded' ? '⚠️'
+      : state === 'healthy' ? '🟢' : '⚪';
+    var parts = [h.crashCount + ' crash' + (h.crashCount === 1 ? '' : 'es') + ' (' + h.windowHours + 'h)'];
+    if (h.lastCrashAt) parts.push('last crash ' + formatDate(h.lastCrashAt));
+    if (h.errorLines != null) parts.push(h.errorLines + ' errors');
+    if (h.warningLines != null) parts.push(h.warningLines + ' warnings');
+    if (h.linesScanned != null) parts.push('scanned ' + h.linesScanned + ' lines');
+    return '<div class="dzc-ops-section-label">Server health</div>' +
+      '<div class="dzc-ops-warn"><span class="dzc-health-chip" data-state="' + escapeHtml(state) + '">' +
+      icon + ' ' + escapeHtml(state.toUpperCase()) + '</span>' +
+      '<span class="dzc-ops-warn-detail">' + escapeHtml(parts.join(' · ')) + '</span></div>';
+  }
+
   function renderServerBlock(s, rem) {
     var html = '<div class="dzc-ops-server">';
     html += '<div class="dzc-ops-server-head"><strong>' + escapeHtml(s.serverName || s.serverId) +
       '</strong><span class="dzc-ops-sub">' + escapeHtml(String(s.serverId)) + '</span></div>';
+    html += healthBlock(s.summary);
     if (s.warningsError) {
       html += '<div class="dzc-error-row">⛔ Warnings unavailable (' + escapeHtml(s.warningsError) + ')</div>';
     } else {
@@ -250,6 +270,16 @@
     Object.keys(state || {}).forEach(id => {
       var s = state[id] || {};
       var prefix = s.serverName ? s.serverName + ': ' : '';
+      // A 24h crash outranks everything else on the shared strip.
+      var h = s.summary && s.summary.health;
+      if (h && h.state === 'critical' && items.length < 4) {
+        items.push({
+          severity: 'danger',
+          icon: '🔴',
+          text: prefix + 'health: ' + h.crashCount + ' crash' + (h.crashCount === 1 ? '' : 'es') +
+            (h.lastCrashAt ? ' (last ' + formatDate(h.lastCrashAt) + ')' : ''),
+        });
+      }
       (s.summary && s.summary.activeWarnings || []).forEach(w => {
         if (items.length >= 4) return;
         var tier = severityTier(w && w.severity);

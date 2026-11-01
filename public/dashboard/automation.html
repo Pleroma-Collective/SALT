@@ -6,6 +6,7 @@
   <title>Automation - DayZ Dashboard</title>
   <link rel="stylesheet" href="/css/theme.css">
   <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="/css/components.css">
   <script src="/js/instance-config.js" defer></script>
 </head>
 <body class="bg-gray-900 text-white">
@@ -24,7 +25,7 @@
           <p class="text-gray-400 text-sm">Automatically download and scan new log files from your servers</p>
         </div>
         <label class="relative inline-flex items-center cursor-pointer">
-          <input type="checkbox" id="autoLogSyncToggle" class="sr-only peer">
+          <input type="checkbox" id="autoLogSyncToggle" aria-label="Enable automatic log sync" class="sr-only peer">
           <div class="w-14 h-7 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-600"></div>
         </label>
       </div>
@@ -39,7 +40,7 @@
           </div>
 
           <div>
-            <label class="block mb-2 font-semibold">Sync Interval:</label>
+            <label class="block mb-2 font-semibold" for="syncInterval">Sync Interval:</label>
             <select id="syncInterval" class="bg-gray-600 p-2 rounded w-full">
               <option value="0.5">Every 30 seconds ⚡</option>
               <option value="1">Every 1 minute ⚡</option>
@@ -93,7 +94,7 @@
           <p class="text-gray-400 text-sm">Automatically scan all logs periodically to update player database</p>
         </div>
         <label class="relative inline-flex items-center cursor-pointer">
-          <input type="checkbox" id="autoTrackingToggle" class="sr-only peer">
+          <input type="checkbox" id="autoTrackingToggle" aria-label="Enable automatic player tracking" class="sr-only peer">
           <div class="w-14 h-7 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-600"></div>
         </label>
       </div>
@@ -101,7 +102,7 @@
       <div id="autoTrackingSettings" style="display: none;">
         <div class="bg-gray-700 p-4 rounded-lg space-y-4">
           <div>
-            <label class="block mb-2 font-semibold">Scan Interval:</label>
+            <label class="block mb-2 font-semibold" for="trackingInterval">Scan Interval:</label>
             <select id="trackingInterval" class="bg-gray-600 p-2 rounded w-full">
               <option value="30">Every 30 minutes</option>
               <option value="60" selected>Every 1 hour</option>

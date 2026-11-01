@@ -9,6 +9,7 @@ const {
   classifyNitradoError,
   safeHealthMessage,
 } = require('../../services/serverHealthService');
+const { maybeKeepAlive } = require('./serverKeepAliveService');
 
 const INTERVAL_MS = 5 * 60 * 1000;
 let running = false;
@@ -59,7 +60,9 @@ async function checkServer(client, server) {
     const token = decryptToken(server.token_hash);
     const gameserver = await nitradoService.getRawGameserver(token, server.platform_server_id);
     await writeComponent(server, 'nitrado', { state: 'healthy', detail: 'online' });
-    await writeComponent(server, 'game_server', classifyGameServerStatus(gameserver));
+    const classified = classifyGameServerStatus(gameserver);
+    await writeComponent(server, 'game_server', classified);
+    if (server.keep_alive_enabled) await maybeKeepAlive(client, server, gameserver, classified);
   } catch (error) {
     const provider = classifyNitradoError(error);
     await writeComponent(server, 'nitrado', { ...provider, errorCode: error.code || 'PROVIDER_ERROR' });
@@ -74,13 +77,19 @@ async function runHealthChecks(client) {
   running = true;
   try {
     const result = await pool.query(
-      `SELECT s.id AS server_id, s.guild_id, s.platform_server_id,
+      `SELECT s.id AS server_id, s.guild_id, s.platform_server_id, s.name,
               g.discord_guild_id, gt.token_hash,
-              request.requested_at AS refresh_requested_at
+              request.requested_at AS refresh_requested_at,
+              CASE WHEN sf.enabled = 1 THEN TRUE ELSE FALSE END AS keep_alive_enabled,
+              gr.user_id AS keep_alive_actor_id
          FROM servers s
          JOIN guilds g ON g.id = s.guild_id AND g.status = 'approved'
          LEFT JOIN guild_tokens gt ON gt.guild_id = g.id AND gt.token_type = 'nitrado'
          LEFT JOIN server_health_refresh_requests request ON request.server_id = s.id
+         LEFT JOIN server_features sf ON sf.server_id = s.id AND sf.feature_name = 'keep_alive'
+         LEFT JOIN LATERAL (
+           SELECT user_id FROM guild_roles WHERE guild_id = g.id AND role = 'owner' LIMIT 1
+         ) gr ON TRUE
         WHERE s.status = 'active'
         ORDER BY request.requested_at NULLS LAST, s.id`
     );

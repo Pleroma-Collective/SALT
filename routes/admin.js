@@ -1,7 +1,9 @@
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const router = express.Router();
 const { ensureAdmin } = require('../middleware/auth');
-const { validateGuildId, validateGuildIdParam } = require('../middleware/validators');
+const { validateGuildId, validateGuildIdParam, validateServerId } = require('../middleware/validators');
 
 const { logAction } = require('../utils/audit');
 
@@ -209,7 +211,12 @@ router.post('/guilds', validateGuildId, ensureAdmin, async (req, res) => {
 
 /**
  * DELETE /api/admin/guilds/:guildId
- * Remove a Discord guild from the approved list
+ * Remove a guild for real (admin only): every linked server is deleted via
+ * the same real-delete path (row + local files + server-owned history), the
+ * guild row is deleted (cascades to guild tokens, settings, shop, factions,
+ * tickets, ...), and the bot-leave job is enqueued so the bot leaves Discord.
+ * Nitrado is never touched. Audit events survive with their guild pointer
+ * nulled.
  */
 router.delete('/guilds/:guildId', validateGuildIdParam, ensureAdmin, async (req, res) => {
   const { guildId } = req.params;
@@ -221,28 +228,37 @@ router.delete('/guilds/:guildId', validateGuildIdParam, ensureAdmin, async (req,
       return res.status(404).json({ error: 'Guild not found' });
     }
 
-    const result = await db.get('SELECT COUNT(*) as count FROM servers WHERE guild_id = ?', [guild.id]);
-    const serverCount = result.count;
+    const servers = await db.all('SELECT * FROM servers WHERE guild_id = ?', [guild.id]);
 
-    console.log(`🗑️ [DELETE-GUILD] Deactivating guild: ${guild.name} (Discord ID: ${guildId}, DB ID: ${guild.id})`);
-    console.log(`🗑️ [DELETE-GUILD] Servers affected: ${serverCount}`);
+    // Any linked server with live data blocks the whole guild delete
+    for (const server of servers) {
+      const blockedBy = await collectServerDeleteBlockers(db, server.id);
+      if (blockedBy.length) {
+        return res.status(409).json({
+          error: `Cannot delete guild: server ${server.name || server.id} still has data in ${blockedBy.join(', ')}`
+        });
+      }
+    }
 
-    const deactivated = await db.transaction(async transactionDb => {
-      const guildResult = await transactionDb.run(
-        `UPDATE guilds
-         SET status = 'disabled', disabled_at = CURRENT_TIMESTAMP, disabled_by = ?,
-             disabled_reason = 'Removed by dashboard administrator'
-         WHERE discord_guild_id = ?`,
-        [req.user.id, guildId]
-      );
-      if (!guildResult.changes) return false;
-      await transactionDb.run(
-        "UPDATE servers SET status = 'inactive' WHERE guild_id = ? AND status = 'active'",
-        [guild.id]
-      );
-      // Enqueue the bot-leave job in the same transaction so the outbox row
-      // and the guild deactivation are atomic. Re-deleting an already removed
-      // guild re-queues any existing job instead of failing.
+    const downloadRoot = req.app.locals.downloadRoot || path.join(__dirname, '..', 'downloads');
+    const removedDirs = [];
+    for (const server of servers) {
+      removedDirs.push(...await removeServerDownloadDirs(downloadRoot, server.platform_server_id));
+      await removeServerOwnedHistory(db, server.id);
+    }
+
+    // Non-cascading guild references: strip pointers instead of destroying
+    // the surviving records (account links, audit evidence)
+    await db.run('UPDATE linked_accounts SET verified_by_guild_id = NULL WHERE verified_by_guild_id = ?', [guild.id]);
+    await db.run('UPDATE security_audit_events SET guild_id = NULL WHERE guild_id = ?', [guild.id]);
+    for (const table of ['radar_activations', 'radar_synthetic_events', 'teleport_destinations', 'player_pra_restrictions', 'teleport_requests', 'teleport_events']) {
+      await db.run(`DELETE FROM ${table} WHERE guild_id = ?`, [guild.id]).catch(() => null);
+    }
+
+    await db.transaction(async (transactionDb) => {
+      // Enqueue the bot-leave job in the same transaction as the guild delete
+      // so the outbox row and the removal are atomic. Re-deleting re-queues
+      // instead of failing.
       await transactionDb.run(
         `INSERT INTO discord_guild_leave_jobs
            (discord_guild_id, status, attempts, next_attempt_at, updated_at)
@@ -252,26 +268,25 @@ router.delete('/guilds/:guildId', validateGuildIdParam, ensureAdmin, async (req,
            last_error = NULL, completed_at = NULL, locked_at = NULL, updated_at = NOW()`,
         [guildId]
       );
+      await transactionDb.run('DELETE FROM guilds WHERE id = ?', [guild.id]);
       await logAction(transactionDb, req.user.id, 'REMOVE_GUILD', 'guild', guild.id, {
         guildName: guild.name,
         discordGuildId: guildId,
-        serversAffected: serverCount
+        serversRemoved: servers.length,
+        removedDirs
       });
-      return true;
     });
-    if (!deactivated) {
-      return res.status(404).json({ error: 'Guild not found' });
-    }
 
-    console.log(`✅ Guild ${guildId} (${guild.name}) deactivated by ${req.user.username}`);
+    console.log(`✅ Guild ${guildId} (${guild.name}) deleted by ${req.user.username}; servers removed: ${servers.length}, dirs: ${removedDirs.length}`);
 
     res.json({
       success: true,
-      message: `Guild removed. ${serverCount} server(s) were linked to this guild.`,
-      serversAffected: serverCount
+      message: `Guild removed. ${servers.length} linked server(s) were deleted with it.`,
+      serversRemoved: servers.length,
+      removedDirs
     });
   } catch (err) {
-    console.error('❌ Database error:', err);
+    console.error('❌ Guild delete error:', err);
     if (isEscrowProtectionConflict(err)) {
       return res.status(409).json({
         error: 'Operation blocked: active financial escrow or retained financial history exists'
@@ -379,32 +394,136 @@ async function fetchServers(db, guildDatabaseId, res) {
 }
 
 /**
+ * Physical file cleanup for a deleted server.
+ * Removes `server_<platformId>` (and, under numeric user-id parents, bare
+ * `<platformId>`) dirs from every downloads root parent. Shared parent dirs
+ * are kept. Nitrado itself is never touched.
+ * Returns the list of removed absolute paths.
+ */
+async function removeServerDownloadDirs(downloadRoot, platformServerId) {
+  const removed = [];
+  if (!platformServerId) return removed;
+  let parents = [];
+  try {
+    parents = await fs.promises.readdir(downloadRoot, { withFileTypes: true });
+  } catch {
+    return removed; // no download root yet — nothing to remove
+  }
+  for (const parent of parents) {
+    if (!parent.isDirectory()) continue;
+    const isNumericParent = /^\d+$/.test(parent.name);
+    const candidates = [
+      path.join(downloadRoot, parent.name, `server_${platformServerId}`),
+      ...(isNumericParent ? [path.join(downloadRoot, parent.name, String(platformServerId))] : [])
+    ];
+    for (const dir of candidates) {
+      let existed = false;
+      try {
+        existed = fs.existsSync(dir);
+        if (!existed) continue;
+        await fs.promises.rm(dir, { recursive: true, force: true });
+        removed.push(dir);
+      } catch {
+        // skip unreadable dirs — not fatal
+      }
+    }
+  }
+  return removed;
+}
+
+/**
+ * Tables whose rows block a server delete (non-cascading FKs / live work).
+ * History tables (economy assessments, closed casino rows, terminal
+ * mutation journal) are removed with the server instead — see
+ * removeServerOwnedHistory.
+ */
+const SERVER_DELETE_BLOCKING_TABLES = [
+  'shop_items', 'rotation_snippets', 'rotation_presets', 'rotation_history', 'mod_actions',
+  'financial_refund_claims', 'economy_supply_precision_reconciliation', 'radar_activations',
+  'financial_idempotency_records',
+  'shop_order_payment_allocations', 'shop_rental_consumption_events', 'shop_refund_decisions'
+];
+
+async function collectServerDeleteBlockers(db, serverId) {
+  const blockedBy = [];
+  for (const table of SERVER_DELETE_BLOCKING_TABLES) {
+    const row = await db.get(`SELECT COUNT(*) AS count FROM ${table} WHERE server_id = ?`, [serverId]);
+    if (row && Number(row.count) > 0) blockedBy.push(table);
+  }
+  // In-flight provider mutations block: a prepared-but-unapplied mutation is live work.
+  const openMutations = await db.get(
+    `SELECT COUNT(*) AS count FROM provider_mutations
+     WHERE server_id = ? AND status NOT IN ('completed','compensated','failed','rolled_back','recovery_pending')`,
+    [serverId]
+  );
+  if (openMutations && Number(openMutations.count) > 0) blockedBy.push('provider_mutations (in-flight)');
+  // Casino history only blocks while an escrow is active (the DB guard agrees).
+  const activeEscrow = await db.get(
+    "SELECT COUNT(*) AS count FROM casino_game_history WHERE server_id = ? AND status = 'active' AND reserved_wager > 0",
+    [serverId]
+  );
+  if (activeEscrow && Number(activeEscrow.count) > 0) blockedBy.push('casino_game_history (active escrow)');
+  return blockedBy;
+}
+
+/**
+ * Server-owned history that travels with the server: terminal provider
+ * mutation journal (+ file payloads), daily economy assessments (append-only
+ * retention trigger bypassed via SET LOCAL in this delete's own transaction),
+ * and closed casino game history (active escrows block earlier).
+ */
+async function removeServerOwnedHistory(db, serverId) {
+  await db.run(
+    'DELETE FROM provider_mutation_files WHERE mutation_id IN (SELECT id FROM provider_mutations WHERE server_id = ?)',
+    [serverId]
+  ).catch(() => null);
+  await db.run('DELETE FROM provider_mutations WHERE server_id = ?', [serverId]);
+  await db.transaction(async (txDb) => {
+    await txDb.run('SET LOCAL dayz.authorized_server_deletion = on');
+    await txDb.run('DELETE FROM economy_daily_assessments WHERE server_id = ?', [serverId]);
+  });
+  await db.run('DELETE FROM casino_game_history WHERE server_id = ?', [serverId]);
+}
+
+/**
  * DELETE /api/admin/servers/:serverId
- * Delete a server (admin only)
+ * Delete a server (admin only): removes the DB row (cascades to per-server
+ * tables), its local file copies on this host, and its download bookkeeping.
+ * Nitrado service/slots are left untouched.
  */
 router.delete('/servers/:serverId', ensureAdmin, async (req, res) => {
   const { serverId } = req.params;
   const db = req.app.locals.db;
 
   try {
-    const server = await db.get(
-      `UPDATE servers
-       SET status = 'inactive'
-       WHERE id = ? AND status = 'active'
-       RETURNING *`,
-      [serverId]
-    );
+    const server = await db.get('SELECT * FROM servers WHERE id = ?', [serverId]);
     if (!server) {
       return res.status(404).json({ error: 'Server not found' });
     }
 
-    console.log(`✅ Server ${serverId} deactivated by admin ${req.user.username}`);
+    const blockedBy = await collectServerDeleteBlockers(db, serverId);
+    if (blockedBy.length) {
+      return res.status(409).json({
+        error: `Cannot delete server: data still references it in ${blockedBy.join(', ')}`
+      });
+    }
+
+    const downloadRoot = req.app.locals.downloadRoot || path.join(__dirname, '..', 'downloads');
+    const removedDirs = await removeServerDownloadDirs(downloadRoot, server.platform_server_id);
+
+    await removeServerOwnedHistory(db, serverId);
+    await db.run('DELETE FROM servers WHERE id = ?', [serverId]);
+    await db.run('DELETE FROM downloads WHERE server_id = ?', [serverId]).catch(() => null);
+
+    console.log(`✅ Server ${serverId} (${server.server_name || server.name}) deleted by admin ${req.user.username}; removed dirs: ${removedDirs.length}`);
     await logAction(db, req.user.id, 'DELETE_SERVER', 'server', serverId, {
-      serverName: server.server_name,
-      nitradoServerId: server.nitrado_server_id
+      serverName: server.server_name || server.name,
+      nitradoServerId: server.nitrado_server_id,
+      platformServerId: server.platform_server_id,
+      removedDirs
     });
 
-    res.json({ success: true, message: 'Server deleted successfully' });
+    res.json({ success: true, message: 'Server deleted', removedDirs });
   } catch (err) {
     console.error('❌ Database error:', err);
     if (isEscrowProtectionConflict(err)) {
@@ -1250,6 +1369,405 @@ router.post('/reports/:id/dismiss', ensureAdmin, async (req, res) => {
   } catch (err) {
     console.error('❌ /api/admin/reports/:id/dismiss error:', err);
     res.status(500).json({ ok: false, error: 'Failed to dismiss report' });
+  }
+});
+
+// ── Holiday events (per-server, DB-persisted) ───────────────────────────────
+// Admin-managed holiday windows: one row per (guild, platform server) in
+// holiday_server_configs; servers without a row run the default set from
+// public/data/holiday-windows.json. See services/holidayConfigService.js.
+
+const HolidayConfig = require('../services/holidayConfigService');
+const { MISSION_SUBDIRS } = require('../utils/dayzPlatform');
+const { getGuildDownloadPath } = require('../services/logSyncService');
+
+async function resolveHolidayServer(db, serverId) {
+  if (!/^\d+$/.test(String(serverId || ''))) return null;
+  return db.get(
+    'SELECT id, guild_id, platform, platform_server_id, name FROM servers WHERE id = ?',
+    [Number(serverId)]
+  );
+}
+
+/** Build the (guild, platform server) key the config service persists by. */
+function holidayKey(server) {
+  return {
+    guildId: server.guild_id,
+    platformServerId: String(server.platform_server_id),
+    platform: server.platform,
+  };
+}
+
+/** Server download dir when resolvable (null when the server has none yet). */
+function holidayServerDownloadDir(guildDiscordId, platformServerId) {
+  try {
+    return getGuildDownloadPath(guildDiscordId, platformServerId);
+  } catch {
+    return null;
+  }
+}
+
+router.get('/holiday-events', ensureAdmin, async (req, res) => {
+  const db = req.app.locals.db;
+  try {
+    res.json({
+      ok: true,
+      defaults: HolidayConfig.withStates(HolidayConfig.loadDefaultSet()),
+      servers: await HolidayConfig.listServerHolidayConfigs(db),
+    });
+  } catch (err) {
+    console.error('❌ /api/admin/holiday-events error:', err);
+    res.status(500).json({ ok: false, error: 'Failed to load holiday configs' });
+  }
+});
+
+router.get('/holiday-events/:serverId', ensureAdmin, async (req, res) => {
+  const db = req.app.locals.db;
+  const server = await resolveHolidayServer(db, req.params.serverId);
+  if (!server) return res.status(404).json({ ok: false, error: 'Server not found' });
+
+  try {
+    const config = await HolidayConfig.serverHolidayConfig(db, server.guild_id, server.platform_server_id);
+    const serverDir = holidayServerDownloadDir(
+      (await db.get('SELECT discord_guild_id FROM guilds WHERE id = ?', [server.guild_id]))?.discord_guild_id,
+      server.platform_server_id
+    );
+    const folders = serverDir ? HolidayConfig.listMissionFolders(serverDir, MISSION_SUBDIRS) : [];
+    res.json({
+      ok: true,
+      server: {
+        serverId: server.id,
+        platformServerId: String(server.platform_server_id),
+        guildId: server.guild_id,
+        name: server.name,
+        platform: server.platform,
+      },
+      config,
+      packs: { known: folders.length > 0, folders, missing: HolidayConfig.missingPacks(serverDir, folders, config.events) },
+      defaults: HolidayConfig.withStates(HolidayConfig.loadDefaultSet()),
+    });
+  } catch (err) {
+    console.error('❌ /api/admin/holiday-events/:serverId error:', err);
+    res.status(500).json({ ok: false, error: 'Failed to load holiday config' });
+  }
+});
+
+router.put('/holiday-events/:serverId', ensureAdmin, async (req, res) => {
+  const db = req.app.locals.db;
+  const server = await resolveHolidayServer(db, req.params.serverId);
+  if (!server) return res.status(404).json({ ok: false, error: 'Server not found' });
+
+  const body = req.body || {};
+  const validationError = HolidayConfig.validateHolidayConfig({ events: body.events });
+  if (validationError) return res.status(400).json({ ok: false, error: validationError });
+
+  try {
+    const serverDir = holidayServerDownloadDir(
+      (await db.get('SELECT discord_guild_id FROM guilds WHERE id = ?', [server.guild_id]))?.discord_guild_id,
+      server.platform_server_id
+    );
+    const folders = serverDir ? HolidayConfig.listMissionFolders(serverDir, MISSION_SUBDIRS) : [];
+    const packCheck = HolidayConfig.missingPacks(serverDir, folders, body.events);
+    if (packCheck.known && packCheck.missing.length) {
+      return res.status(400).json({
+        ok: false,
+        error: `Pack not found on this server: ${packCheck.missing.map(m => m.mission).join(', ')} (available: ${folders.join(', ') || 'none'})`,
+      });
+    }
+    const events = await HolidayConfig.saveServerConfig(db, holidayKey(server), body, body.enabled === undefined ? undefined : Boolean(body.enabled));
+    await logAction(db, req.user.id, 'HOLIDAY_CONFIG_SAVED', 'server', server.id,
+      { platformServerId: server.platform_server_id, eventCount: events.length, packsKnown: packCheck.known });
+    res.json({ ok: true, events });
+  } catch (err) {
+    console.error('❌ /api/admin/holiday-events/:serverId (save) error:', err);
+    res.status(500).json({ ok: false, error: 'Failed to save holiday config' });
+  }
+});
+
+router.post('/holiday-events/:serverId/apply-defaults', ensureAdmin, async (req, res) => {
+  const db = req.app.locals.db;
+  const server = await resolveHolidayServer(db, req.params.serverId);
+  if (!server) return res.status(404).json({ ok: false, error: 'Server not found' });
+
+  try {
+    const events = await HolidayConfig.applyDefaultSet(db, holidayKey(server));
+    await logAction(db, req.user.id, 'HOLIDAY_DEFAULTS_APPLIED', 'server', server.id,
+      { platformServerId: server.platform_server_id, eventCount: events.length });
+    res.json({ ok: true, events });
+  } catch (err) {
+    console.error('❌ /api/admin/holiday-events/:serverId/apply-defaults error:', err);
+    res.status(500).json({ ok: false, error: 'Failed to apply default set' });
+  }
+});
+
+router.post('/holiday-events/:serverId/toggle', ensureAdmin, async (req, res) => {
+  const db = req.app.locals.db;
+  const server = await resolveHolidayServer(db, req.params.serverId);
+  if (!server) return res.status(404).json({ ok: false, error: 'Server not found' });
+
+  const enabled = Boolean((req.body || {}).enabled);
+  try {
+    await HolidayConfig.setEnabled(db, holidayKey(server), enabled);
+    await logAction(db, req.user.id, enabled ? 'HOLIDAY_ENABLED' : 'HOLIDAY_DISABLED', 'server', server.id,
+      { platformServerId: server.platform_server_id });
+    res.json({ ok: true, enabled });
+  } catch (err) {
+    console.error('❌ /api/admin/holiday-events/:serverId/toggle error:', err);
+    res.status(500).json({ ok: false, error: 'Failed to toggle holiday config' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Bot config (mirror of the bot's setup* slash commands)
+//
+// Per-guild admin surface for every channel/feed/config the bot reads:
+//   guild-level  — welcome/goodbye/suggestions/antispam (guild_features),
+//                  player-facing AI (guild_ai_settings), reaction roles
+//   per-server   — kill/faction/mod-report feeds (discord_feeds),
+//                  server status channels (server_features 'server_status'),
+//                  player-count alerts (player_count_alerts),
+//                  player-link settings (server_features 'player_linking'),
+//                  wipe info (server_wipe_info)
+// The bot picks changes up on its normal read cadence; storage is the same
+// tables the slash commands write (services/botConfigService.js).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const BotConfig = require('../services/botConfigService');
+
+/** GET /api/admin/bot-config/:guildId — full bot-config view for one guild. */
+router.get('/bot-config/:guildId', validateGuildIdParam, ensureAdmin, async (req, res) => {
+  const db = req.app.locals.db;
+  try {
+    res.json({ ok: true, config: await BotConfig.loadBotConfig(db, req.params.guildId) });
+  } catch (err) {
+    if (err.status === 404) return res.status(404).json({ ok: false, error: err.message });
+    console.error('❌ /api/admin/bot-config GET error:', err);
+    res.status(500).json({ ok: false, error: 'Failed to load bot config' });
+  }
+});
+
+/** PUT /api/admin/bot-config/:guildId — partial patch; only sent sections are written. */
+router.put('/bot-config/:guildId', validateGuildIdParam, ensureAdmin, async (req, res) => {
+  const db = req.app.locals.db;
+  const { guildId } = req.params;
+  const body = req.body || {};
+  try {
+    const guild = await db.get('SELECT id, name FROM guilds WHERE discord_guild_id = ?', [guildId]);
+    if (!guild) return res.status(404).json({ ok: false, error: 'Guild not found' });
+    const applied = await BotConfig.applyBotConfig(db, guildId, body);
+    await logAction(db, req.user.id, 'BOT_CONFIG_UPDATED', 'guild', guild.id, {
+      guildName: guild.name,
+      discordGuildId: guildId,
+      sections: Object.keys(body).filter(k => body[k] !== undefined),
+      applied,
+    });
+    res.json({ ok: true, applied });
+  } catch (err) {
+    if (err.status === 400) return res.status(400).json({ ok: false, error: err.message });
+    if (err.status === 404) return res.status(404).json({ ok: false, error: err.message });
+    console.error('❌ /api/admin/bot-config PUT error:', err);
+    res.status(500).json({ ok: false, error: 'Failed to save bot config' });
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * Activity zones — admin-defined areas whose ingested combat activity is
+ * posted to a configured channel. Geometry is a circle (center + radius in
+ * DayZ world units); matching runs on the feed-processor tick against the
+ * existing kill_events stream (services/zoneService.js).
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+const ZoneService = require('../services/zoneService');
+
+/** Resolve a server to (id, name, discord_guild_id) for approved guilds only. */
+async function resolveAdminServer(db, serverId) {
+  return db.get(
+    `SELECT s.id, s.name, s.status, g.id AS guild_db_id, g.discord_guild_id
+     FROM servers s
+     JOIN guilds g ON g.id = s.guild_id
+     WHERE s.id = ? AND g.status = 'approved'`,
+    [Number(serverId)]
+  );
+}
+
+router.get('/zones/:serverId', validateServerId, ensureAdmin, async (req, res) => {
+  try {
+    const server = await resolveAdminServer(req.app.locals.db, req.params.serverId);
+    if (!server) return res.status(404).json({ ok: false, error: 'Server not found' });
+    const zones = await ZoneService.listZones(req.app.locals.db, server.id);
+    res.json({
+      ok: true,
+      server: { id: server.id, name: server.name, status: server.status, guildId: server.discord_guild_id },
+      zones,
+    });
+  } catch (err) {
+    console.error('❌ /api/admin/zones GET error:', err);
+    res.status(500).json({ ok: false, error: 'Failed to load zones' });
+  }
+});
+
+/** Text channels for the zone output-channel dropdown (admin-scoped). */
+router.get('/zones/:serverId/channels', validateServerId, ensureAdmin, async (req, res) => {
+  try {
+    const server = await resolveAdminServer(req.app.locals.db, req.params.serverId);
+    if (!server) return res.status(404).json({ ok: false, error: 'Server not found' });
+    const channels = await ZoneService.listGuildChannels(server.discord_guild_id);
+    res.json({ ok: true, channels });
+  } catch (err) {
+    console.error('❌ /api/admin/zones channels error:', err);
+    res.status(500).json({ ok: false, error: 'Failed to load channels' });
+  }
+});
+
+router.post('/zones/:serverId', validateServerId, ensureAdmin, async (req, res) => {
+  const db = req.app.locals.db;
+  const server = await resolveAdminServer(db, req.params.serverId);
+  if (!server) return res.status(404).json({ ok: false, error: 'Server not found' });
+  try {
+    const zone = await ZoneService.createZone(db, server.id, req.body || {});
+    await logAction(db, req.user.id, 'ZONE_CREATED', 'server', server.id, {
+      zoneId: zone.id, zoneName: zone.name,
+    });
+    res.status(201).json({ ok: true, zone });
+  } catch (err) {
+    if (/must be|unknown|unsupported|Invalid|1-120|non-empty/i.test(err.message)) {
+      return res.status(400).json({ ok: false, error: err.message });
+    }
+    console.error('❌ /api/admin/zones POST error:', err);
+    res.status(500).json({ ok: false, error: 'Failed to create zone' });
+  }
+});
+
+router.patch('/zones/:serverId/:zoneId', validateServerId, ensureAdmin, async (req, res) => {
+  const db = req.app.locals.db;
+  const server = await resolveAdminServer(db, req.params.serverId);
+  if (!server) return res.status(404).json({ ok: false, error: 'Server not found' });
+  try {
+    const zone = await ZoneService.updateZone(db, server.id, req.params.zoneId, req.body || {});
+    if (!zone) return res.status(404).json({ ok: false, error: 'Zone not found' });
+    await logAction(db, req.user.id, 'ZONE_UPDATED', 'server', server.id, {
+      zoneId: zone.id, zoneName: zone.name, sections: Object.keys(req.body || {}),
+    });
+    res.json({ ok: true, zone });
+  } catch (err) {
+    if (/must be|unknown|unsupported|Invalid|1-120|non-empty/i.test(err.message)) {
+      return res.status(400).json({ ok: false, error: err.message });
+    }
+    console.error('❌ /api/admin/zones PATCH error:', err);
+    res.status(500).json({ ok: false, error: 'Failed to update zone' });
+  }
+});
+
+router.delete('/zones/:serverId/:zoneId', validateServerId, ensureAdmin, async (req, res) => {
+  const db = req.app.locals.db;
+  const server = await resolveAdminServer(db, req.params.serverId);
+  if (!server) return res.status(404).json({ ok: false, error: 'Server not found' });
+  try {
+    const removed = await ZoneService.deleteZone(db, server.id, req.params.zoneId);
+    if (!removed) return res.status(404).json({ ok: false, error: 'Zone not found' });
+    await logAction(db, req.user.id, 'ZONE_DELETED', 'server', server.id, {
+      zoneId: Number(req.params.zoneId),
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('❌ /api/admin/zones DELETE error:', err);
+    res.status(500).json({ ok: false, error: 'Failed to delete zone' });
+  }
+});
+
+/* ═════════════════════════════════════════════════════════════════════════
+ * Faction Wars — settlement flag claims. One engine
+ * (services/factionClaimService.js), shared with the /faction-war bot
+ * command; claim transitions post to the existing faction feed
+ * (discord_feeds feed_type='faction_feed', set by /setup-feeds faction).
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+const FactionClaimService = require('../services/factionClaimService');
+
+router.get('/faction-war/:serverId', validateServerId, ensureAdmin, async (req, res) => {
+  try {
+    const db = req.app.locals.db;
+    const server = await resolveAdminServer(db, req.params.serverId);
+    if (!server) return res.status(404).json({ ok: false, error: 'Server not found' });
+    const mapName = req.query.map || 'nasdara';
+    const [settlements, factions, state] = await Promise.all([
+      FactionClaimService.getSettlementsForServer(db, server.id, mapName),
+      FactionClaimService.listFactionsForServer(db, server.id),
+      FactionClaimService.getWarState(db, server.id),
+    ]);
+    res.json({
+      ok: true,
+      server: { id: server.id, name: server.name, status: server.status, guildId: server.discord_guild_id },
+      settlements,
+      factions,
+      flags: state.flags,
+      claims: state.claims,
+    });
+  } catch (err) {
+    console.error('❌ /api/admin/faction-war GET error:', err);
+    res.status(500).json({ ok: false, error: 'Failed to load faction war state' });
+  }
+});
+
+router.post('/faction-war/:serverId/flags', validateServerId, ensureAdmin, async (req, res) => {
+  const db = req.app.locals.db;
+  const server = await resolveAdminServer(db, req.params.serverId);
+  if (!server) return res.status(404).json({ ok: false, error: 'Server not found' });
+  try {
+    const placed = await FactionClaimService.placeFlag(db, server.id, {
+      ...(req.body || {}),
+      placedBy: `dashboard:admin:${req.user.id}`,
+    });
+    if (placed.claimEvent) await FactionClaimService.deliverClaimEvents(db, server.id, [placed.claimEvent]);
+    await logAction(db, req.user.id, 'FACTION_FLAG_PLACED', 'server', server.id, {
+      flagId: placed.flag.id, settlementId: placed.flag.settlement_id,
+      factionId: placed.flag.faction_id,
+    });
+    res.status(201).json({ ok: true, flag: placed.flag, settlement: placed.settlement, claimEvent: placed.claimEvent });
+  } catch (err) {
+    if (/must be|between|not found/i.test(err.message)) {
+      return res.status(400).json({ ok: false, error: err.message });
+    }
+    console.error('❌ /api/admin/faction-war POST flag error:', err);
+    res.status(500).json({ ok: false, error: 'Failed to place flag' });
+  }
+});
+
+router.delete('/faction-war/:serverId/flags/:flagId', validateServerId, ensureAdmin, async (req, res) => {
+  const db = req.app.locals.db;
+  const server = await resolveAdminServer(db, req.params.serverId);
+  if (!server) return res.status(404).json({ ok: false, error: 'Server not found' });
+  try {
+    const { removed, claimEvent } = await FactionClaimService.removeFlag(db, server.id, req.params.flagId);
+    if (!removed) return res.status(404).json({ ok: false, error: 'Flag not found' });
+    if (claimEvent) await FactionClaimService.deliverClaimEvents(db, server.id, [claimEvent]);
+    await logAction(db, req.user.id, 'FACTION_FLAG_REMOVED', 'server', server.id, {
+      flagId: Number(req.params.flagId),
+    });
+    res.json({ ok: true, claimEvent });
+  } catch (err) {
+    console.error('❌ /api/admin/faction-war DELETE flag error:', err);
+    res.status(500).json({ ok: false, error: 'Failed to remove flag' });
+  }
+});
+
+router.post('/faction-war/:serverId/settlements/:settlementId/clear', validateServerId, ensureAdmin, async (req, res) => {
+  const db = req.app.locals.db;
+  const server = await resolveAdminServer(db, req.params.serverId);
+  if (!server) return res.status(404).json({ ok: false, error: 'Server not found' });
+  try {
+    const mapName = req.query.map || 'nasdara';
+    const { removed, claimEvent } = await FactionClaimService.clearSettlementFlags(
+      db, server.id, req.params.settlementId, mapName
+    );
+    if (claimEvent) await FactionClaimService.deliverClaimEvents(db, server.id, [claimEvent]);
+    await logAction(db, req.user.id, 'FACTION_SETTLEMENT_CLEARED', 'server', server.id, {
+      settlementId: req.params.settlementId, removed,
+    });
+    res.json({ ok: true, removed, claimEvent });
+  } catch (err) {
+    console.error('❌ /api/admin/faction-war clear error:', err);
+    res.status(500).json({ ok: false, error: 'Failed to clear settlement flags' });
   }
 });
 

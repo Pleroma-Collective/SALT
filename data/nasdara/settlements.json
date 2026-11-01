@@ -1,0 +1,2191 @@
+{
+  "map": "nasdara",
+  "source": "dayz-library/community_builds/map-data/nasdara-locations.json (dayzed.gg, game-file-derived)",
+  "count": 156,
+  "settlements": [
+    {
+      "id": "Settlement_Dashtabad",
+      "names": {
+        "en": "Dashtabad",
+        "cy": ""
+      },
+      "position": {
+        "east": 10655.3,
+        "north": 10792.1
+      },
+      "kind": "city",
+      "type": "City",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_KamarZir",
+      "names": {
+        "en": "Kamar Zir",
+        "cy": ""
+      },
+      "position": {
+        "east": 9432.3,
+        "north": 11924.5
+      },
+      "kind": "city",
+      "type": "City",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_ShahYailaq",
+      "names": {
+        "en": "Shah Yailaq",
+        "cy": ""
+      },
+      "position": {
+        "east": 10333.5,
+        "north": 8225.9
+      },
+      "kind": "city",
+      "type": "City",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_BameSabz",
+      "names": {
+        "en": "Bam-e Sabz",
+        "cy": ""
+      },
+      "position": {
+        "east": 8739.6,
+        "north": 8571.6
+      },
+      "kind": "city",
+      "type": "City",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_PeshKuh",
+      "names": {
+        "en": "Pesh Kuh",
+        "cy": ""
+      },
+      "position": {
+        "east": 3714.2,
+        "north": 10925.5
+      },
+      "kind": "city",
+      "type": "City",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_Gandomabad",
+      "names": {
+        "en": "Gandomabad",
+        "cy": ""
+      },
+      "position": {
+        "east": 7871.3,
+        "north": 12477.5
+      },
+      "kind": "city",
+      "type": "City",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_Khorramabad",
+      "names": {
+        "en": "Khorramabad",
+        "cy": ""
+      },
+      "position": {
+        "east": 4633.8,
+        "north": 10833.5
+      },
+      "kind": "city",
+      "type": "City",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_Sabzabad",
+      "names": {
+        "en": "Sabzabad",
+        "cy": ""
+      },
+      "position": {
+        "east": 6853.5,
+        "north": 7403.9
+      },
+      "kind": "city",
+      "type": "City",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_NoAbad",
+      "names": {
+        "en": "No Abad",
+        "cy": ""
+      },
+      "position": {
+        "east": 7020.9,
+        "north": 5018.9
+      },
+      "kind": "city",
+      "type": "City",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_GardAbad",
+      "names": {
+        "en": "Gard Abad",
+        "cy": ""
+      },
+      "position": {
+        "east": 11084.3,
+        "north": 7627.8
+      },
+      "kind": "city",
+      "type": "City",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_KuchaDar",
+      "names": {
+        "en": "Kucha Dar",
+        "cy": ""
+      },
+      "position": {
+        "east": 4511.5,
+        "north": 10148.5
+      },
+      "kind": "city",
+      "type": "City",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_Bustanshahr",
+      "names": {
+        "en": "Bustanshahr",
+        "cy": ""
+      },
+      "position": {
+        "east": 7360.5,
+        "north": 5641.8
+      },
+      "kind": "city",
+      "type": "City",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_DareArdis",
+      "names": {
+        "en": "Dar-e Ardis",
+        "cy": ""
+      },
+      "position": {
+        "east": 3435.6,
+        "north": 4933.1
+      },
+      "kind": "city",
+      "type": "City",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_OKB754",
+      "names": {
+        "en": "OKB-754",
+        "cy": ""
+      },
+      "position": {
+        "east": 6907.6,
+        "north": 10058.5
+      },
+      "kind": "city",
+      "type": "City",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_Shinkalay",
+      "names": {
+        "en": "Shinkalay",
+        "cy": ""
+      },
+      "position": {
+        "east": 8386,
+        "north": 10159.5
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_Dehqankalay",
+      "names": {
+        "en": "Dehqankalay",
+        "cy": ""
+      },
+      "position": {
+        "east": 9969.1,
+        "north": 10524.5
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_MalKalay",
+      "names": {
+        "en": "Mal Kalay",
+        "cy": ""
+      },
+      "position": {
+        "east": 9595.6,
+        "north": 8866.6
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_BagheMir",
+      "names": {
+        "en": "Bagh-e Mir",
+        "cy": ""
+      },
+      "position": {
+        "east": 4729.6,
+        "north": 5598.2
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_TutDara",
+      "names": {
+        "en": "Tut Dara",
+        "cy": ""
+      },
+      "position": {
+        "east": 5484.3,
+        "north": 8065.9
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_AnarJuy",
+      "names": {
+        "en": "Anar Juy",
+        "cy": ""
+      },
+      "position": {
+        "east": 5540.3,
+        "north": 9078.8
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_Karizak",
+      "names": {
+        "en": "Karizak",
+        "cy": ""
+      },
+      "position": {
+        "east": 3531.4,
+        "north": 12815
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_ChashmeSabz",
+      "names": {
+        "en": "Chashme Sabz",
+        "cy": ""
+      },
+      "position": {
+        "east": 6649.5,
+        "north": 12778.6
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_GulZar",
+      "names": {
+        "en": "Gul Zar",
+        "cy": ""
+      },
+      "position": {
+        "east": 5060.6,
+        "north": 6494.8
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SabzPashan",
+      "names": {
+        "en": "Sabz Pashan",
+        "cy": ""
+      },
+      "position": {
+        "east": 4570.6,
+        "north": 11723.5
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_KatiGolzar",
+      "names": {
+        "en": "Kati Golzar",
+        "cy": ""
+      },
+      "position": {
+        "east": 6212.3,
+        "north": 11817.1
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_TorDara",
+      "names": {
+        "en": "Tor Dara",
+        "cy": ""
+      },
+      "position": {
+        "east": 4165,
+        "north": 9323.7
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_MianDeh",
+      "names": {
+        "en": "Mian Deh",
+        "cy": ""
+      },
+      "position": {
+        "east": 7326.1,
+        "north": 4160.9
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SareDeh",
+      "names": {
+        "en": "Sar-e Deh",
+        "cy": ""
+      },
+      "position": {
+        "east": 3005,
+        "north": 6277.1
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_PayeKuh",
+      "names": {
+        "en": "Pay-e Kuh",
+        "cy": ""
+      },
+      "position": {
+        "east": 6311.8,
+        "north": 5731.8
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_BalaKalay",
+      "names": {
+        "en": "Bala Kalay",
+        "cy": ""
+      },
+      "position": {
+        "east": 4475.8,
+        "north": 7606.5
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_PayanKalay",
+      "names": {
+        "en": "Payan Kalay",
+        "cy": ""
+      },
+      "position": {
+        "east": 9327.9,
+        "north": 7527.3
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_QalaeKuhna",
+      "names": {
+        "en": "Qala-e Kuhna",
+        "cy": ""
+      },
+      "position": {
+        "east": 4491.3,
+        "north": 12228.3
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_PirKalay",
+      "names": {
+        "en": "Pir Kalay",
+        "cy": ""
+      },
+      "position": {
+        "east": 7668.6,
+        "north": 8668.7
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_BazareKohna",
+      "names": {
+        "en": "Bazar-e Kohna",
+        "cy": ""
+      },
+      "position": {
+        "east": 7971.5,
+        "north": 8008
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_DarvazeheGharb",
+      "names": {
+        "en": "Darvazeh-e Gharb",
+        "cy": ""
+      },
+      "position": {
+        "east": 4914,
+        "north": 13586.3
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_YakChinar",
+      "names": {
+        "en": "Yak Chinar",
+        "cy": ""
+      },
+      "position": {
+        "east": 5825.4,
+        "north": 9690.3
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_PanjAsyab",
+      "names": {
+        "en": "Panj Asyab",
+        "cy": ""
+      },
+      "position": {
+        "east": 5829.5,
+        "north": 13559
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_ChaharTut",
+      "names": {
+        "en": "Chahar Tut",
+        "cy": ""
+      },
+      "position": {
+        "east": 8078.3,
+        "north": 8769.7
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_MarzeLut",
+      "names": {
+        "en": "Marz-e Lut",
+        "cy": ""
+      },
+      "position": {
+        "east": 13779.6,
+        "north": 12761
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_PeshDasht",
+      "names": {
+        "en": "Pesh Dasht",
+        "cy": ""
+      },
+      "position": {
+        "east": 11350.5,
+        "north": 9476
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_DahaneheKavir",
+      "names": {
+        "en": "Dahaneh-e Kavir",
+        "cy": ""
+      },
+      "position": {
+        "east": 11250.3,
+        "north": 2513.4
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_KarizeMarz",
+      "names": {
+        "en": "Kariz-e Marz",
+        "cy": ""
+      },
+      "position": {
+        "east": 10795.3,
+        "north": 8575.9
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_MandaMarz",
+      "names": {
+        "en": "Manda Marz",
+        "cy": ""
+      },
+      "position": {
+        "east": 5368.2,
+        "north": 10614.8
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_BadAsyab",
+      "names": {
+        "en": "Bad Asyab",
+        "cy": ""
+      },
+      "position": {
+        "east": 8575.4,
+        "north": 11396.8
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SuvinShahr",
+      "names": {
+        "en": "Suvin Shahr",
+        "cy": ""
+      },
+      "position": {
+        "east": 5758.9,
+        "north": 12585.7
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_MianDara",
+      "names": {
+        "en": "Mian Dara",
+        "cy": ""
+      },
+      "position": {
+        "east": 8870.2,
+        "north": 12492.5
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_DaraeNur",
+      "names": {
+        "en": "Dara-e Nur",
+        "cy": ""
+      },
+      "position": {
+        "east": 10916.5,
+        "north": 13916
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_GulDara",
+      "names": {
+        "en": "Gul Dara",
+        "cy": ""
+      },
+      "position": {
+        "east": 7030,
+        "north": 4404.3
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_BagheDara",
+      "names": {
+        "en": "Bagh-e Dara",
+        "cy": ""
+      },
+      "position": {
+        "east": 9449.9,
+        "north": 3243.4
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SalarAbad",
+      "names": {
+        "en": "Salar Abad",
+        "cy": ""
+      },
+      "position": {
+        "east": 7923.4,
+        "north": 9610.7
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_TutMian",
+      "names": {
+        "en": "Tut Mian",
+        "cy": ""
+      },
+      "position": {
+        "east": 7915.4,
+        "north": 6770.7
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_BarKalay",
+      "names": {
+        "en": "Bar Kalay",
+        "cy": ""
+      },
+      "position": {
+        "east": 7330.9,
+        "north": 13118.3
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_DostKalay",
+      "names": {
+        "en": "Dost Kalay",
+        "cy": ""
+      },
+      "position": {
+        "east": 6698.1,
+        "north": 11375
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_ShinkayWadi",
+      "names": {
+        "en": "Shinkay Wadi",
+        "cy": ""
+      },
+      "position": {
+        "east": 7040.4,
+        "north": 12020.8
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_ZirDara",
+      "names": {
+        "en": "Zir Dara",
+        "cy": ""
+      },
+      "position": {
+        "east": 10153.8,
+        "north": 12727.6
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_KotaleKhushk",
+      "names": {
+        "en": "Kotal-e Khushk",
+        "cy": ""
+      },
+      "position": {
+        "east": 4414.1,
+        "north": 14461.2
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_QalateBala",
+      "names": {
+        "en": "Qalat-e Bala",
+        "cy": ""
+      },
+      "position": {
+        "east": 5460.3,
+        "north": 6111.6
+      },
+      "kind": "village",
+      "type": "Ruin",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_DidbanTapa",
+      "names": {
+        "en": "Didban Tapa",
+        "cy": ""
+      },
+      "position": {
+        "east": 8323.6,
+        "north": 7816.9
+      },
+      "kind": "village",
+      "type": "Ruin",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_AkHisar",
+      "names": {
+        "en": "Ak Hisar",
+        "cy": ""
+      },
+      "position": {
+        "east": 8796,
+        "north": 9934.6
+      },
+      "kind": "village",
+      "type": "Ruin",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_Khwakay",
+      "names": {
+        "en": "Khwakay",
+        "cy": ""
+      },
+      "position": {
+        "east": 5167.7,
+        "north": 7407.6
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_GhareSiyah",
+      "names": {
+        "en": "Ghar-e Siyah",
+        "cy": ""
+      },
+      "position": {
+        "east": 3716.2,
+        "north": 7125.3
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_Gharibabad",
+      "names": {
+        "en": "Gharibabad",
+        "cy": ""
+      },
+      "position": {
+        "east": 12194.5,
+        "north": 2160.1
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_QalateLut",
+      "names": {
+        "en": "Qalat-e Lut",
+        "cy": ""
+      },
+      "position": {
+        "east": 14848.8,
+        "north": 7812
+      },
+      "kind": "village",
+      "type": "Ruin",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_DidbanGhar",
+      "names": {
+        "en": "Didban Ghar",
+        "cy": ""
+      },
+      "position": {
+        "east": 3140.1,
+        "north": 5493.6
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_ChashmeNo",
+      "names": {
+        "en": "Chashme No",
+        "cy": ""
+      },
+      "position": {
+        "east": 6903,
+        "north": 3699.8
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SabzJuy",
+      "names": {
+        "en": "Sabz Juy",
+        "cy": ""
+      },
+      "position": {
+        "east": 9731.7,
+        "north": 11229.9
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SeRah",
+      "names": {
+        "en": "Se Rah",
+        "cy": ""
+      },
+      "position": {
+        "east": 6269.7,
+        "north": 8199.1
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_DukanKalay",
+      "names": {
+        "en": "Dukan Kalay",
+        "cy": ""
+      },
+      "position": {
+        "east": 10149.7,
+        "north": 9263.4
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_Wachakalay",
+      "names": {
+        "en": "Wachakalay",
+        "cy": ""
+      },
+      "position": {
+        "east": 11219.1,
+        "north": 11753.9
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_WachaWadi",
+      "names": {
+        "en": "Wacha Wadi",
+        "cy": ""
+      },
+      "position": {
+        "east": 12399.2,
+        "north": 12679.6
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_Sarkay",
+      "names": {
+        "en": "Sarkay",
+        "cy": ""
+      },
+      "position": {
+        "east": 2878.6,
+        "north": 5971.5
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SardSarhad",
+      "names": {
+        "en": "Sard Sarhad",
+        "cy": ""
+      },
+      "position": {
+        "east": 2982.8,
+        "north": 15752.1
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SaddeMarek",
+      "names": {
+        "en": "Sadd-e Marek",
+        "cy": ""
+      },
+      "position": {
+        "east": 2912.8,
+        "north": 14767.5
+      },
+      "kind": "village",
+      "type": "Marine",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_TakTapa",
+      "names": {
+        "en": "Tak Tapa",
+        "cy": ""
+      },
+      "position": {
+        "east": 9282.4,
+        "north": 10167.8
+      },
+      "kind": "village",
+      "type": "Hill",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SpinkayTapa",
+      "names": {
+        "en": "Spinkay Tapa",
+        "cy": ""
+      },
+      "position": {
+        "east": 5511.9,
+        "north": 9664.2
+      },
+      "kind": "village",
+      "type": "Hill",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_ZanuGhar",
+      "names": {
+        "en": "Zanu Ghar",
+        "cy": ""
+      },
+      "position": {
+        "east": 1296.2,
+        "north": 7096
+      },
+      "kind": "village",
+      "type": "Hill",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_ShanaKuh",
+      "names": {
+        "en": "Shana Kuh",
+        "cy": ""
+      },
+      "position": {
+        "east": 5440.2,
+        "north": 2048.6
+      },
+      "kind": "village",
+      "type": "Hill",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SareBand",
+      "names": {
+        "en": "Sar-e Band",
+        "cy": ""
+      },
+      "position": {
+        "east": 902.9,
+        "north": 597.1
+      },
+      "kind": "village",
+      "type": "Hill",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SeKhah",
+      "names": {
+        "en": "Se Khah",
+        "cy": ""
+      },
+      "position": {
+        "east": 5440.4,
+        "north": 2046.9
+      },
+      "kind": "village",
+      "type": "Hill",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_KuheShamal",
+      "names": {
+        "en": "Kuh-e Shamal",
+        "cy": ""
+      },
+      "position": {
+        "east": 8719.5,
+        "north": 15159.8
+      },
+      "kind": "village",
+      "type": "Hill",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SabzTapa",
+      "names": {
+        "en": "Sabz Tapa",
+        "cy": ""
+      },
+      "position": {
+        "east": 8300.2,
+        "north": 6702.6
+      },
+      "kind": "village",
+      "type": "Hill",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_LoyTapa",
+      "names": {
+        "en": "Loy Tapa",
+        "cy": ""
+      },
+      "position": {
+        "east": 7016.5,
+        "north": 11796.2
+      },
+      "kind": "village",
+      "type": "Hill",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_HamooneSarman",
+      "names": {
+        "en": "Hamoon-e Sarman",
+        "cy": ""
+      },
+      "position": {
+        "east": 14376.6,
+        "north": 1956.8
+      },
+      "kind": "village",
+      "type": "Marine",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_DashtabadAirbase",
+      "names": {
+        "en": "Dashtabad Airbase",
+        "cy": ""
+      },
+      "position": {
+        "east": 11974.3,
+        "north": 10680.8
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_BalaHissar",
+      "names": {
+        "en": "Bala Hissar",
+        "cy": ""
+      },
+      "position": {
+        "east": 4760.3,
+        "north": 12014.5
+      },
+      "kind": "village",
+      "type": "Ruin",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_NazarGah",
+      "names": {
+        "en": "Nazar Gah",
+        "cy": ""
+      },
+      "position": {
+        "east": 4786.2,
+        "north": 5370.2
+      },
+      "kind": "village",
+      "type": "Ruin",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SiyahDarya",
+      "names": {
+        "en": "Siyah Darya",
+        "cy": ""
+      },
+      "position": {
+        "east": 7137.9,
+        "north": 5429.2
+      },
+      "kind": "village",
+      "type": "Marine",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SiyahDarya-2",
+      "names": {
+        "en": "Siyah Darya",
+        "cy": ""
+      },
+      "position": {
+        "east": 7862.8,
+        "north": 4883
+      },
+      "kind": "village",
+      "type": "Marine",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SiyahDarya-3",
+      "names": {
+        "en": "Siyah Darya",
+        "cy": ""
+      },
+      "position": {
+        "east": 8860.4,
+        "north": 5199.5
+      },
+      "kind": "village",
+      "type": "Marine",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SiyahDarya-4",
+      "names": {
+        "en": "Siyah Darya",
+        "cy": ""
+      },
+      "position": {
+        "east": 6177.4,
+        "north": 6011
+      },
+      "kind": "village",
+      "type": "Marine",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SiyahDarya-5",
+      "names": {
+        "en": "Siyah Darya",
+        "cy": ""
+      },
+      "position": {
+        "east": 5526,
+        "north": 6456.5
+      },
+      "kind": "village",
+      "type": "Marine",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SiyahDarya-6",
+      "names": {
+        "en": "Siyah Darya",
+        "cy": ""
+      },
+      "position": {
+        "east": 4526.6,
+        "north": 5262.2
+      },
+      "kind": "village",
+      "type": "Marine",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SiyahDarya-7",
+      "names": {
+        "en": "Siyah Darya",
+        "cy": ""
+      },
+      "position": {
+        "east": 2956.2,
+        "north": 4786.6
+      },
+      "kind": "village",
+      "type": "Marine",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SiyahDarya-8",
+      "names": {
+        "en": "Siyah Darya",
+        "cy": ""
+      },
+      "position": {
+        "east": 1400,
+        "north": 4479.4
+      },
+      "kind": "village",
+      "type": "Marine",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SiyahDarya-9",
+      "names": {
+        "en": "Siyah Darya",
+        "cy": ""
+      },
+      "position": {
+        "east": 9566.6,
+        "north": 4747.8
+      },
+      "kind": "village",
+      "type": "Marine",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SefidDarya",
+      "names": {
+        "en": "Sefid Darya",
+        "cy": ""
+      },
+      "position": {
+        "east": 10327.3,
+        "north": 4838.1
+      },
+      "kind": "village",
+      "type": "Marine",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SefidDarya-2",
+      "names": {
+        "en": "Sefid Darya",
+        "cy": ""
+      },
+      "position": {
+        "east": 9776.7,
+        "north": 5925.1
+      },
+      "kind": "village",
+      "type": "Marine",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SefidDarya-3",
+      "names": {
+        "en": "Sefid Darya",
+        "cy": ""
+      },
+      "position": {
+        "east": 9348,
+        "north": 7222.7
+      },
+      "kind": "village",
+      "type": "Marine",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SefidDarya-4",
+      "names": {
+        "en": "Sefid Darya",
+        "cy": ""
+      },
+      "position": {
+        "east": 10196,
+        "north": 7610.6
+      },
+      "kind": "village",
+      "type": "Marine",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SefidDarya-5",
+      "names": {
+        "en": "Sefid Darya",
+        "cy": ""
+      },
+      "position": {
+        "east": 10369.5,
+        "north": 8829.7
+      },
+      "kind": "village",
+      "type": "Marine",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SefidDarya-6",
+      "names": {
+        "en": "Sefid Darya",
+        "cy": ""
+      },
+      "position": {
+        "east": 10626.3,
+        "north": 10126.6
+      },
+      "kind": "village",
+      "type": "Marine",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SefidDarya-7",
+      "names": {
+        "en": "Sefid Darya",
+        "cy": ""
+      },
+      "position": {
+        "east": 10234.8,
+        "north": 11550.3
+      },
+      "kind": "village",
+      "type": "Marine",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SefidDarya-8",
+      "names": {
+        "en": "Sefid Darya",
+        "cy": ""
+      },
+      "position": {
+        "east": 8908.5,
+        "north": 12349.6
+      },
+      "kind": "village",
+      "type": "Marine",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SefidDarya-9",
+      "names": {
+        "en": "Sefid-Darya",
+        "cy": ""
+      },
+      "position": {
+        "east": 7570.7,
+        "north": 12343.1
+      },
+      "kind": "village",
+      "type": "Marine",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SefidDarya-10",
+      "names": {
+        "en": "Sefid Darya",
+        "cy": ""
+      },
+      "position": {
+        "east": 6387.1,
+        "north": 13123.2
+      },
+      "kind": "village",
+      "type": "Marine",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SefidDarya-11",
+      "names": {
+        "en": "Sefid Darya",
+        "cy": ""
+      },
+      "position": {
+        "east": 5608,
+        "north": 13434.7
+      },
+      "kind": "village",
+      "type": "Marine",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SefidDarya-12",
+      "names": {
+        "en": "Sefid Darya",
+        "cy": ""
+      },
+      "position": {
+        "east": 4362.4,
+        "north": 13614
+      },
+      "kind": "village",
+      "type": "Marine",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_Dahana",
+      "names": {
+        "en": "Dahana",
+        "cy": ""
+      },
+      "position": {
+        "east": 10214.3,
+        "north": 11801.6
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_ArdisVostokwreck",
+      "names": {
+        "en": "Ardis Vostok wreck",
+        "cy": ""
+      },
+      "position": {
+        "east": 13113,
+        "north": 2748.9
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_Nasdara",
+      "names": {
+        "en": "Nasdara",
+        "cy": ""
+      },
+      "position": {
+        "east": 9631.9,
+        "north": 4075.3
+      },
+      "kind": "capital",
+      "type": "Capital",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_KarkhanaDistrict",
+      "names": {
+        "en": "Karkhana District",
+        "cy": ""
+      },
+      "position": {
+        "east": 9150.4,
+        "north": 4218.9
+      },
+      "kind": "city",
+      "type": "City",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_TerminalNas",
+      "names": {
+        "en": "Terminal Nas",
+        "cy": ""
+      },
+      "position": {
+        "east": 10921.3,
+        "north": 3809.6
+      },
+      "kind": "city",
+      "type": "City",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_ZiaratDistrict",
+      "names": {
+        "en": "Ziarat District",
+        "cy": ""
+      },
+      "position": {
+        "east": 10132.9,
+        "north": 4163.2
+      },
+      "kind": "city",
+      "type": "City",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_JuiBarDistrict",
+      "names": {
+        "en": "Jui Bar District",
+        "cy": ""
+      },
+      "position": {
+        "east": 9189.8,
+        "north": 4711.6
+      },
+      "kind": "city",
+      "type": "City",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_RegistanDistrict",
+      "names": {
+        "en": "Registan District",
+        "cy": ""
+      },
+      "position": {
+        "east": 10683.2,
+        "north": 4679.2
+      },
+      "kind": "city",
+      "type": "City",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_HELIOSSOLARI",
+      "names": {
+        "en": "HELIOS SOLAR I",
+        "cy": ""
+      },
+      "position": {
+        "east": 9550.8,
+        "north": 7243.1
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_HELIOSSOLARII",
+      "names": {
+        "en": "HELIOS SOLAR II",
+        "cy": ""
+      },
+      "position": {
+        "east": 10623.9,
+        "north": 7440
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_HELIOSSOLARIII",
+      "names": {
+        "en": "HELIOS SOLAR III",
+        "cy": ""
+      },
+      "position": {
+        "east": 10827.9,
+        "north": 7315.8
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_HELIOSSOLARIV",
+      "names": {
+        "en": "HELIOS SOLAR IV",
+        "cy": ""
+      },
+      "position": {
+        "east": 11330.8,
+        "north": 4187.7
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SarmanNaftrefinery",
+      "names": {
+        "en": "Sarman-Naft refinery",
+        "cy": ""
+      },
+      "position": {
+        "east": 10766.7,
+        "north": 5926.9
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_NasdarBetonfactory",
+      "names": {
+        "en": "Nasdar-Beton factory",
+        "cy": ""
+      },
+      "position": {
+        "east": 9706.2,
+        "north": 6563.3
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_RigeSiyahTerminal",
+      "names": {
+        "en": "Rig-e Siyah Terminal",
+        "cy": ""
+      },
+      "position": {
+        "east": 9917.2,
+        "north": 6082.8
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_Nasdar01well",
+      "names": {
+        "en": "Nasdar-01 well",
+        "cy": ""
+      },
+      "position": {
+        "east": 10041.2,
+        "north": 7259.7
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_DeepDasht12well",
+      "names": {
+        "en": "Deep-Dasht 12 well",
+        "cy": ""
+      },
+      "position": {
+        "east": 11670.1,
+        "north": 7352.9
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_Damagedoilfields",
+      "names": {
+        "en": "Damaged oil fields",
+        "cy": ""
+      },
+      "position": {
+        "east": 11895.3,
+        "north": 5833.6
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SarmanNaftfiltrationplant",
+      "names": {
+        "en": "Sarman-Naft filtration plant",
+        "cy": ""
+      },
+      "position": {
+        "east": 9084.2,
+        "north": 4480.1
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_NasdarBetonfactory-2",
+      "names": {
+        "en": "Nasdar-Beton factory",
+        "cy": ""
+      },
+      "position": {
+        "east": 8941.4,
+        "north": 3969.4
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_NasdarBetonquarry",
+      "names": {
+        "en": "Nasdar-Beton quarry",
+        "cy": ""
+      },
+      "position": {
+        "east": 6424.8,
+        "north": 7834.2
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_MarekBarqhydroelectricplant",
+      "names": {
+        "en": "Marek Barq hydroelectric plant",
+        "cy": ""
+      },
+      "position": {
+        "east": 3663.3,
+        "north": 14218.7
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_MabarArdistan",
+      "names": {
+        "en": "Ma'bar Ardistan",
+        "cy": ""
+      },
+      "position": {
+        "east": 3307.1,
+        "north": 4540.6
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_COPNeptune",
+      "names": {
+        "en": "COP Neptune",
+        "cy": ""
+      },
+      "position": {
+        "east": 12832,
+        "north": 6665.7
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_FOBAtlas",
+      "names": {
+        "en": "FOB Atlas",
+        "cy": ""
+      },
+      "position": {
+        "east": 8366.8,
+        "north": 5728.7
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_COPRazorback",
+      "names": {
+        "en": "COP Razorback",
+        "cy": ""
+      },
+      "position": {
+        "east": 4727.4,
+        "north": 7372.2
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_COPKestrel",
+      "names": {
+        "en": "COP Kestrel",
+        "cy": ""
+      },
+      "position": {
+        "east": 4278.3,
+        "north": 12982
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_COPCondor",
+      "names": {
+        "en": "COP Condor",
+        "cy": ""
+      },
+      "position": {
+        "east": 7746.5,
+        "north": 11848.1
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_BadAsyabwindarray",
+      "names": {
+        "en": "Bad Asyab wind array",
+        "cy": ""
+      },
+      "position": {
+        "east": 8716.8,
+        "north": 10855.6
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_ZunDara",
+      "names": {
+        "en": "Zun Dara",
+        "cy": ""
+      },
+      "position": {
+        "east": 4824,
+        "north": 4713.8
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_BazaZenit",
+      "names": {
+        "en": "Baza Zenit",
+        "cy": ""
+      },
+      "position": {
+        "east": 6312.8,
+        "north": 9966.6
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_NIIMirnyy",
+      "names": {
+        "en": "NII-Mirnyy",
+        "cy": ""
+      },
+      "position": {
+        "east": 6127.3,
+        "north": 9267.9
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_SpetsStvol754",
+      "names": {
+        "en": "Spets-Stvol 754",
+        "cy": ""
+      },
+      "position": {
+        "east": 6616,
+        "north": 10351.3
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_Proval754",
+      "names": {
+        "en": "Proval-754",
+        "cy": ""
+      },
+      "position": {
+        "east": 7120.2,
+        "north": 10152.7
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_Zulfiqarmissilebase",
+      "names": {
+        "en": "Zulfiqar missile base",
+        "cy": ""
+      },
+      "position": {
+        "east": 2696.3,
+        "north": 9692.6
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_FatehManzil",
+      "names": {
+        "en": "Fateh Manzil",
+        "cy": ""
+      },
+      "position": {
+        "east": 7372.8,
+        "north": 7449.6
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_MelBenazir",
+      "names": {
+        "en": "Mel Benazir",
+        "cy": ""
+      },
+      "position": {
+        "east": 6338.5,
+        "north": 12704.8
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_BaitalAman",
+      "names": {
+        "en": "Bait al-Aman",
+        "cy": ""
+      },
+      "position": {
+        "east": 8586.9,
+        "north": 4783.4
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_DeheRamiro",
+      "names": {
+        "en": "Deh-e Ramiro",
+        "cy": ""
+      },
+      "position": {
+        "east": 8668.1,
+        "north": 3750.2
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_Nejcheh",
+      "names": {
+        "en": "Nejcheh",
+        "cy": ""
+      },
+      "position": {
+        "east": 7073,
+        "north": 8150.5
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_ChuuyaKalay",
+      "names": {
+        "en": "Chuuya Kalay",
+        "cy": ""
+      },
+      "position": {
+        "east": 9527.4,
+        "north": 9784.4
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_Jakhzar",
+      "names": {
+        "en": "Jakhzar",
+        "cy": ""
+      },
+      "position": {
+        "east": 14049.2,
+        "north": 13397.2
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_MikDakharti",
+      "names": {
+        "en": "Mik Dakharti",
+        "cy": ""
+      },
+      "position": {
+        "east": 7444.1,
+        "north": 8935.4
+      },
+      "kind": "village",
+      "type": "Ruin",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_M12BagheMir",
+      "names": {
+        "en": "M12 Bagh-e Mir",
+        "cy": ""
+      },
+      "position": {
+        "east": 5191.6,
+        "north": 5421.6
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_M12NoAbad",
+      "names": {
+        "en": "M12 No Abad",
+        "cy": ""
+      },
+      "position": {
+        "east": 6902.8,
+        "north": 5067.7
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_M12NasdaraWest",
+      "names": {
+        "en": "M12 Nasdara-West",
+        "cy": ""
+      },
+      "position": {
+        "east": 9149.1,
+        "north": 4110.8
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_M12NasdaraEast",
+      "names": {
+        "en": "M12 Nasdara-East",
+        "cy": ""
+      },
+      "position": {
+        "east": 10829.3,
+        "north": 3215.2
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_FostkovaMehranTunnel",
+      "names": {
+        "en": "Fostkova Mehran Tunnel",
+        "cy": ""
+      },
+      "position": {
+        "east": 5425,
+        "north": 5606.2
+      },
+      "kind": "village",
+      "type": "Local",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    },
+    {
+      "id": "Settlement_Varzaneh",
+      "names": {
+        "en": "Varzaneh",
+        "cy": ""
+      },
+      "position": {
+        "east": 13397,
+        "north": 12115.8
+      },
+      "kind": "village",
+      "type": "Village",
+      "provenance": "dayzed.gg (game-file-derived) via dayz-library"
+    }
+  ]
+}

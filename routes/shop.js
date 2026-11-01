@@ -10,11 +10,11 @@ const express = require('express');
 const router  = express.Router();
 const crypto  = require('crypto');
 const shopFileService   = require('../services/shopFileService');
+const missionFileService = require('../services/missionFileService');
 const shopRestartService = require('../services/shopRestartService');
 const { attachShopFulfillmentStatuses } = require('../services/shopFulfillmentStatusService');
 const { ensurePlayerServerAccess } = require('../middleware/serverAccess');
 const { authorizeServer, CAPABILITIES } = require('../services/authorizationService');
-const { normalizeCartCoordinates } = require('../utils/shopCoordinates');
 const { provisioningFieldsChanged } = require('../utils/shopProvisioningVersion');
 const { parseCents, centsToDecimal, amountForResponse } = require('../utils/money');
 const { normalizeRadarCapabilityConfig } = require('../utils/radarPolicy');
@@ -26,6 +26,18 @@ const {
   armEmoteCapture,
   cancelEmoteCapture,
 } = require('../services/shopEmoteCaptureService');
+const {
+  addCartItem,
+  updateCartItem,
+  deleteCartItem,
+  normalizeRentalRestarts,
+  isCatalogItemPurchasable,
+} = require('../services/shopCartService');
+const {
+  normalizeHotkey,
+  getLatestPositionSnapshot,
+  usePlayerHotkey,
+} = require('../services/shopPlayerHotkeyService');
 const {
   buildShopCartFingerprint,
   parseShopCheckoutCommand,
@@ -87,17 +99,6 @@ function generateEventName(prefix, baseName, shopItemId) {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Normalize the value written to the NOT NULL rental_restarts column.
- * Non-rental items and invalid or missing input use the schema default of one.
- * @param {*} value
- * @returns {number}
- */
-function normalizeRentalRestarts(value) {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
-}
-
 function normalizeShopCapability(spawnMethod, capabilityConfig) {
   if (spawnMethod !== 'capability') {
     if (capabilityConfig != null) throw new Error('capability_config requires capability spawn method');
@@ -137,31 +138,6 @@ async function assertTeleportDestinationExists(db, serverId, capability) {
     [capability.destinationId, serverId]
   );
   if (!destination) throw new Error('Teleport destination is unavailable for this server');
-}
-
-function isCatalogItemPurchasable(item) {
-  if (item?.spawn_method === 'capability') return true;
-  try {
-    shopFileService.validateProvisioningItem(item);
-    return true;
-  } catch (_error) {
-    return false;
-  }
-}
-
-function validatePurchaseQuantity(shopItem, value) {
-  const quantity = Number(value);
-  if (!Number.isInteger(quantity) || quantity <= 0) {
-    return { error: 'Quantity must be a positive integer' };
-  }
-  if (shopItem.item_type === 'event_rental') {
-    if (quantity > normalizeRentalRestarts(shopItem.rental_restarts)) {
-      return { error: "Rental duration exceeds this item's configured maximum" };
-    }
-  } else if (quantity !== 1) {
-    return { error: 'Permanent shop items require quantity 1' };
-  }
-  return { quantity };
 }
 
 /**
@@ -207,12 +183,15 @@ async function verifyIdentityOwner(db, userId, identityId, serverId) {
 }
 
 async function lockActiveServerTenant(db, serverId) {
+  // FOR NO KEY UPDATE (not FOR UPDATE): the refund path awaits an independent
+  // provider_mutations INSERT inside this transaction, whose FK takes FOR KEY
+  // SHARE on the servers row; FOR UPDATE conflicts with it and self-deadlocks.
   return db.get(
     `SELECT s.id
      FROM guilds g
      JOIN servers s ON s.guild_id = g.id
      WHERE s.id = ? AND s.status = 'active' AND g.status = 'approved'
-     FOR UPDATE OF g, s`,
+     FOR NO KEY UPDATE OF g, s`,
     [serverId]
   );
 }
@@ -263,141 +242,6 @@ async function assertIdentityOwnerForMutation(db, userId, identityId, serverId) 
   return Boolean(membership);
 }
 
-async function addCartItem(db, body) {
-  const {
-    identityId, serverId, shopItemId, quantity,
-  } = body;
-  const shopItem = await db.get(
-    'SELECT * FROM shop_items WHERE id = ? AND server_id = ? AND is_active = true AND deleted_at IS NULL',
-    [shopItemId, serverId]
-  );
-  if (!shopItem) return { status: 404, error: 'Shop item not found or inactive' };
-  if (!isCatalogItemPurchasable(shopItem)) {
-    return { status: 409, error: 'Shop item uses an unsupported provisioning method' };
-  }
-  const quantityResult = validatePurchaseQuantity(shopItem, quantity);
-  if (quantityResult.error) return { status: 400, error: quantityResult.error };
-  const validatedQuantity = quantityResult.quantity;
-  let coordinates;
-  let emoteCaptureConfig;
-  try {
-    coordinates = normalizeCartCoordinates(body);
-    emoteCaptureConfig = normalizeEmoteCaptureConfig(shopItem.emote_capture_config);
-  } catch (error) {
-    return { status: 400, error: error.message };
-  }
-
-  let cart = await db.get(
-    `SELECT * FROM shop_orders
-     WHERE identity_id = ? AND server_id = ? AND status = 'cart' FOR UPDATE`,
-    [identityId, serverId]
-  );
-  if (!cart) {
-    await db.run(
-      `INSERT INTO shop_orders (identity_id, server_id, status, total_price)
-       VALUES (?, ?, 'cart', 0)
-       ON CONFLICT DO NOTHING`,
-      [identityId, serverId]
-    );
-    cart = await db.get(
-      `SELECT * FROM shop_orders
-       WHERE identity_id = ? AND server_id = ? AND status = 'cart' FOR UPDATE`,
-      [identityId, serverId]
-    );
-  }
-  if (!cart) return { status: 409, error: 'Cart is no longer available' };
-
-  await db.run(
-    `INSERT INTO shop_order_items
-       (order_id, shop_item_id, quantity, unit_price,
-        pos_x, pos_y, pos_z, ypr_x, ypr_y, ypr_z,
-        spawn_method, restarts_remaining, is_active,
-        snapshot_schema_version, item_name_snapshot, image_url_snapshot,
-        item_class_snapshot, item_type_snapshot, rental_restarts_snapshot,
-        custom_json_file_snapshot, object_spawner_config_snapshot,
-        event_name_snapshot, event_config_snapshot,
-        capability_config_snapshot, emote_capture_config_snapshot,
-        provisioning_version_snapshot)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, true, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      cart.id, shopItemId, validatedQuantity, shopItem.price,
-      coordinates.pos_x, coordinates.pos_y, coordinates.pos_z,
-      coordinates.ypr_x, coordinates.ypr_y, coordinates.ypr_z,
-      shopItem.spawn_method,
-      shopItem.item_type === 'event_rental' ? validatedQuantity : null,
-      shopItem.name, shopItem.image_url || null,
-      shopItem.item_class, shopItem.item_type || 'item', shopItem.rental_restarts,
-      shopItem.custom_json_file || null, shopItem.object_spawner_config || null,
-      shopItem.event_name || null,
-      shopItem.event_config || {}, shopItem.capability_config || null,
-      emoteCaptureConfig,
-      Number(shopItem.provisioning_version) || 1,
-    ]
-  );
-  await recalculateCartTotal(db, cart.id);
-  const cartItem = await db.get(
-    `SELECT * FROM shop_order_items
-     WHERE order_id = ? AND shop_item_id = ?
-     ORDER BY id DESC LIMIT 1`,
-    [cart.id, shopItemId]
-  );
-  return { data: cartItem };
-}
-
-async function updateCartItem(db, cartItemId, body) {
-  const { quantity } = body;
-  const cartItem = await db.get(
-    `SELECT soi.*, so.id AS order_id,
-            CASE WHEN soi.snapshot_schema_version = 1 THEN soi.item_type_snapshot ELSE si.item_type END AS item_type,
-            CASE WHEN soi.snapshot_schema_version = 1 THEN soi.rental_restarts_snapshot ELSE si.rental_restarts END AS rental_restarts
-     FROM shop_order_items soi
-     JOIN shop_orders so ON so.id = soi.order_id
-     JOIN shop_items si ON si.id = soi.shop_item_id
-     WHERE soi.id = ? AND so.status = 'cart'
-     FOR UPDATE OF so`,
-    [cartItemId]
-  );
-  if (!cartItem) return { status: 409, error: 'Cart item is no longer editable' };
-  const quantityResult = validatePurchaseQuantity(cartItem, quantity);
-  if (quantityResult.error) return { status: 400, error: quantityResult.error };
-  let coordinates;
-  try {
-    coordinates = normalizeCartCoordinates(body, cartItem);
-  } catch (error) {
-    return { status: 400, error: error.message };
-  }
-
-  await db.run(
-    `UPDATE shop_order_items SET
-       quantity = ?, pos_x = ?, pos_y = ?, pos_z = ?,
-       ypr_x = ?, ypr_y = ?, ypr_z = ?
-     WHERE id = ? AND order_id = ?`,
-    [
-      quantityResult.quantity,
-      coordinates.pos_x, coordinates.pos_y, coordinates.pos_z,
-      coordinates.ypr_x, coordinates.ypr_y, coordinates.ypr_z,
-      cartItemId, cartItem.order_id,
-    ]
-  );
-  await recalculateCartTotal(db, cartItem.order_id);
-  return { data: await db.get('SELECT * FROM shop_order_items WHERE id = ?', [cartItemId]) };
-}
-
-async function deleteCartItem(db, cartItemId) {
-  const cartItem = await db.get(
-    `SELECT soi.*, so.id AS order_id FROM shop_order_items soi
-     JOIN shop_orders so ON so.id = soi.order_id
-     WHERE soi.id = ? AND so.status = 'cart'
-     FOR UPDATE OF so`,
-    [cartItemId]
-  );
-  if (!cartItem) return { status: 409, error: 'Cart item is no longer removable' };
-
-  await db.run('DELETE FROM shop_order_items WHERE id = ? AND order_id = ?', [cartItemId, cartItem.order_id]);
-  await recalculateCartTotal(db, cartItem.order_id);
-  return {};
-}
-
 // ---------------------------------------------------------------------------
 // Owner / Admin Routes  (prefix: /admin)
 // ---------------------------------------------------------------------------
@@ -428,6 +272,41 @@ router.get('/admin/items/:serverId', async (req, res) => {
     return res.json({ success: true, data: items });
   } catch (err) {
     console.error('GET /admin/items/:serverId', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * GET /admin/environment-species/:serverId
+ * List the Herd species available in the server's cfgenvironment.xml so the
+ * admin can pick a species for animal shop item territory registration.
+ * Requires owner/admin.
+ */
+router.get('/admin/environment-species/:serverId', async (req, res) => {
+  const db = req.app.locals.db;
+  const { serverId } = req.params;
+
+  try {
+    const isOwner = await verifyServerOwner(db, req.user.id, serverId);
+    if (!isOwner) return res.status(403).json({ error: 'Forbidden' });
+
+    const tokenInfo = await shopFileService.getTokenForServer(db, serverId);
+    if (!tokenInfo || !tokenInfo.token) {
+      return res.status(400).json({ error: 'No authorized Nitrado token for this server' });
+    }
+    const missionData = await missionFileService.getActiveMission(tokenInfo.platformServerId, tokenInfo.token);
+    if (!missionData || !missionData.mission) {
+      return res.status(400).json({ error: 'No active mission for this server' });
+    }
+    const species = await shopFileService.listEnvironmentSpeciesOnServer(
+      tokenInfo.platformServerId, tokenInfo.token, missionData.missionPath
+    );
+    return res.json({ success: true, data: species });
+  } catch (err) {
+    console.error('GET /admin/environment-species', err);
+    if (err.message === 'cfgenvironment.xml not found') {
+      return res.status(404).json({ error: 'cfgenvironment.xml not found on server' });
+    }
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -1560,6 +1439,195 @@ router.delete('/cart/item/:cartItemId/emote-capture', ensurePlayerServerAccess, 
 });
 
 /**
+ * GET /last-position/:identityId/:serverId
+ * The player's own last-known in-game location on this server, from the
+ * ingested PlayerList position snapshots (ADM census + connect/disconnect
+ * events). Coordinates stay in raw snapshot (ADM tuple) order:
+ * x=east, y=north, z=elevation. data is null when the server has never
+ * seen the player.
+ */
+router.get('/last-position/:identityId/:serverId', async (req, res) => {
+  const db = req.app.locals.db;
+  const { identityId, serverId } = req.params;
+
+  try {
+    const isOwner = await verifyIdentityOwner(db, req.user.id, identityId, serverId);
+    if (!isOwner) return res.status(403).json({ error: 'Forbidden' });
+
+    const row = await getLatestPositionSnapshot(db, { identityId, serverId });
+    if (!row) return res.json({ success: true, data: null });
+    const ageSeconds = Math.max(0, Math.floor((Date.now() - new Date(row.timestamp).getTime()) / 1000));
+    return res.json({
+      success: true,
+      data: {
+        pos_x: Number(row.pos_x),
+        pos_y: Number(row.pos_y),
+        pos_z: Number(row.pos_z),
+        timestamp: row.timestamp,
+        age_seconds: ageSeconds,
+      },
+    });
+  } catch (err) {
+    console.error('GET /last-position', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * GET /hotkeys/:identityId/:serverId
+ * List the player's own item hotkey bindings for this server.
+ */
+router.get('/hotkeys/:identityId/:serverId', async (req, res) => {
+  const db = req.app.locals.db;
+  const { identityId, serverId } = req.params;
+
+  try {
+    const isOwner = await verifyIdentityOwner(db, req.user.id, identityId, serverId);
+    if (!isOwner) return res.status(403).json({ error: 'Forbidden' });
+
+    const rows = await db.query(
+      `SELECT hpk.hotkey, hpk.shop_item_id, hpk.created_at,
+              si.name AS item_name, si.image_url AS item_image_url,
+              si.price AS item_price, si.item_type AS item_type
+       FROM shop_player_hotkeys hpk
+       JOIN shop_items si ON si.id = hpk.shop_item_id
+       WHERE hpk.server_id = ? AND hpk.identity_id = ? AND si.deleted_at IS NULL
+       ORDER BY hpk.hotkey`,
+      [serverId, identityId]
+    );
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('GET /hotkeys', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * PUT /hotkeys
+ * Bind one of the player's keys to a shop item on the server (upsert:
+ * re-binding a key replaces its previous item).
+ */
+router.put('/hotkeys', ensurePlayerServerAccess, async (req, res) => {
+  const db = req.app.locals.db;
+  const { identityId, serverId } = req.playerServerAccess;
+  if (!identityId) return res.status(400).json({ error: 'Player identity required' });
+
+  let key;
+  try {
+    key = normalizeHotkey(req.body.hotkey);
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
+  try {
+    const item = await db.get(
+      'SELECT id FROM shop_items WHERE id = ? AND server_id = ? AND is_active = true AND deleted_at IS NULL',
+      [req.body.shopItemId, serverId]
+    );
+    if (!item) return res.status(404).json({ error: 'Shop item not found or inactive' });
+
+    const row = await db.get(
+      `INSERT INTO shop_player_hotkeys (server_id, identity_id, shop_item_id, hotkey)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT (server_id, identity_id, hotkey)
+       DO UPDATE SET shop_item_id = EXCLUDED.shop_item_id
+       RETURNING *`,
+      [serverId, identityId, item.id, key]
+    );
+    return res.status(200).json({ success: true, data: row });
+  } catch (err) {
+    console.error('PUT /hotkeys', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * DELETE /hotkeys/:hotkey
+ * Remove one of the player's key bindings on the server.
+ */
+router.delete('/hotkeys/:hotkey', ensurePlayerServerAccess, async (req, res) => {
+  const db = req.app.locals.db;
+  const { identityId, serverId } = req.playerServerAccess;
+  if (!identityId) return res.status(400).json({ error: 'Player identity required' });
+
+  let key;
+  try {
+    key = normalizeHotkey(req.params.hotkey);
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
+  try {
+    const result = await db.run(
+      'DELETE FROM shop_player_hotkeys WHERE server_id = ? AND identity_id = ? AND hotkey = ?',
+      [serverId, identityId, key]
+    );
+    return res.json({ success: true, removed: Number(result?.changes) || 0 });
+  } catch (err) {
+    console.error('DELETE /hotkeys', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /hotkeys/use
+ * Trigger a bound hotkey: add the item to the cart at the player's
+ * last-known in-game location and check it out immediately. The
+ * Idempotency-Key header is required so a retried keypress cannot
+ * charge twice.
+ */
+router.post('/hotkeys/use', ensurePlayerServerAccess, async (req, res) => {
+  const db = req.app.locals.db;
+  const { identityId, serverId } = req.playerServerAccess;
+  if (!identityId) {
+    return res.status(400).json({ error: 'Player identity required', checkoutState: 'failed' });
+  }
+
+  let idempotencyKey;
+  try {
+    idempotencyKey = parseIdempotencyKey(req);
+  } catch (error) {
+    return res.status(error.status || 400).json({ error: error.message, checkoutState: 'failed' });
+  }
+  const timer = createCheckoutTimer();
+  try {
+    const response = await usePlayerHotkey(db, {
+      userId: req.user.id,
+      identityId,
+      serverId,
+      hotkey: req.body.hotkey,
+      idempotencyKey,
+      timer,
+    });
+    if (response.replay) res.set('Idempotency-Replayed', 'true');
+    timer.finish(response.body.checkoutState === 'success' ? 'success' : 'failed');
+    return res.status(response.status).json(response.body);
+  } catch (err) {
+    if (err.code === 'SHOP_AUTHORIZATION_REVOKED') {
+      timer.finish('failed');
+      return res.status(403).json({ error: err.message, checkoutState: 'failed' });
+    }
+    if (err.code === 'SPAWN_EXCLUDED' || err.code === 'SHOP_PLACEMENT_CONFLICT') {
+      timer.finish('failed');
+      return res.status(409).json({ error: err.message, checkoutState: 'failed' });
+    }
+    if (err.code === 'SHOP_BUSY') {
+      timer.finish('failed');
+      return res.status(409).json({ error: err.message, checkoutState: 'processing' });
+    }
+    if (err.code === 'PROVIDER_RECOVERY_PENDING') {
+      timer.finish('recovery');
+      return res.status(409).json({ error: err.message, recoveryPending: true, checkoutState: 'recovery' });
+    }
+    if (err.status === 400 || err.status === 404 || err.status === 409) {
+      timer.finish('failed');
+      return res.status(err.status).json({ error: err.message, checkoutState: 'failed' });
+    }
+    timer.finish('unknown');
+    console.error('POST /hotkeys/use', err);
+    return res.status(503).json({ error: 'Internal server error', checkoutState: 'unknown' });
+  }
+});
+
+/**
  * DELETE /cart/item/:cartItemId
  * Remove a line item from the player's cart.
  */
@@ -1964,16 +2032,4 @@ router.get('/active-rentals/:identityId/:serverId', async (req, res) => {
  * @param {object} db
  * @param {number|string} orderId
  */
-async function recalculateCartTotal(db, orderId) {
-  await db.run(
-    `UPDATE shop_orders SET total_price = (
-       SELECT COALESCE(SUM(unit_price * quantity), 0)
-       FROM shop_order_items
-       WHERE order_id = ?
-     )
-     WHERE id = ?`,
-    [orderId, orderId]
-  );
-}
-
 module.exports = router;

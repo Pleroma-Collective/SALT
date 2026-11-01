@@ -9,7 +9,7 @@
  *      and sends it through the same chrome path as renderWithCsrf (theme
  *      attr, no-flash script, override CSS, CSRF meta).
  *   2. Nav is role-filtered per surface (owner / admin / player) — separate
- *      nav sets, one shared component. Active state + dimmed Tools entry.
+ *      nav sets, one shared component. Active state + live Tools entry.
  *   3. Context pill: guild/server/player variants, escaping of display-only
  *      values passed by the route.
  *   4. Page pins: the 5 migrated pages carry no copied inline nav block, and
@@ -93,24 +93,30 @@ async function testComposition() {
 }
 
 function testNavSets() {
-  // Owner surface: grouped nav + dimmed Tools at the bottom of System
+  // Owner surface: grouped nav + live Tools link at the bottom of System
   const owner = OWNER_NAV.map(g => g.title);
   assert.deepStrictEqual(owner, ['Overview', 'Server', 'People', 'World', 'System']);
   const systemItems = OWNER_NAV.find(g => g.title === 'System').items;
   const tools = systemItems[systemItems.length - 1];
-  assert.strictEqual(tools.label, 'Tools (Coming Soon)');
-  assert.ok(tools.dimmed, 'Tools entry must be dimmed');
-  assert.strictEqual(systemItems.filter(i => i.dimmed).length, 1);
+  assert.strictEqual(tools.label, 'Tools');
+  assert.strictEqual(tools.href, '/tools', 'Tools entry must link to the working /tools page');
+  assert.strictEqual(systemItems.filter(i => i.dimmed).length, 0);
 
   // Admin surface: platform nav, no owner-only entries
   const adminLabels = ADMIN_NAV.flatMap(g => g.items.map(i => i.label));
   for (const only of ['Loot Finder', 'Console', 'Players', 'Rotation', 'Backups']) {
     assert.ok(!adminLabels.includes(only), `admin nav leaks owner item ${only}`);
   }
-  for (const want of ['Guilds', 'Users', 'Audit', 'Theme']) {
+  // Merged map page (t_d684a1b7): one nav entry for /map, no standalone
+  // Loot Finder entry on any surface.
+  const worldItems = OWNER_NAV.find(g => g.title === 'World').items;
+  assert.strictEqual(worldItems.filter(i => i.href === '/map').length, 1, 'owner nav must have exactly one /map entry');
+  assert.ok(worldItems.some(i => i.href === '/map' && i.label === 'Map & Loot'), 'owner World nav must label the merged map page');
+  assert.ok(!OWNER_NAV.flatMap(g => g.items).some(i => i.href === '/loot-finder'), 'owner nav must not keep a standalone Loot Finder entry');
+  for (const want of ['Discord Server Management', 'Guild Management', 'All Servers', 'Scoped Role Management', 'Audit', 'Theme']) {
     assert.ok(adminLabels.includes(want), `admin nav missing ${want}`);
   }
-  assert.ok(ADMIN_NAV.find(g => g.title === 'System').items[0].dimmed, 'admin System must carry dimmed Tools');
+  assert.strictEqual(ADMIN_NAV.find(g => g.title === 'System').items[0].href, '/tools', 'admin System must carry the live Tools link');
 
   // Player surface: client-driven tab buttons with the ids player-portal.js binds
   const player = PLAYER_NAV.flatMap(g => g.items);
@@ -139,9 +145,9 @@ function testActiveState() {
   assert.ok(child.includes('is-active'), 'prefix path must mark parent active');
   const off = _internal.navItemHtml({ label: 'Map', href: '/map', icon: 'map' }, '/dashboard');
   assert.ok(!off.includes('is-active') && !off.includes('aria-current'), 'non-matching item must not be active');
-  const dimmed = _internal.navItemHtml({ label: 'Tools (Coming Soon)', dimmed: true, icon: 'tools' }, '/tools');
-  assert.ok(dimmed.includes('<span class="dzc-shell-nav-item'), 'dimmed entry renders as a span, not a link');
-  assert.ok(dimmed.includes('aria-disabled="true"'));
+  const toolsItem = _internal.navItemHtml(OWNER_NAV.find(g => g.title === 'System').items.find(i => i.label === 'Tools'), '/tools');
+  assert.ok(toolsItem.includes('<a class="dzc-shell-nav-item') && toolsItem.includes('href="/tools"'), 'Tools entry renders as a live link');
+  assert.ok(!toolsItem.includes('aria-disabled'), 'Tools entry must no longer be disabled');
 }
 
 function testContextPill() {
@@ -178,6 +184,7 @@ function testPagePins() {
     'public/dashboard/rotation.html': "pub('dashboard', 'rotation.html')",
     'public/dashboard/ai-assistant.html': "pub('dashboard', 'ai-assistant.html')",
     'public/dashboard/server-stats.html': "pub('dashboard', 'server-stats.html')",
+    'public/dashboard/dynamic-event-rates.html': "pub('dashboard', 'dynamic-event-rates.html')",
     'public/dashboard/activity-log.html': "pub('dashboard', 'activity-log.html')",
     'public/dashboard/console.html': "pub('dashboard', 'console.html')",
     'public/dashboard/boost.html': "pub('dashboard', 'boost.html')",

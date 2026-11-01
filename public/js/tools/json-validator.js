@@ -1,6 +1,6 @@
 /* global document, navigator */
 /*
- * JSON Validator & Splitter page. Client-side only.
+ * JSON Validator & Splitter page (card t_0743c982). Client-side only.
  */
 (function () {
   'use strict';
@@ -118,15 +118,27 @@
 
   function runOn(items) {
     results.textContent = '';
-    results.appendChild(dom.el('p', 'tk-results-title', items.length + ' file(s) — all checks ran locally'));
-    items.forEach(function (item) {
+    var reports = items.map(function (item) {
       var report = core.validateJson(item.name, item.text);
       if (report.summary && report.summary.valid) {
         lastText = item.text;
         lastValue = item.name;
       }
+      return report;
+    });
+    var errors = 0, warnings = 0, ok = 0;
+    reports.forEach(function (r) {
+      errors += r.summary.errorCount;
+      warnings += r.summary.warningCount;
+      if (r.summary.valid) ok++;
+    });
+    dom.renderResultSummary(results, {
+      total: reports.length, ok: ok, errors: errors, warnings: warnings,
+      note: 'all checks ran locally'
+    });
+    reports.forEach(function (report, i) {
       dom.renderReport(results, report);
-      results.appendChild(actionsFor(item, report));
+      results.appendChild(actionsFor(items[i], report));
     });
     splitBtn.disabled = !lastText;
   }
@@ -135,6 +147,8 @@
     multiple: true,
     accept: '.json,.txt',
     allowPaste: true,
+    pastePlaceholder: 'Paste JSON here (single document)…',
+    title: 'Drop JSON files here',
     onFiles: runOn
   });
   app.appendChild(results);

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Activity Zones - Admin Panel</title>
+  <link rel="stylesheet" href="/css/theme.css">
+  <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
+  <style>
+    .zone-map-wrap { position: relative; height: 600px; border: 1px solid var(--dzc-border, #374151); border-radius: 0.5rem; overflow: hidden; background: #0b1220; }
+    #zoneMap { position: absolute; inset: 0; }
+    #zoneMap.leaflet-container { cursor: crosshair; }
+    .zone-panel { width: 420px; flex-shrink: 0; }
+    @media (max-width: 1100px) { .zone-layout { flex-direction: column; } .zone-panel { width: 100%; } }
+    .field { display: flex; flex-direction: column; gap: 0.35rem; }
+    .field label { font-size: 0.8rem; font-weight: 600; color: #cbd5e1; }
+    .field input, .field select { background: #374151; border: 1px solid #4b5563; border-radius: 0.375rem; padding: 0.5rem 0.6rem; color: #fff; width: 100%; }
+    .zone-card { border: 1px solid #374151; border-radius: 0.5rem; padding: 0.75rem; background: #111827; }
+    .chip { display: inline-block; border-radius: 999px; padding: 0.1rem 0.55rem; font-size: 0.72rem; font-weight: 600; }
+  </style>
+</head>
+<body class="bg-gray-900 text-white">
+  <div class="container mx-auto p-6 max-w-[1600px]">
+    <div class="flex justify-between items-center mb-4">
+      <div>
+        <h1 class="text-4xl font-bold">🎯 Activity Zones</h1>
+        <p class="text-gray-400 mt-1 text-sm">Draw an area on the map; ingested combat inside it is summarized and posted to a channel on a bounded cadence.</p>
+      </div>
+      <a href="/admin" class="bg-orange-600 hover:bg-orange-700 px-4 py-2 rounded text-sm">← Admin Dashboard</a>
+    </div>
+
+    <div class="bg-gray-800 p-4 rounded-lg shadow-lg mb-5 flex flex-wrap items-center gap-3">
+      <label for="serverSelect" class="font-semibold text-sm">Server:</label>
+      <select id="serverSelect" class="bg-gray-700 p-2 rounded w-72">
+        <option value="">Loading servers…</option>
+      </select>
+      <span id="mapLabel" class="text-xs text-gray-400"></span>
+    </div>
+
+    <div id="empty-state" class="bg-gray-800 p-6 rounded-lg shadow-lg text-center text-gray-400 mb-4">
+      Select a server to manage its activity zones.
+    </div>
+
+    <div id="zone-stage" class="hidden">
+      <div class="zone-layout flex gap-5 items-start">
+        <div class="flex-1 min-w-0">
+          <div class="zone-map-wrap">
+            <div id="zoneMap"></div>
+            <div id="mapHint" class="absolute top-2 left-2 z-[1000] bg-black/70 text-white text-xs px-3 py-1.5 rounded">
+              Click the map to set the zone center.
+            </div>
+          </div>
+        </div>
+
+        <div class="zone-panel space-y-4">
+          <form id="zoneForm" class="bg-gray-800 p-4 rounded-lg shadow-lg space-y-3">
+            <div class="flex items-center justify-between">
+              <h2 id="formTitle" class="text-lg font-bold">New zone</h2>
+              <button type="button" id="cancelEditBtn" class="hidden text-xs text-gray-400 hover:text-white underline">Cancel</button>
+            </div>
+            <input type="hidden" id="zoneId" value="">
+            <div class="field">
+              <label for="zoneName">Name</label>
+              <input id="zoneName" maxlength="120" placeholder="e.g. North Base">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="field">
+                <label for="zoneMap">Map</label>
+                <select id="zoneMap"></select>
+              </div>
+              <div class="field">
+                <label for="zoneRadius">Radius (m)</label>
+                <input id="zoneRadius" type="number" min="25" max="5000" value="400">
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3 text-xs text-gray-300">
+              <div class="field"><label for="zoneEast">Center (east)</label><input id="zoneEast" readonly placeholder="—"></div>
+              <div class="field"><label for="zoneNorth">Center (north)</label><input id="zoneNorth" readonly placeholder="—"></div>
+            </div>
+            <div class="field">
+              <label>Activity to track</label>
+              <div class="flex gap-4 text-sm text-gray-300 pt-1">
+                <label class="flex items-center gap-1"><input type="checkbox" class="zone-filter" value="kill" checked> Kills</label>
+                <label class="flex items-center gap-1"><input type="checkbox" class="zone-filter" value="death"> Deaths</label>
+              </div>
+            </div>
+            <div class="field">
+              <label for="zoneChannel">Output channel</label>
+              <select id="zoneChannel"><option value="">Loading channels…</option></select>
+            </div>
+            <div class="field">
+              <label for="zoneMinInterval">Min interval between posts (s)</label>
+              <input id="zoneMinInterval" type="number" min="30" max="3600" value="120">
+            </div>
+            <label class="flex items-center gap-2 text-sm text-gray-300">
+              <input type="checkbox" id="zoneEnabled" checked> Enabled
+            </label>
+            <div class="flex gap-2 pt-1">
+              <button type="submit" class="flex-1 bg-green-700 hover:bg-green-600 px-4 py-2 rounded font-semibold">Save zone</button>
+            </div>
+            <p id="formError" class="text-red-400 text-xs hidden"></p>
+          </form>
+
+          <section class="bg-gray-800 p-4 rounded-lg shadow-lg">
+            <h2 class="text-lg font-bold mb-3">Zones on this server</h2>
+            <div id="zoneList"><p class="text-gray-400 text-sm">No zones yet.</p></div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/vendor/leaflet/leaflet.js"></script>
+  <script src="/js/dayz-map-coordinates.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/csrf-helper.js"></script>
+  <script src="/js/admin-zones.js"></script>
+</body>
+</html>

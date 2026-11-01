@@ -1,6 +1,6 @@
 /* global window */
 /*
- * DayZ Toolkit — core validation engine.
+ * DayZ Toolkit — core validation engine (card t_0743c982).
  *
  * Pure, dependency-free logic shared by the client-side /tools/* pages.
  * Everything here runs in the user's browser; no network, no eval.
@@ -65,7 +65,7 @@
       add: function (kind, finding) {
         if (!this[kind]) return;
         if (this[kind].length >= MAX_DIAGNOSTICS) return;
-        finding.severity = kind === 'info' ? 'info' : kind;
+        finding.severity = kind === 'errors' ? 'error' : kind === 'warnings' ? 'warning' : 'info';
         this[kind].push(finding);
       }
     };
@@ -186,7 +186,48 @@
     return null;
   }
 
-  /* ------------------------------------------------------------------ *
+  /* ------------------------------------------------------------------ *\
+   * Source locations (best effort)                                      *
+   *                                                                     *
+   * DOMParser (browser) and xml2js (tests) do not expose element        *
+   * positions, so structural findings locate the offending root child  *
+   * by re-scanning the source: a comment-skipping tag walk that records *
+   * every depth-1 open tag. Same best-effort precedent as the JSON      *
+   * locator (indexOf of the offending token) — accurate on well-formed  *
+   * DayZ files, which is the only state structural checks run in.       *
+   * ------------------------------------------------------------------ */
+  function offsetToLineCol(content, offset) {
+    var upto = content.substring(0, offset).split('\n');
+    return { line: upto.length, column: upto[upto.length - 1].length + 1 };
+  }
+
+  /** rootChildLocations(content, rootTag) ->
+   *  { tag: [{ line, column }] } for every depth-1 open tag, in document
+   *  order. Comments are skipped; '>' inside quoted attribute values is
+   *  handled; self-closing tags are not pushed on the stack. */
+  function rootChildLocations(content, rootTag) {
+    var out = {};
+    if (typeof content !== 'string' || !rootTag) return out;
+    var stack = [];
+    var re = /<!--[\s\S]*?-->|<\/([A-Za-z_][\w:.-]*)\s*>|<([A-Za-z_][\w:.-]*)((?:[^>"']|"[^"]*"|'[^']*')*?)\/?>/g;
+    var m;
+    while ((m = re.exec(content)) !== null) {
+      if (m[0].slice(0, 2) === '<!') continue; // comment (alternative 1)
+      if (m[1]) { if (stack.length) stack.pop(); continue; } // close tag
+      var name = m[2];
+      var selfClosing = /\/>$/.test(m[0]);
+      if (!selfClosing) stack.push(name);
+      // Depth-1 = child of the root: stack holds [root, child] after push,
+      // or just [root] for a self-closing child.
+      if (name !== rootTag && stack[0] === rootTag &&
+          (selfClosing ? stack.length === 1 : stack.length === 2)) {
+        (out[name] = out[name] || []).push(offsetToLineCol(content, m.index));
+      }
+    }
+    return out;
+  }
+
+  /* ------------------------------------------------------------------ *\
    * XML structural validation (operates on the normalized model)        *
    * ------------------------------------------------------------------ */
   function checkXmlStructure(fileName, model, diags, documentType) {
@@ -217,23 +258,40 @@
     var names = {}; // per child tag: name -> count (for uniqueName)
     var rootChildren = model.children || [];
 
+    // Best-effort line/column for root children (see rootChildLocations).
+    var positions = {};
+    var posCursor = {};
+    if (typeof model.sourceText === 'string' && model.sourceText.length) {
+      positions = rootChildLocations(model.sourceText, model.tag);
+    }
+
     for (var ci = 0; ci < rootChildren.length; ci++) {
       var child = rootChildren[ci];
       var childRule = rules.children && rules.children[child.tag];
       if (!childRule) continue;
+      var childPos = null;
+      if (positions[child.tag]) {
+        var cno = posCursor[child.tag] || 0;
+        posCursor[child.tag] = cno + 1;
+        childPos = positions[child.tag][cno] || null;
+      }
       checkChildNode(child, childRule, childRule === rules.children.type && rules.root === 'types',
-        names, diags, ci);
+        names, diags, ci, childPos);
     }
     return { supportLevel: 'basic' };
   }
 
-  function checkChildNode(child, rule, isCeType, names, diags, index) {
+  function checkChildNode(child, rule, isCeType, names, diags, index, pos) {
     var childTag = child.tag;
     var attrs = child.attrs || {};
+    function add(kind, finding) {
+      if (pos) { finding.line = pos.line; finding.column = pos.column; }
+      diags.add(kind, finding);
+    }
 
     (rule.requiredAttrs || []).forEach(function (attrName) {
       if (typeof attrs[attrName] !== 'string' || !attrs[attrName].trim()) {
-        diags.add('errors', {
+        add('errors', {
           code: 'MISSING_ATTRIBUTE',
           element: childTag,
           attribute: attrName,
@@ -245,7 +303,7 @@
     var name = attrs.name;
     if (typeof name === 'string' && name.trim()) {
       if (rule.classNames && !CLASS_NAME_RE.test(name)) {
-        diags.add('errors', {
+        add('errors', {
           code: 'BAD_CLASS_NAME',
           element: childTag,
           message: '<' + childTag + '> "' + name + '" is not a valid DayZ class name (letters, digits, underscore)'
@@ -255,7 +313,7 @@
         var key = childTag + '::' + name;
         if (Object.prototype.hasOwnProperty.call(names, key)) {
           names[key]++;
-          diags.add('errors', {
+          add('errors', {
             code: 'DUPLICATE_NAME',
             element: childTag,
             message: 'Duplicate <' + childTag + ' name="' + name + '"> (occurrence ' + names[key] + ')'
@@ -274,7 +332,7 @@
           if (sub.tag !== field) return;
           var value = parseFiniteNumber(sub.text);
           if (value === null) {
-            diags.add('errors', {
+            add('errors', {
               code: 'INVALID_NUMBER',
               element: childTag,
               field: field,
@@ -284,7 +342,7 @@
           }
           values[field] = value;
           if (value < 0 && !(field === 'quantmin' || field === 'quantmax') && value !== -1) {
-            diags.add('warnings', {
+            add('warnings', {
               code: 'NEGATIVE_VALUE',
               element: childTag,
               message: '<' + childTag + '> "' + name + '" has negative <' + field + '>: ' + value
@@ -293,7 +351,7 @@
         });
       });
       if (values.nominal > 0 && values.min > values.nominal) {
-        diags.add('warnings', {
+        add('warnings', {
           code: 'MIN_GREATER_THAN_NOMINAL',
           element: childTag,
           message: '<type> "' + name + '": min (' + values.min + ') is greater than nominal (' + values.nominal + ')'
@@ -301,7 +359,7 @@
       }
       if (values.quantmin !== undefined && values.quantmax !== undefined &&
           values.quantmin !== -1 && values.quantmax !== -1 && values.quantmin > values.quantmax) {
-        diags.add('warnings', {
+        add('warnings', {
           code: 'QUANTMIN_GREATER_THAN_QUANTMAX',
           element: childTag,
           message: '<type> "' + name + '": quantmin (' + values.quantmin + ') is greater than quantmax (' + values.quantmax + ')'
@@ -313,7 +371,7 @@
     if (rule.coordChild) {
       var positions = (child.children || []).filter(function (sub) { return sub.tag === rule.coordChild; });
       if (positions.length === 0) {
-        diags.add('warnings', {
+        add('warnings', {
           code: 'NO_POSITIONS',
           element: childTag,
           message: '<' + childTag + '> "' + name + '" has no <' + rule.coordChild + '> entries'
@@ -323,7 +381,7 @@
         var px = parseFiniteNumber(pos.attrs.x);
         var pz = parseFiniteNumber(pos.attrs.z);
         if (px === null || pz === null) {
-          diags.add('errors', {
+          add('errors', {
             code: 'INVALID_COORDINATES',
             element: childTag,
             message: '<' + childTag + '> "' + name + '" position ' + (posIndex + 1) + ' has invalid x/z coordinates'
@@ -332,7 +390,7 @@
         }
         var a = pos.attrs.a;
         if (a !== undefined && parseFiniteNumber(a) === null) {
-          diags.add('errors', {
+          add('errors', {
             code: 'INVALID_COORDINATES',
             element: childTag,
             message: '<' + childTag + '> "' + name + '" position ' + (posIndex + 1) + ' has invalid angle a="' + a + '"'
@@ -347,7 +405,7 @@
         var lootmin = parseFiniteNumber(sub.attrs.lootmin);
         var lootmax = parseFiniteNumber(sub.attrs.lootmax);
         if (lootmin !== null && lootmax !== null && lootmin > lootmax) {
-          diags.add('warnings', {
+          add('warnings', {
             code: 'LOOTMIN_GREATER_THAN_LOOTMAX',
             element: 'child',
             message: 'Group "' + name + '" child ' + (si + 1) + ' (' + sub.attrs.type + '): lootmin (' + lootmin + ') > lootmax (' + lootmax + ')'
@@ -357,7 +415,7 @@
           var raw = sub.attrs[axis];
           if (raw === undefined) return;
           if (parseFiniteNumber(raw) === null) {
-            diags.add('errors', {
+            add('errors', {
               code: 'INVALID_COORDINATES',
               element: 'child',
               message: 'Group "' + name + '" child ' + (si + 1) + ' has invalid ' + axis + '="' + raw + '"'
@@ -370,14 +428,14 @@
     // globals.xml variables
     if (rule.dayzVarTypes) {
       if (attrs.type && rule.dayzVarTypes.indexOf(attrs.type) === -1) {
-        diags.add('warnings', {
+        add('warnings', {
           code: 'UNUSUAL_TYPE',
           element: 'var',
           message: '<var> "' + name + '" has unusual type: ' + attrs.type
         });
       }
       if (attrs.value && Number(attrs.value) !== 0 && !isFiniteNumber(attrs.value)) {
-        diags.add('warnings', {
+        add('warnings', {
           code: 'NON_NUMERIC_VALUE',
           element: 'var',
           message: '<var> "' + name + '" has non-numeric value: "' + attrs.value + '"'
@@ -723,21 +781,39 @@
       return report;
     }
     var seen = {};
+    // Best-effort locations for depth-1 event/group elements (see rootChildLocations).
+    var positions = {};
+    var posCursor = {};
+    if (typeof model.sourceText === 'string' && model.sourceText.length) {
+      positions = rootChildLocations(model.sourceText, model.tag);
+    }
     model.children.forEach(function (node, idx) {
       var tag = isSpawns ? 'event' : 'group';
       if (node.tag !== tag) return;
+      var nodePos = null;
+      if (positions[tag]) {
+        var cno = posCursor[tag] || 0;
+        posCursor[tag] = cno + 1;
+        nodePos = positions[tag][cno] || null;
+      }
       var name = node.attrs.name;
       if (typeof name !== 'string' || !name.trim()) {
-        diags.add('errors', { code: 'MISSING_NAME', element: tag, message: '<' + tag + '> #' + (idx + 1) + ' has no name attribute' });
+        var f1 = { code: 'MISSING_NAME', element: tag, message: '<' + tag + '> #' + (idx + 1) + ' has no name attribute' };
+        if (nodePos) { f1.line = nodePos.line; f1.column = nodePos.column; }
+        diags.add('errors', f1);
         return;
       }
       if (seen[name]) {
-        diags.add('errors', { code: 'DUPLICATE_EVENT_NAME', element: tag, message: 'Duplicate ' + (isSpawns ? 'event' : 'group') + ' name "' + name + '" — the engine keys ' + tag + 's by name; the second definition shadows the first' });
+        var f2 = { code: 'DUPLICATE_EVENT_NAME', element: tag, message: 'Duplicate ' + (isSpawns ? 'event' : 'group') + ' name "' + name + '" — the engine keys ' + tag + 's by name; the second definition shadows the first' };
+        if (nodePos) { f2.line = nodePos.line; f2.column = nodePos.column; }
+        diags.add('errors', f2);
       } else {
         seen[name] = true;
       }
       if (!CLASS_NAME_RE.test(name)) {
-        diags.add('errors', { code: 'BAD_CLASS_NAME', element: tag, message: '"' + name + '" is not a valid DayZ class name' });
+        var f3 = { code: 'BAD_CLASS_NAME', element: tag, message: '"' + name + '" is not a valid DayZ class name' };
+        if (nodePos) { f3.line = nodePos.line; f3.column = nodePos.column; }
+        diags.add('errors', f3);
       }
       // World-position bounds: spawns carry absolute <pos x z a>;
       // group positions live in the adjacent <!--pos x z a y group--> comment.
@@ -746,12 +822,16 @@
           var x = parseFiniteNumber(pos.attrs.x);
           var z = parseFiniteNumber(pos.attrs.z);
           if (x === null || z === null) {
-            diags.add('errors', { code: 'INVALID_COORDINATES', element: 'pos', message: 'Event "' + name + '" pos #' + (pi + 1) + ': x/z must be finite numbers (got x="' + pos.attrs.x + '", z="' + pos.attrs.z + '")' });
+            var f4 = { code: 'INVALID_COORDINATES', element: 'pos', message: 'Event "' + name + '" pos #' + (pi + 1) + ': x/z must be finite numbers (got x="' + pos.attrs.x + '", z="' + pos.attrs.z + '")' };
+            if (nodePos) { f4.line = nodePos.line; f4.column = nodePos.column; }
+            diags.add('errors', f4);
             return;
           }
           var bounds = checkMapBounds(x, z, mapId);
           if (!bounds.ok) {
-            diags.add('warnings', { code: 'OUT_OF_MAP_BOUNDS', element: 'pos', message: 'Event "' + name + '" pos #' + (pi + 1) + ' (' + x + ', ' + z + ') is outside ' + mapId + ' (' + bounds.mapSize + 'x' + bounds.mapSize + ' m)' });
+            var f5 = { code: 'OUT_OF_MAP_BOUNDS', element: 'pos', message: 'Event "' + name + '" pos #' + (pi + 1) + ' (' + x + ', ' + z + ') is outside ' + mapId + ' (' + bounds.mapSize + 'x' + bounds.mapSize + ' m)' };
+            if (nodePos) { f5.line = nodePos.line; f5.column = nodePos.column; }
+            diags.add('warnings', f5);
           }
         });
       }
@@ -767,18 +847,19 @@
         var gname = m[5];
         var gx = parseFiniteNumber(m[1]);
         var gz = parseFiniteNumber(m[2]);
+        var cPos = offsetToLineCol(sourceText, m.index);
         if (gx === null || gz === null) {
-          diags.add('errors', { code: 'INVALID_COORDINATES', element: 'group', message: 'Group "' + gname + '": position comment has invalid x/z' });
+          diags.add('errors', { code: 'INVALID_COORDINATES', element: 'group', line: cPos.line, column: cPos.column, message: 'Group "' + gname + '": position comment has invalid x/z' });
           continue;
         }
         if (commentSeen[gname]) {
-          diags.add('warnings', { code: 'DUPLICATE_EVENT_NAME', element: 'group', message: 'Group "' + gname + '" has multiple position comments' });
+          diags.add('warnings', { code: 'DUPLICATE_EVENT_NAME', element: 'group', line: cPos.line, column: cPos.column, message: 'Group "' + gname + '" has multiple position comments' });
         } else {
           commentSeen[gname] = true;
         }
         var bounds = checkMapBounds(gx, gz, mapId);
         if (!bounds.ok) {
-          diags.add('warnings', { code: 'OUT_OF_MAP_BOUNDS', element: 'group', message: 'Group "' + gname + '" sits at (' + gx + ', ' + gz + '), outside ' + mapId + ' (' + bounds.mapSize + ' m)' });
+          diags.add('warnings', { code: 'OUT_OF_MAP_BOUNDS', element: 'group', line: cPos.line, column: cPos.column, message: 'Group "' + gname + '" sits at (' + gx + ', ' + gz + '), outside ' + mapId + ' (' + bounds.mapSize + ' m)' });
         }
       }
       // Groups declared but with no position comment cannot be placed by the engine.
@@ -957,6 +1038,7 @@
     MAP_BOUNDS: MAP_BOUNDS,
     mapIdFromMissionName: mapIdFromMissionName,
     classify: classify,
+    rootChildLocations: rootChildLocations,
     validateXml: validateXml,
     validateJson: validateJson,
     validateInitC: validateInitC,

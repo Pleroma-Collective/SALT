@@ -187,6 +187,7 @@ function toggleRentalRestarts() {
 }
 
 function toggleEventConfig() {
+  loadTerritorySpecies();
   const method  = document.getElementById('item-spawn-method').value;
   const isEvent = method === 'event';
   const isObjectSpawner = method === 'custom_json';
@@ -274,6 +275,14 @@ function readEventConfig() {
     objectSpawnerComponents = JSON.parse(objectComponentsText);
     if (!Array.isArray(objectSpawnerComponents)) throw new Error('Companion Object Spawner entries must be a JSON array.');
   }
+  const territorySpecies = document.getElementById('ec-territory-species').value.trim();
+  const territoryFile = document.getElementById('ec-territory-file').value.trim();
+  const territory = (territorySpecies || territoryFile) ? {
+    species: territorySpecies,
+    file: territoryFile,
+    radius: parseFloat(document.getElementById('ec-territory-radius').value),
+    color: document.getElementById('ec-territory-color').value.trim() || null,
+  } : null;
   return {
     prefix:         document.getElementById('ec-prefix').value,
     nominal:        parseInt(document.getElementById('ec-nominal').value, 10)        || 99,
@@ -304,7 +313,31 @@ function readEventConfig() {
     eventGroupChildren: eventGroupChildren,
     effectAreaComponents: effectAreaComponents,
     objectSpawnerComponents: objectSpawnerComponents,
+    territory: territory,
   };
+}
+
+/** Load the server's Herd species into the territory species suggestions. */
+let territorySpeciesLoadedFor = null;
+async function loadTerritorySpecies() {
+  const serverId = currentServerId;
+  const datalist = document.getElementById('territory-species-options');
+  if (!datalist || !serverId || territorySpeciesLoadedFor === serverId) return;
+  try {
+    const res = await fetch('/api/shop/admin/environment-species/' + serverId);
+    if (!res.ok) return;
+    const json = await res.json();
+    if (currentServerId !== serverId) return;
+    datalist.replaceChildren();
+    for (const entry of json.data || []) {
+      const option = document.createElement('option');
+      option.value = entry.name;
+      datalist.appendChild(option);
+    }
+    territorySpeciesLoadedFor = serverId;
+  } catch (err) {
+    console.warn('loadTerritorySpecies:', err);
+  }
 }
 
 /** Populate event config fields from a stored event_config object. */
@@ -345,6 +378,11 @@ function writeEventConfig(cfg) {
   document.getElementById('ec-object-components-json').value = Array.isArray(cfg.objectSpawnerComponents)
     ? JSON.stringify(cfg.objectSpawnerComponents, null, 2)
     : '';
+  const territory = cfg.territory || {};
+  document.getElementById('ec-territory-species').value = territory.species || '';
+  document.getElementById('ec-territory-file').value = territory.file || '';
+  document.getElementById('ec-territory-radius').value = territory.radius == null ? '' : territory.radius;
+  document.getElementById('ec-territory-color').value = territory.color || '';
 }
 
 function readCapabilityConfig() {
@@ -653,6 +691,13 @@ async function saveItem() {
     if (spawnMethod === 'capability') capabilityConfig = readCapabilityConfig();
   } catch (error) {
     alert('Product configuration error: ' + error.message);
+    return;
+  }
+
+  if (spawnMethod === 'event' &&
+      ((eventConfig.effectAreaComponents || []).length || (eventConfig.objectSpawnerComponents || []).length) &&
+      !document.getElementById('ec-companion-ack').checked) {
+    alert('Companion cfgEffectArea / Object Spawner entries are set on this event. Tick the acknowledgement checkbox to save them.');
     return;
   }
 

@@ -1,0 +1,483 @@
+/* ============================================================================
+ * DayZ Dashboard — shared component kit (UI consistency pass)
+ * ----------------------------------------------------------------------------
+ * One visual language for every surface: dashboard, admin, public, tools.
+ * Every value comes from the --dzc-* design tokens (theme.css); nothing here
+ * pins a raw color, so the kit renders correctly under all 5 base themes and
+ * the per-guild accent override (injected on :root:root, which beats this
+ * file's :root-level rules) without name-based logic.
+ *
+ * Canonical classes — use these in new markup:
+ *   .dzc-page          page background/text
+ *   .dzc-card          panel (padding via tailwind p-*)
+ *   .dzc-input         input/select/textarea (also aliased .form-input /
+ *                      .form-select for older pages)
+ *   .dzc-btn           quiet secondary button; .is-primary filled action,
+ *                      .is-danger quiet danger, .is-danger-solid filled
+ *                      danger, .is-warn, .is-stat, .dzc-btn--lg for page
+ *                      CTAs
+ *   .dzc-table-wrap / .dzc-table / .dzc-row / .dzc-num / .dzc-sort
+ *   .dzc-badge         status badge (+ .is-danger / .is-warn)
+ *   .dzc-empty         empty-state block (theme.css)
+ *   .dzc-muted / .dzc-faint / .dzc-danger / .dzc-warn / .dzc-info
+ *
+ * This file must load AFTER tailwind.css (see legacy bridge below). The
+ * shell's layout chrome (sidebar, topbar, nav, pills) stays in shell.css.
+ * ========================================================================== */
+
+/* -- Keyboard focus (card t_6cca8223) ----------------------------------------
+   One visible :focus-visible ring on every interactive element not covered by
+   a component rule below. Token-driven, so it holds under all 5 base themes
+   and per-guild accents; ties lose to the kit component rules later in this
+   file, to shell.css's shell-content rule, and to theme.css's high-contrast
+   3px ring (loaded after this file). Elements styled with tailwind
+   focus:outline-none keep their own ring/border change, which is visible. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible,
+[role="button"]:focus-visible,
+[role="menuitem"]:focus-visible,
+[role="menuitemradio"]:focus-visible,
+[role="option"]:focus-visible,
+[role="switch"]:focus-visible {
+  outline: 2px solid var(--dzc-accent);
+  outline-offset: 2px;
+}
+
+/* -- Page + shared quiet chrome -------------------------------------------- */
+.dzc-page { background: var(--dzc-bg); color: var(--dzc-text); min-height: 100vh; }
+
+.dzc-card {
+  background: var(--dzc-surface);
+  border: 1px solid var(--dzc-border);
+  border-radius: var(--dzc-radius-md);
+}
+.dzc-card.is-clickable { cursor: pointer; transition: border-color 0.15s; }
+.dzc-card.is-clickable:hover { border-color: var(--dzc-border-strong); }
+
+.dzc-input, .form-input, .form-select {
+  background: var(--dzc-surface-2);
+  border: 1px solid var(--dzc-border);
+  border-radius: var(--dzc-radius-sm);
+  color: var(--dzc-text);
+  font-size: 13px;
+  padding: 5px 10px;
+}
+.dzc-input::placeholder, .form-input::placeholder { color: var(--dzc-text-faint); }
+.dzc-input:focus-visible, .form-input:focus, .form-select:focus {
+  outline: 2px solid var(--dzc-accent);
+  outline-offset: 1px;
+}
+
+.dzc-note-warn {
+  border: 1px solid color-mix(in srgb, var(--dzc-warning) 40%, var(--dzc-border));
+  background: color-mix(in srgb, var(--dzc-warning) 8%, transparent);
+  border-radius: var(--dzc-radius-sm);
+}
+
+.dzc-visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Text tokens (utility-grade) */
+.dzc-muted { color: var(--dzc-text-muted); font-size: 12px; }
+.dzc-faint { color: var(--dzc-text-faint); }
+.dzc-danger { color: var(--dzc-danger); }
+.dzc-warn { color: var(--dzc-warning); }
+.dzc-info { color: var(--dzc-info); }
+
+/* -- Buttons ---------------------------------------------------------------- */
+/* Quiet secondary (default). Row actions and inline controls use this. */
+.dzc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid var(--dzc-border);
+  border-radius: var(--dzc-radius-sm);
+  background: var(--dzc-surface-2);
+  color: var(--dzc-text-muted);
+  font-size: 12px;
+  line-height: 1.3;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.dzc-btn:hover { color: var(--dzc-text); border-color: var(--dzc-border-strong); }
+.dzc-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.dzc-btn:focus-visible { outline: 2px solid var(--dzc-accent); outline-offset: 2px; }
+
+/* Page-level CTA size (primary actions at the top/bottom of a page). */
+.dzc-btn--lg { padding: 8px 16px; font-size: 14px; border-radius: var(--dzc-radius-md); }
+
+/* Filled primary action — the act token (phosphor family). */
+.dzc-btn.is-primary {
+  background: var(--dzc-stat);
+  border-color: var(--dzc-stat);
+  color: var(--dzc-accent-contrast);
+  font-weight: 600;
+}
+.dzc-btn.is-primary:hover { background: var(--dzc-stat-dim); color: var(--dzc-accent-contrast); }
+
+.dzc-btn.is-danger {
+  color: var(--dzc-danger);
+  border-color: color-mix(in srgb, var(--dzc-danger) 45%, var(--dzc-border));
+}
+.dzc-btn.is-danger:hover {
+  background: color-mix(in srgb, var(--dzc-danger) 12%, var(--dzc-surface));
+  color: var(--dzc-danger);
+}
+
+/* Filled destructive CTA. */
+.dzc-btn.is-danger-solid {
+  background: var(--dzc-danger);
+  border-color: var(--dzc-danger);
+  color: #fff;
+  font-weight: 600;
+}
+.dzc-btn.is-danger-solid:hover {
+  background: color-mix(in srgb, var(--dzc-danger) 82%, #000 18%);
+  color: #fff;
+}
+
+.dzc-btn.is-warn {
+  color: var(--dzc-warning);
+  border-color: color-mix(in srgb, var(--dzc-warning) 45%, var(--dzc-border));
+}
+.dzc-btn.is-warn:hover {
+  background: color-mix(in srgb, var(--dzc-warning) 12%, var(--dzc-surface));
+  color: var(--dzc-warning);
+}
+
+.dzc-btn.is-stat {
+  color: var(--dzc-stat);
+  border-color: color-mix(in srgb, var(--dzc-stat) 45%, var(--dzc-border));
+}
+.dzc-btn.is-stat:hover {
+  background: color-mix(in srgb, var(--dzc-stat) 12%, var(--dzc-surface));
+  color: var(--dzc-stat);
+}
+
+/* -- Table ------------------------------------------------------------------- */
+.dzc-table-wrap {
+  background: var(--dzc-surface);
+  border: 1px solid var(--dzc-border);
+  border-radius: var(--dzc-radius-md);
+  overflow: hidden;
+}
+.dzc-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.dzc-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--dzc-surface-2);
+  border-bottom: 1px solid var(--dzc-border-strong);
+  padding: 8px 9px; /* dense but breathable: 8–9px cell padding */
+  text-align: left;
+  white-space: nowrap;
+  color: var(--dzc-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Sortable columns: the <button> carries the interaction + keyboard focus;
+ * the <th> carries aria-sort so assistive tech reads the column state. */
+.dzc-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.dzc-sort:hover { color: var(--dzc-text); }
+.dzc-sort:focus-visible { outline: 2px solid var(--dzc-accent); outline-offset: 2px; }
+.dzc-sort-dir { font-size: 10px; color: var(--dzc-text-faint); }
+.dzc-table th[aria-sort='ascending'] .dzc-sort,
+.dzc-table th[aria-sort='descending'] .dzc-sort { color: var(--dzc-text); }
+
+.dzc-table tbody td {
+  padding: 8px 9px;
+  border-bottom: 1px solid var(--dzc-border);
+  color: var(--dzc-text);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.dzc-table tbody tr:last-child td { border-bottom: 0; }
+.dzc-table tbody tr { transition: background-color 0.1s ease; }
+.dzc-table tbody tr.dzc-row:hover { background: var(--dzc-surface-2); }
+.dzc-table tbody tr.dzc-row.is-alt-row:hover {
+  background: color-mix(in srgb, var(--dzc-danger) 8%, var(--dzc-surface-2));
+}
+.dzc-table tbody tr.dzc-row.is-selected,
+.dzc-table tbody tr.dzc-row.is-selected:hover { background: var(--dzc-accent-soft); }
+.dzc-table tbody tr.dzc-row.is-selected td:first-child {
+  box-shadow: inset 2px 0 0 var(--dzc-accent);
+}
+
+/* Right-aligned tabular numerics; muted secondary columns. */
+.dzc-num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Loading / empty / error rows (single full-width row, rendered by the page
+ * script; .is-error for failure states). */
+.dzc-state-row td {
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--dzc-text-muted);
+  font-size: 13px;
+  white-space: normal;
+}
+.dzc-state-row.is-error td { color: var(--dzc-danger); }
+
+/* Loading spinner — the kit's real "in progress" indicator. Pairs with
+ * .dzc-empty (a loading state is a .dzc-empty whose icon is the spinner). */
+.dzc-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid color-mix(in srgb, var(--dzc-text-muted) 30%, transparent);
+  border-top-color: var(--dzc-accent);
+  border-radius: 50%;
+  animation: dzc-spin .8s linear infinite;
+}
+@keyframes dzc-spin { to { transform: rotate(1turn); } }
+@media (prefers-reduced-motion: reduce) { .dzc-spinner { animation: none; } }
+
+/* Badges (platform, ALT, review confidence). */
+.dzc-badge {
+  display: inline-block;
+  background: var(--dzc-surface-3);
+  color: var(--dzc-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 1px 5px;
+  border-radius: var(--dzc-radius-sm);
+}
+.dzc-badge.is-danger {
+  background: color-mix(in srgb, var(--dzc-danger) 16%, transparent);
+  color: var(--dzc-danger);
+}
+.dzc-badge.is-warn {
+  background: color-mix(in srgb, var(--dzc-warning) 18%, transparent);
+  color: var(--dzc-warning);
+}
+
+/* Row actions (quiet, right-aligned). */
+.dzc-row-actions { display: inline-flex; gap: 4px; justify-content: flex-end; }
+
+/* Pagination footer: showing X of Y · page controls · freshness. */
+.dzc-table-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--dzc-border);
+  background: var(--dzc-surface);
+  font-size: 12px;
+  color: var(--dzc-text-muted);
+}
+.dzc-page-ind { font-variant-numeric: tabular-nums; color: var(--dzc-text); }
+.dzc-freshness {
+  margin-left: auto;
+  color: var(--dzc-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* List entries (whitelist / banlist / priority panel items). */
+.dzc-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 8px;
+  border: 1px solid var(--dzc-border);
+  border-radius: var(--dzc-radius-sm);
+  background: var(--dzc-surface-2);
+  font-size: 12px;
+}
+.dzc-list-item.is-whitelist {
+  border-color: color-mix(in srgb, var(--dzc-stat) 40%, var(--dzc-border));
+}
+.dzc-list-item.is-blacklist {
+  border-color: color-mix(in srgb, var(--dzc-danger) 40%, var(--dzc-border));
+}
+.dzc-list-item.is-prioritylist {
+  border-color: color-mix(in srgb, var(--dzc-warning) 40%, var(--dzc-border));
+}
+.dzc-list-remove {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: var(--dzc-text-faint);
+  font: inherit;
+  line-height: 1;
+}
+.dzc-list-remove:hover { color: var(--dzc-danger); }
+
+/* High-contrast: thicken structural borders. */
+html[data-theme='high-contrast'] .dzc-table-wrap,
+html[data-theme='high-contrast'] .dzc-table thead th,
+html[data-theme='high-contrast'] .dzc-table tbody td,
+html[data-theme='high-contrast'] .dzc-btn,
+html[data-theme='high-contrast'] .dzc-input,
+html[data-theme='high-contrast'] .dzc-card {
+  border-width: 2px;
+}
+
+/* -- Mobile: stacked card rows (≤640px) -------------------------------------- */
+@media (max-width: 640px) {
+  .dzc-table thead { display: none; }
+  .dzc-table,
+  .dzc-table tbody,
+  .dzc-table tr,
+  .dzc-table td { display: block; }
+  .dzc-table tbody tr.dzc-row {
+    border: 1px solid var(--dzc-border);
+    border-radius: var(--dzc-radius-md);
+    margin: 8px 8px 0;
+    background: var(--dzc-surface);
+  }
+  .dzc-table tbody tr.dzc-row:last-child { margin-bottom: 8px; }
+  .dzc-table tbody tr.dzc-row td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid var(--dzc-border);
+    padding: 6px 12px;
+    text-align: right;
+    white-space: normal;
+  }
+  .dzc-table tbody tr.dzc-row td:last-child { border-bottom: 0; }
+  .dzc-table tbody tr.dzc-row td[data-label]::before {
+    content: attr(data-label);
+    /* muted (not faint): faint fails WCAG AA on light-theme surfaces at 11px */
+    color: var(--dzc-text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    flex: 0 0 auto;
+    text-align: left;
+  }
+}
+
+/* ============================================================================
+ * Legacy bridge — recurring pre-kit Tailwind class combos, restyled with the
+ * same token values so every page reads as one product without rewriting
+ * existing markup (including page scripts that build rows dynamically).
+ * Target: drop these rules as pages/scripts migrate to the dzc-* classes.
+ * Requires loading AFTER tailwind.css (specificity is also on our side for
+ * the element-qualified rules).
+ * ========================================================================== */
+
+/* Page background (body and full-page containers were pinned dark-gray). */
+[class~="bg-gray-900"], body[class~="bg-gray-950"] {
+  background-color: var(--dzc-bg);
+}
+body[class~="text-white"], body[class~="text-gray-100"] { color: var(--dzc-text); }
+
+/* Panels: the recurring bg-gray-800 (± border/shadow) card. */
+[class~="bg-gray-800"] {
+  background-color: var(--dzc-surface);
+  border-color: var(--dzc-border);
+}
+/* Inner panels / table headers / icon tiles: recurring bg-gray-700 / -600
+ * fills on non-interactive elements. */
+[class~="bg-gray-700"]:not(button):not(input):not(select):not(textarea),
+[class~="bg-gray-600"]:not(button):not(input):not(select):not(textarea) {
+  background-color: var(--dzc-surface-2);
+  border-color: var(--dzc-border);
+}
+
+/* Quiet secondary buttons (the recurring gray-700/600 fills). */
+button[class~="bg-gray-700"],
+button[class~="bg-gray-600"] {
+  background: var(--dzc-surface-2);
+  border: 1px solid var(--dzc-border);
+  color: var(--dzc-text-muted);
+  border-radius: var(--dzc-radius-sm);
+}
+button[class~="bg-gray-700"]:hover,
+button[class~="bg-gray-600"]:hover {
+  color: var(--dzc-text);
+  border-color: var(--dzc-border-strong);
+}
+button[class~="bg-gray-700"]:disabled,
+button[class~="bg-gray-600"]:disabled { opacity: 0.45; }
+
+/* Filled primary CTAs — one primary look, whatever gray/hue they shipped as.
+ * <a> included: several pages ship action links, not buttons. */
+button[class~="bg-green-600"], button[class~="bg-green-700"], a[class~="bg-green-600"], a[class~="bg-green-700"],
+button[class~="bg-blue-600"], button[class~="bg-blue-700"], a[class~="bg-blue-600"], a[class~="bg-blue-700"],
+button[class~="bg-purple-600"], button[class~="bg-purple-700"], a[class~="bg-purple-600"], a[class~="bg-purple-700"],
+button[class~="bg-orange-600"], button[class~="bg-orange-700"], a[class~="bg-orange-600"], a[class~="bg-orange-700"],
+button[class~="bg-yellow-600"], button[class~="bg-yellow-700"], a[class~="bg-yellow-600"], a[class~="bg-yellow-700"],
+button[class~="bg-indigo-600"], button[class~="bg-teal-600"] {
+  background: var(--dzc-stat);
+  border: 1px solid var(--dzc-stat);
+  color: var(--dzc-accent-contrast);
+}
+button[class~="bg-green-600"]:hover, button[class~="bg-green-700"]:hover,
+a[class~="bg-green-600"]:hover, a[class~="bg-green-700"]:hover,
+button[class~="bg-blue-600"]:hover, button[class~="bg-blue-700"]:hover,
+a[class~="bg-blue-600"]:hover, a[class~="bg-blue-700"]:hover,
+button[class~="bg-purple-600"]:hover, button[class~="bg-purple-700"]:hover,
+a[class~="bg-purple-600"]:hover, a[class~="bg-purple-700"]:hover,
+button[class~="bg-orange-600"]:hover, button[class~="bg-orange-700"]:hover,
+a[class~="bg-orange-600"]:hover, a[class~="bg-orange-700"]:hover,
+button[class~="bg-yellow-600"]:hover, button[class~="bg-yellow-700"]:hover,
+a[class~="bg-yellow-600"]:hover, a[class~="bg-yellow-700"]:hover,
+button[class~="bg-indigo-600"]:hover, button[class~="bg-teal-600"]:hover {
+  background: var(--dzc-stat-dim);
+  color: var(--dzc-accent-contrast);
+}
+
+/* Filled destructive CTAs. */
+button[class~="bg-red-600"], button[class~="bg-red-700"], a[class~="bg-red-600"] {
+  background: var(--dzc-danger);
+  border: 1px solid var(--dzc-danger);
+  color: #fff;
+}
+button[class~="bg-red-600"]:hover, button[class~="bg-red-700"]:hover {
+  background: color-mix(in srgb, var(--dzc-danger) 82%, #000 18%);
+  color: #fff;
+}
+
+/* Form fields: the recurring bg-gray-700 input fills (gray-600 variants too). */
+input[class~="bg-gray-700"], input[class~="bg-gray-600"],
+select[class~="bg-gray-700"], select[class~="bg-gray-600"],
+textarea[class~="bg-gray-700"], textarea[class~="bg-gray-600"] {
+  background: var(--dzc-surface-2);
+  border: 1px solid var(--dzc-border);
+  color: var(--dzc-text);
+}
+input[class~="bg-gray-700"]:focus, input[class~="bg-gray-600"]:focus,
+select[class~="bg-gray-700"]:focus, select[class~="bg-gray-600"]:focus,
+textarea[class~="bg-gray-700"]:focus, textarea[class~="bg-gray-600"]:focus {
+  border-color: var(--dzc-accent);
+  outline: 2px solid var(--dzc-accent);
+  outline-offset: 1px;
+  /* replace the per-page focus rings (blue/purple/orange) with the shared one */
+  --tw-ring-shadow: 0 0 0 0 #0000;
+}

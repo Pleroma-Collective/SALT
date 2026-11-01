@@ -6,6 +6,7 @@
   <title>Server Map - DayZ Dashboard</title>
   <link rel="stylesheet" href="/css/theme.css">
   <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="/css/components.css">
   <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
   <script src="/vendor/leaflet/leaflet.js"></script>
   <script src="/vendor/leaflet/leaflet-heat.js"></script>
@@ -202,6 +203,33 @@
       flex: 0 0 auto;
     }
 
+    /* ── Spawn filter rail (P0-C) ──────────────────────────────────────── */
+    .rail-toggle-all {
+      margin-left: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--dzc-text-muted);
+      cursor: pointer;
+    }
+    .rail-toggle-all input { accent-color: var(--dzc-accent); cursor: pointer; }
+    .rail-count {
+      color: var(--dzc-text-faint);
+      font-size: 11px;
+      margin-left: auto;
+    }
+    .rail-density {
+      display: flex;
+      gap: 10px;
+      margin: 2px 0 6px 20px;
+      font-size: 11px;
+      color: var(--dzc-text-muted);
+    }
+    .rail-density label { display: inline-flex; align-items: center; gap: 3px; cursor: pointer; }
+    .rail-density input { accent-color: var(--dzc-accent); cursor: pointer; }
+
     /* ── Buttons ──────────────────────────────────────────────────────── */
     .btn-small {
       padding: 6px 12px;
@@ -338,6 +366,76 @@
     .map-fab:hover { border-color: var(--dzc-accent); }
     .map-fab:focus-visible { outline: 2px solid var(--dzc-accent); outline-offset: 2px; }
 
+    /* ── Loot Finder layer (merged from the former /loot-finder page) ──── */
+    .tier-badge-Tier1 { background: #10b981; color: #fff; }
+    .tier-badge-Tier2 { background: #3b82f6; color: #fff; }
+    .tier-badge-Tier3 { background: #f97316; color: #fff; }
+    .tier-badge-Tier4 { background: #ef4444; color: #fff; }
+    .loot-result-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 8px 0 4px;
+      font-size: 12px;
+      color: var(--dzc-text-muted);
+    }
+    .loot-list { max-height: 220px; overflow-y: auto; margin-top: 8px; }
+    .loot-empty { padding: 16px 8px; text-align: center; font-size: 12px; color: var(--dzc-text-faint); }
+    .loot-item-card {
+      padding: 8px;
+      margin-bottom: 4px;
+      background: var(--dzc-surface-2);
+      border: 1px solid transparent;
+      border-radius: var(--dzc-radius-sm);
+      cursor: pointer;
+      color: var(--dzc-text);
+      font-size: 13px;
+    }
+    .loot-item-card:hover { background: var(--dzc-surface-3); }
+    .loot-item-card.is-selected { background: var(--dzc-surface-3); border-color: var(--dzc-accent); }
+    .loot-item-detail { margin-top: 10px; font-size: 13px; color: var(--dzc-text); }
+    .loot-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
+    .loot-detail-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--dzc-text-faint);
+    }
+    .loot-detail-error { margin-top: 8px; font-size: 12px; color: var(--dzc-danger); }
+    .loot-live-block { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--dzc-border); }
+    .loot-live-meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      font-size: 11px;
+      color: var(--dzc-text-muted);
+    }
+    .loot-live-bar { height: 14px; border-radius: var(--dzc-radius-sm); background: var(--dzc-surface-3); overflow: hidden; margin: 6px 0 2px; }
+    .loot-live-bar-fill { height: 100%; background: #10b981; transition: width 0.5s ease; }
+    .loot-live-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+    .loot-live-table th {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--dzc-text-faint);
+      text-align: left;
+      padding: 4px 6px;
+      border-bottom: 1px solid var(--dzc-border);
+    }
+    .loot-live-cell { padding: 4px 6px; border-bottom: 1px solid var(--dzc-border); }
+    .loot-live-empty { padding: 12px; text-align: center; font-size: 12px; color: var(--dzc-text-faint); }
+    .loot-live-feed { max-height: 160px; overflow-y: auto; margin-top: 8px; font-size: 12px; }
+    .loot-live-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 3px 4px;
+      border-bottom: 1px solid var(--dzc-border);
+    }
+
     /* ── Destination preview (kept from B1.3; moved to top-right so the
           docked panel owns the left edge) ─────────────────────────────── */
     #destination-preview-panel {
@@ -391,9 +489,10 @@
   <script src="/js/instance-config.js" defer></script>
 </head>
 <body>
+  <h1 class="dzc-visually-hidden">Map</h1>
   <!-- Map stage: the shell's main content area is the map viewport. -->
   <div id="map-container" class="map-stage">
-    <div id="map" class="rounded-lg shadow-lg"></div>
+    <div id="map" class="rounded-lg shadow-lg" role="img" aria-label="DayZ map"></div>
 
     <!-- B1.3: destination mini-map preview (uses public/maps tiles via destination-preview.js) -->
     <div id="destination-preview-panel" class="absolute z-[1001] rounded-lg p-3 shadow-lg" style="display:none; width: 268px;">
@@ -414,6 +513,20 @@
         <button id="map-panel-collapse" class="map-icon-btn" type="button" aria-label="Collapse controls panel" title="Collapse controls">‹</button>
       </div>
       <div class="map-panel-scroll">
+        <!-- (s) Place search: named locations + raw coordinates (roadmap
+             P0-B, iZurvive pattern). City names come from the extracted
+             marker GeoJSON + CfgWorlds settlement labels. -->
+        <section class="map-section" data-section="place">
+          <button type="button" class="map-section-head" aria-expanded="true" aria-controls="map-sec-place">
+            <span>🔎 Place</span><span class="map-chev" aria-hidden="true">▼</span>
+          </button>
+          <div class="map-section-body" id="map-sec-place">
+            <label class="map-field-label" for="place-search">Search city, place, or coordinate</label>
+            <input type="text" id="place-search" class="search-box" placeholder="City, place, or east north (e.g. 6778 2321)" />
+            <div id="place-results" class="search-results"></div>
+          </div>
+        </section>
+
         <!-- (a) Server & map select -->
         <section class="map-section" data-section="server">
           <button type="button" class="map-section-head" aria-expanded="true" aria-controls="map-sec-server">
@@ -427,7 +540,7 @@
             <label class="map-field-label" for="map-select">Map</label>
             <select id="map-select" class="map-select">
               <option value="">Select Map...</option>
-              <option value="enoch" selected>Livonia</option>
+              <option value="enoch">Livonia</option>
               <option value="chernarusplus">Chernarus+</option>
               <option value="sakhal">Sakhal</option>
               <option value="nasdara">Nasdara</option>
@@ -442,8 +555,77 @@
           </div>
         </section>
 
+        <!-- (b2) Loot Finder layer (merged from the former standalone
+             /loot-finder page): item search + filters + per-item spawn
+             markers on the shared map, with an admin-only live loot feed. -->
+        <section class="map-section" data-section="lootfinder">
+          <button type="button" class="map-section-head" aria-expanded="true" aria-controls="map-sec-lootfinder">
+            <span>🔍 Loot Finder</span><span class="map-chev" aria-hidden="true">▼</span>
+          </button>
+          <div class="map-section-body" id="map-sec-lootfinder">
+            <label class="map-field-label" for="loot-search-input">Search item name</label>
+            <input type="text" id="loot-search-input" class="search-box" placeholder="Search item name…" autocomplete="off" />
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px;">
+              <div>
+                <label class="map-field-label" for="loot-filter-category">Category</label>
+                <select id="loot-filter-category" class="map-select"></select>
+              </div>
+              <div>
+                <label class="map-field-label" for="loot-filter-usage">Zone</label>
+                <select id="loot-filter-usage" class="map-select"></select>
+              </div>
+              <div>
+                <label class="map-field-label" for="loot-filter-value">Tier</label>
+                <select id="loot-filter-value" class="map-select"></select>
+              </div>
+              <div style="display:flex; align-items:flex-end;">
+                <button type="button" class="btn-small" id="loot-clear-filters">Clear filters</button>
+              </div>
+            </div>
+            <div class="loot-result-row">
+              <span id="loot-result-count" aria-live="polite"></span>
+              <div id="loot-freshness"></div>
+            </div>
+            <div id="loot-item-list" class="loot-list"></div>
+            <div id="loot-item-detail" class="loot-item-detail"></div>
+            <div style="margin-top:8px;">
+              <button type="button" class="btn-small" id="btnFitMarkers">🎯 Fit map to markers</button>
+            </div>
+            <div id="mapLegend" style="display:none; margin-top:8px; font-size:12px; color:var(--dzc-text-muted);">
+              <div style="margin-bottom:4px;">🔴 Tier 1 · <span style="color:var(--dzc-danger);">●</span> Low stock &nbsp;
+                   🟠 Tier 2 · <span style="color:#f97316;">●</span> Moderate &nbsp;
+                   🔵 Tier 3 · <span style="color:#3b82f6;">●</span> Rare &nbsp;
+                   🟢 Tier 4 · <span style="color:#10b981;">●</span> Very rare</div>
+            </div>
+            <!-- Admin-only staff economy readout. Revealed only after /api/user
+                 confirms admin; /api/loot/live enforces the same server-side. -->
+            <div class="loot-live-block" data-admin-only hidden>
+              <h3 style="font-size:13px; font-weight:700; margin:0 0 6px; color:var(--dzc-text);">Live Loot Feed (staff)</h3>
+              <div class="loot-live-meta">
+                <span id="liveRptFile"></span>
+                <span id="liveLastUpdated"></span>
+                <button type="button" class="btn-small" id="btnRefreshLive">⟳ Refresh</button>
+              </div>
+              <div>
+                <div class="loot-live-meta">
+                  <span>Economy health: <strong id="liveHealthPct">—</strong></span>
+                  <span>In-map: <span id="liveTotalInMap">—</span> · Nominal: <span id="liveTotalNominal">—</span></span>
+                </div>
+                <div class="loot-live-bar"><div id="liveHealthBar" class="loot-live-bar-fill" style="width:0%"></div></div>
+              </div>
+              <table class="loot-live-table">
+                <thead><tr><th>Item</th><th style="text-align:right;">In map</th><th style="text-align:right;">Nominal</th><th style="text-align:right;">Missing</th><th style="text-align:right;">Health</th></tr></thead>
+                <tbody id="candidateTable"></tbody>
+              </table>
+              <div id="candidateCount" class="map-fineprint" style="margin-top:6px;"></div>
+              <div id="spawnFeed" class="loot-live-feed"></div>
+              <div id="spawnEventCount" class="map-fineprint" style="margin-top:4px;"></div>
+            </div>
+          </div>
+        </section>
+
         <!-- (b) Layers: operations overlay, settlements, heatmaps + legend -->
-        <section class="map-section" data-section="layers">
+        <section class="map-section" data-section="layers" data-staff-only>
           <button type="button" class="map-section-head" aria-expanded="true" aria-controls="map-sec-layers">
             <span>🗂️ Layers</span><span class="map-chev" aria-hidden="true">▼</span>
           </button>
@@ -468,6 +650,7 @@
               <label class="filter-checkbox"><input type="checkbox" id="operations-zone-toggle" checked> Review zones</label>
               <label class="filter-checkbox"><input type="checkbox" id="operations-faction-toggle" checked> Faction markers</label>
               <label class="filter-checkbox"><input type="checkbox" id="operations-faction-territory-toggle" checked> Faction territory review</label>
+              <label class="filter-checkbox"><input type="checkbox" id="faction-war-toggle" checked> Faction war claims (flags + claimed settlements)</label>
               <label class="filter-checkbox"><input type="checkbox" id="settlement-label-toggle" checked> Settlement names (EN / Cyrillic)</label>
               <label class="filter-checkbox"><input type="checkbox" id="settlement-extent-toggle"> Illustrative settlement radii (not official boundaries)</label>
             </div>
@@ -501,7 +684,7 @@
               <div style="display:flex; gap:6px; margin-bottom:8px;">
                 <div style="flex:1;">
                   <div style="font-size:11px; color:var(--dzc-text-muted); margin-bottom:2px;">Days</div>
-                  <select id="heatmap-days" class="search-box">
+                  <select id="heatmap-days" aria-label="Days of heatmap data" class="search-box">
                     <option value="7" selected>7 days</option>
                     <option value="14">14 days</option>
                     <option value="30">30 days</option>
@@ -509,7 +692,7 @@
                 </div>
                 <div style="flex:1;">
                   <div style="font-size:11px; color:var(--dzc-text-muted); margin-bottom:2px;">Grid</div>
-                  <select id="heatmap-grid" class="search-box">
+                  <select id="heatmap-grid" aria-label="Heatmap grid size" class="search-box">
                     <option value="100">100m</option>
                     <option value="200" selected>200m</option>
                     <option value="400">400m</option>
@@ -541,13 +724,56 @@
             </label>
             <div id="movement-heatmap-status" style="font-size:11px; color:var(--dzc-text-muted); margin-left:22px;"></div>
 
+            <!-- Live recently-spawned loot (real runtime spawn data; fades with age) -->
+            <h3 class="map-subhead" style="margin-top:12px;">Live loot</h3>
+            <label class="filter-checkbox">
+              <input type="checkbox" id="recent-loot-toggle">
+              <span>🎁 Recently spawned loot (fades with age)</span>
+            </label>
+            <div id="recent-loot-controls" style="display:none; margin-top:8px; margin-left:22px;">
+              <label class="map-field-label" for="recent-loot-window" style="margin:0;">Window</label>
+              <select id="recent-loot-window" class="search-box" aria-label="Recent loot window">
+                <option value="30">30 minutes</option>
+                <option value="60" selected>1 hour</option>
+                <option value="180">3 hours</option>
+                <option value="720">12 hours</option>
+                <option value="1440">24 hours</option>
+              </select>
+            </div>
+            <div id="recent-loot-status" style="font-size:11px; color:var(--dzc-text-muted); margin-left:22px; margin-top:4px;"></div>
+
             <h3 class="map-subhead">Legend <span class="normal-case" style="letter-spacing:0;">— active layers</span></h3>
             <div id="layer-legend" class="map-legend" aria-live="polite"></div>
           </div>
         </section>
 
+        <!-- (b2) Spawn filter rail (roadmap P0-C): collapsed by default
+             (nothing on until asked). Group + item checkboxes are built in
+             map.js from the active map's markers.geojson; the Server-specific
+             group hosts the P1 holiday-event row. Enabled paths live in the
+             ?rail= URL param (map-url-state.js). -->
+        <section class="map-section" data-section="spawnfilters" data-staff-only>
+          <button type="button" class="map-section-head" aria-expanded="false" aria-controls="map-sec-spawnfilters">
+            <span>🎛️ Spawn filters</span><span class="map-chev" aria-hidden="true">▼</span>
+          </button>
+          <div class="map-section-body" id="map-sec-spawnfilters" hidden>
+            <p id="spawn-filter-status" class="map-fineprint">Nothing on until asked — enable a group below.</p>
+            <div id="spawn-filter-rail">
+              <h3 class="map-subhead"><span>🏷️ Loot tier</span><label class="rail-toggle-all"><input type="checkbox" data-rail-all="tier"> Toggle all</label></h3>
+              <div id="spawn-rail-tier-items"></div>
+              <h3 class="map-subhead"><span>📦 Category</span><label class="rail-toggle-all"><input type="checkbox" data-rail-all="cat"> Toggle all</label></h3>
+              <div id="spawn-rail-cat-items"></div>
+              <!-- Server-specific (P1 holiday-event marker windows): rendered
+                   into #holiday-event-row by renderHolidayWindowState; shown
+                   only while the active mission is a holiday pack. -->
+              <h3 class="map-subhead" id="holiday-subhead" hidden><span>📡 Server-specific</span><label class="rail-toggle-all"><input type="checkbox" data-rail-all="evt"> Toggle all</label></h3>
+              <div id="holiday-event-row" hidden></div>
+            </div>
+          </div>
+        </section>
+
         <!-- (c) Filters: event search + per-type visibility + counts -->
-        <section class="map-section" data-section="filters">
+        <section class="map-section" data-section="filters" data-staff-only>
           <button type="button" class="map-section-head" aria-expanded="true" aria-controls="map-sec-filters">
             <span>🔍 Filters</span><span class="map-chev" aria-hidden="true">▼</span>
           </button>
@@ -569,13 +795,13 @@
         </section>
 
         <!-- (d) Radius search -->
-        <section class="map-section" data-section="radius">
+        <section class="map-section" data-section="radius" data-staff-only>
           <button type="button" class="map-section-head" aria-expanded="true" aria-controls="map-sec-radius">
             <span>🎯 Radius search</span><span class="map-chev" aria-hidden="true">▼</span>
           </button>
           <div class="map-section-body" id="map-sec-radius">
             <div class="radius-controls flex gap-2 items-center">
-              <input type="number" id="radius-input" class="radius-input" value="500" min="100" step="100" placeholder="Radius" style="width: 80px;" />
+              <input type="number" id="radius-input" aria-label="Radius in meters" class="radius-input" value="500" min="100" step="100" placeholder="Radius" style="width: 80px;" />
               <span style="font-size: 12px; color: var(--dzc-text-muted);">meters</span>
             </div>
             <div style="margin-top: 8px; display: flex; gap: 8px;">
@@ -587,7 +813,7 @@
         </section>
 
         <!-- (e) Data freshness + refresh -->
-        <section class="map-section" data-section="data">
+        <section class="map-section" data-section="data" data-staff-only>
           <button type="button" class="map-section-head" aria-expanded="true" aria-controls="map-sec-data">
             <span>🔄 Data &amp; refresh</span><span class="map-chev" aria-hidden="true">▼</span>
           </button>
@@ -631,14 +857,14 @@
         </section>
 
         <!-- Event health (first-class operational control — survives reorg) -->
-        <section class="map-section" data-section="health">
+        <section class="map-section" data-section="health" data-staff-only>
           <button type="button" class="map-section-head" aria-expanded="true" aria-controls="map-sec-health">
             <span>🚦 Event health</span><span class="map-chev" aria-hidden="true">▼</span>
           </button>
           <div class="map-section-body" id="map-sec-health">
             <p id="event-health-summary" class="map-status-line">Select a server to check spawn positions and newest retained RPT evidence.</p>
             <div class="flex gap-2 items-center flex-wrap">
-              <input id="event-health-search" class="search-box" style="flex:1; min-width: 0;" placeholder="Search event (e.g. trainlocked)">
+              <input id="event-health-search" aria-label="Search event" class="search-box" style="flex:1; min-width: 0;" placeholder="Search event (e.g. trainlocked)">
               <button id="event-health-refresh" class="btn-small btn-success" type="button">Refresh health</button>
             </div>
             <div id="event-health-results" class="mt-3 grid grid-cols-1 gap-2"></div>
@@ -670,6 +896,42 @@
   <script src="/js/dayz-map-tiles.js"></script>
   <script src="/js/online-player-admin-state.js"></script>
   <script src="/js/map-url-state.js"></script>
+  <script src="/js/place-search.js"></script>
+  <script src="/js/holiday-windows.js"></script>
+  <script src="/js/data-freshness.js"></script>
+  <script src="/js/map-loot-layer.js"></script>
+  <style>
+    .dzt-control { background: var(--dzc-surface, #0f172a); color: var(--dzc-text, #e5e7eb);
+      border: 1px solid var(--dzc-border, #1e293b); border-radius: 10px;
+      padding: 10px 12px; font-size: 12px; line-height: 1.4; box-shadow: 0 4px 18px rgba(0,0,0,.35);
+      max-height: 440px; overflow: auto; }
+    .dzt-title { font-weight: 700; font-size: 12px; margin-bottom: 8px; color: var(--dzc-accent, #38bdf8);
+      text-transform: uppercase; letter-spacing: .04em; }
+    .dzt-row { display: flex; align-items: center; gap: 6px; margin: 5px 0; }
+    .dzt-row input[type=checkbox] { accent-color: var(--dzc-accent, #38bdf8); }
+    .dzt-sep { height: 1px; background: var(--dzc-border, #1e293b); margin: 7px 0; }
+    .dzt-legend { display: flex; align-items: center; gap: 4px; margin: 4px 0 2px; }
+    .dzt-legend span { width: 22px; height: 8px; display: inline-block; }
+    .dzt-legend small { margin-left: 4px; opacity: .7; }
+    .dzt-mode { width: 100%; background: var(--dzc-accent, #38bdf8); color: #04121f; border: none;
+      border-radius: 6px; padding: 6px 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .dzt-mode.active { background: #22d3ee; }
+    .dzt-search { width: 100%; box-sizing: border-box; background: rgba(0,0,0,.25); color: inherit;
+      border: 1px solid var(--dzc-border, #1e293b); border-radius: 6px; padding: 6px 8px; font-size: 12px; }
+    .dzt-objs { max-height: 120px; overflow-y: auto; margin-top: 4px; display: flex; flex-direction: column; gap: 2px; }
+    .dzt-obj { text-align: left; background: rgba(255,255,255,.04); color: inherit; border: 1px solid transparent;
+      border-radius: 6px; padding: 4px 8px; font-size: 11px; cursor: pointer; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap; }
+    .dzt-obj:hover { background: rgba(255,255,255,.09); }
+    .dzt-obj.active { border-color: var(--dzc-accent, #38bdf8); background: rgba(56,189,248,.15); }
+    .dzt-more { font-size: 11px; opacity: .6; padding: 2px 4px; }
+    .dzt-btn { background: #22d3ee; color: #04121f; border: none; border-radius: 6px; padding: 6px 10px;
+      font-size: 11px; font-weight: 700; cursor: pointer; }
+    .dzt-btn.ghost { background: transparent; color: inherit; border: 1px solid var(--dzc-border, #1e293b); }
+    .dzt-readout { margin-top: 6px; font-size: 11px; color: var(--dzc-text-faint, #94a3b8); min-height: 14px; }
+    .dzt-note { font-size: 11px; color: var(--dzc-text-faint, #94a3b8); }
+  </style>
+  <script src="/js/dayz-terrain-layer.js"></script>
   <script src="/js/map.js"></script>
 </body>
 </html>

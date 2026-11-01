@@ -67,6 +67,9 @@ function testStaticAssetsResolve() {
   assert(!missionEditor.includes('href="/styles.css"'), 'Mission Editor still requests missing /styles.css');
   assert(fs.existsSync(path.join(root, 'public/favicon.svg')), 'favicon asset is missing');
   assert(routeSource.includes("app.get('/favicon.ico'"), '/favicon.ico compatibility route is missing');
+  const logoutAlias = routeSource.slice(routeSource.indexOf("app.get('/logout-confirm'"));
+  assert(logoutAlias.startsWith("app.get('/logout-confirm'"), '/logout-confirm alias route is missing (UX review found it 404)');
+  assert(logoutAlias.includes("res.redirect('/logout')"), '/logout-confirm must redirect to the real /logout confirmation route');
   assertStaticThemeTokensResolve();
 }
 
@@ -160,7 +163,7 @@ function assertStaticThemeTokensResolve() {
 
 function testDynamicFrontendValuesAreSafelyRendered() {
   const dashboard = read('public/js/dashboard.js');
-  const lootFinder = read('public/js/loot-finder.js');
+  const lootFinder = read('public/js/map-loot-layer.js');
   const payload = '<img src=x onerror="alert(1)">' + "'&";
   const expected = '&lt;img src=x onerror=&quot;alert(1)&quot;&gt;&#39;&amp;';
 
@@ -168,7 +171,10 @@ function testDynamicFrontendValuesAreSafelyRendered() {
     const escapeStart = source.indexOf('function escapeHtml');
     const safeTextStart = source.indexOf('function safeText');
     const helperStart = safeTextStart !== -1 && safeTextStart < escapeStart ? safeTextStart : escapeStart;
-    const helperEnd = source.indexOf('\n}', escapeStart) + 2;
+    // End = the escapeHtml function's own closing brace, at its own indent
+    // (top-level '\n}' or nested '\n  }' inside an IIFE module).
+    const escapeIndent = source.slice(source.lastIndexOf('\n', escapeStart) + 1, escapeStart).match(/^[ \t]*/)[0];
+    const helperEnd = source.indexOf('\n' + escapeIndent + '}', escapeStart) + escapeIndent.length + 2;
     const context = { payload };
     vm.runInNewContext(`${source.slice(helperStart, helperEnd)}\nresult = escapeHtml(payload);`, context);
     assert.strictEqual(context.result, expected, 'frontend HTML escaping must neutralize markup and quoted attributes');
@@ -375,11 +381,11 @@ function testShopCompensatesPartialExternalWrites() {
 }
 
 function testShopQuantitySemanticsAreUnambiguous() {
-  const route = read('routes/shop.js');
   const service = read('services/shopFileService.js');
+  const cartService = read('services/shopCartService.js');
 
-  assert(route.includes('Permanent shop items require quantity 1'), 'permanent purchases still permit untracked multi-entry provisioning');
-  assert(route.includes("Rental duration exceeds this item's configured maximum"), 'rental duration is not bounded by the catalogue maximum');
+  assert(cartService.includes('Permanent shop items require quantity 1'), 'permanent purchases still permit untracked multi-entry provisioning');
+  assert(cartService.includes("Rental duration exceeds this item's configured maximum"), 'rental duration is not bounded by the catalogue maximum');
   assert(service.includes("const provisionQuantity = item.item_type === 'event_rental' ? 1 : qty"), 'rental duration is still interpreted as object quantity');
   assert(service.includes('[fileEntryId, qty, item.id]'), 'rental checkout does not persist the purchased restart duration');
   assert(!service.includes('[fileEntryId, item.rental_restarts || 1, item.id]'), 'rental checkout grants the catalogue maximum instead of purchased duration');
@@ -432,11 +438,12 @@ function testShopCheckoutLocksOrderAndBalances() {
 
 function testCartMutationsLockTheOpenOrder() {
   const route = read('routes/shop.js');
+  const cartService = read('services/shopCartService.js');
 
-  assert(route.includes('async function addCartItem(db, body)'), 'cart add is not encapsulated in a transaction-safe operation');
-  assert(route.includes('async function updateCartItem(db, cartItemId, body)'), 'cart update is not encapsulated in a transaction-safe operation');
-  assert(route.includes('async function deleteCartItem(db, cartItemId)'), 'cart delete is not encapsulated in a transaction-safe operation');
-  assert(route.includes("status = 'cart' FOR UPDATE"), 'cart mutation does not lock and revalidate the open order');
+  assert(cartService.includes('async function addCartItem(db, body)'), 'cart add is not encapsulated in a transaction-safe operation');
+  assert(cartService.includes('async function updateCartItem(db, cartItemId, body)'), 'cart update is not encapsulated in a transaction-safe operation');
+  assert(cartService.includes('async function deleteCartItem(db, cartItemId)'), 'cart delete is not encapsulated in a transaction-safe operation');
+  assert(cartService.includes("status = 'cart' FOR UPDATE"), 'cart mutation does not lock and revalidate the open order');
   assert(route.includes('db.transaction(async transactionDb => {'), 'cart mutations are not transactional');
   assert(route.includes('return addCartItem(transactionDb, {'), 'cart add is not transactional');
   assert(route.includes('identityId,\n        serverId,'), 'cart add does not replace client identifiers with canonical authorization context');
@@ -445,7 +452,7 @@ function testCartMutationsLockTheOpenOrder() {
   assert(route.includes('assertIdentityOwnerForMutation('), 'cart mutation authorization is not transaction-bound');
   const identityAuthority = route.slice(
     route.indexOf('async function assertIdentityOwnerForMutation'),
-    route.indexOf('async function addCartItem')
+    route.indexOf('// Owner / Admin Routes')
   );
   const tenantLock = identityAuthority.indexOf('lockActiveServerTenant');
   const ownershipLock = identityAuthority.indexOf('FOR UPDATE OF la');
@@ -561,11 +568,13 @@ function testShopSupportsExplicitEffectAreaProvisioning() {
   assert(adminPage.includes('id="ec-children-json"'), 'shop admin cannot compose multiple CE event children');
   assert(adminPage.includes('id="ec-event-group-json"'), 'shop admin cannot configure event-group child offsets');
   assert(adminPage.includes('spawnsecondary') && adminPage.includes("event's &lt;secondary&gt;"), 'shop admin does not explain event-group secondary event invocation');
-  assert(/id="ec-effect-components-json"[^>]*disabled/.test(adminPage), 'shop admin still accepts unsafe companion cfgEffectArea entries');
-  assert(adminPage.includes('cfgEffectArea entries are disabled'), 'shop admin does not explain why companion EffectArea provisioning is disabled');
+  assert(!/id="ec-effect-components-json"[^>]*disabled/.test(adminPage), 'shop admin companion cfgEffectArea entries must be enabled');
+  assert(adminPage.includes('MUST inherit DayZ') && adminPage.includes('crash mission startup'), 'shop admin does not warn that companion EffectArea types must inherit DayZ EffectArea');
+  assert(!/id="ec-object-components-json"[^>]*disabled/.test(adminPage), 'shop admin companion Object Spawner entries must be enabled');
+  assert(adminPage.includes('_shopEntryId') && adminPage.includes('test with one cheap entry first'), 'shop admin does not explain companion Object Spawner reversal');
+  assert(adminPage.includes('id="ec-companion-ack"'), 'shop admin does not require acknowledgement for companion entries');
   assert(adminPage.includes('<option value="custom_json">Object Spawner</option>'), 'shop admin does not expose first-class Object Spawner products');
   assert(adminPage.includes('id="object-spawner-config"') && adminPage.includes('id="object-spawner-scale"'), 'shop admin omits Object Spawner configuration controls');
-  assert(adminPage.includes('id="ec-object-components-json"') && adminPage.includes('Object Spawner components are temporarily disabled'), 'CE event composition must not imply companion Object Spawner lifecycle support');
   assert(adminPage.includes('cfgenvironment.xml') && adminPage.includes('territory'), 'shop admin omits environment and territory scope guidance');
   assert(adminPage.includes('must begin with a DayZ CE spawner type'), 'shop admin omits the CE event-name prefix requirement');
   assert(!adminPage.includes('<option value="Animal">'), 'shop admin advertises animal events without territory provisioning');
@@ -574,9 +583,10 @@ function testShopSupportsExplicitEffectAreaProvisioning() {
   assert(routes.includes('const purchasableItems = items.filter(isCatalogItemPurchasable);'), 'player catalog exposes unsupported legacy provisioning methods');
   assert(routes.includes('if (!item.is_active && !isCatalogItemPurchasable(item))'), 'single-item toggle can reactivate unsupported legacy provisioning');
   assert(routes.includes("if (action === 'activate' && items.some(item => !isCatalogItemPurchasable(item)))"), 'bulk action can reactivate unsupported legacy provisioning');
-  const addCartStart = routes.indexOf('async function addCartItem');
-  const addCartEnd = routes.indexOf('/**', addCartStart);
-  const addCartSource = routes.slice(addCartStart, addCartEnd);
+  const cartServiceSource = read('services/shopCartService.js');
+  const addCartStart = cartServiceSource.indexOf('async function addCartItem');
+  const addCartEnd = cartServiceSource.indexOf('/**', addCartStart);
+  const addCartSource = cartServiceSource.slice(addCartStart, addCartEnd);
   const cartGuardIndex = addCartSource.indexOf('isCatalogItemPurchasable(shopItem)');
   const cartInsertIndex = addCartSource.indexOf("INSERT INTO shop_order_items");
   assert(cartGuardIndex >= 0 && cartInsertIndex >= 0 && cartGuardIndex < cartInsertIndex,
@@ -800,7 +810,7 @@ function testEconomyStatsRejectsStaleServerResponses() {
     'stats requests need a monotonic per-family request ID');
   assert.match(stats, /configurationGeneration[\s\S]*currentServerId[\s\S]*statsRequestGeneration/,
     'stats currentness must bind configuration generation, selected server, and request ID');
-  assert.match(stats, /if \(!isCurrent\(\)\) return;[\s\S]*catch[\s\S]*if \(!isCurrent\(\)\) return;[\s\S]*finally[\s\S]*if \(isCurrent\(\)\)/,
+  assert.match(stats, /if \(!isCurrent\(\)\) return \{ ok: true \};[\s\S]*catch[\s\S]*if \(!isCurrent\(\)\) return \{ ok: true \};[\s\S]*finally[\s\S]*if \(isCurrent\(\)\)/,
     'stale success, error, and finally continuations must all be suppressed');
 }
 
@@ -927,6 +937,53 @@ function testCredentialFallbacksAreNotShipped() {
   }
 }
 
+function testMapPagesDefaultToCurrentServerAndMap() {
+  const mapClient = read('public/js/map.js');
+  const mapHtml = read('public/map.html');
+  const lootClient = read('public/js/map-loot-layer.js');
+  const playerMapClient = read('public/js/player-map-standalone.js');
+  const portalClient = read('public/js/player-portal.js');
+
+  // /map: the server select defaults to the current server (most recent
+  // online activity, else first) instead of staying on "Select Server…".
+  assert(mapClient.includes('else if (!urlServer && select.options.length > 1)'), '/map does not fall back to a default server when ?server= is absent');
+  assert(mapClient.includes('select.value = defaultServerValue(data.servers)'), '/map does not apply the default server to server-select');
+
+  const defaultServerSource = mapClient.match(/function defaultServerValue\(servers\) \{[\s\S]*?\n\}/);
+  assert(defaultServerSource, 'defaultServerValue helper is missing from map.js');
+  const defaultServerValue = vm.runInNewContext(defaultServerSource[0] + '\ndefaultServerValue', {}, 'defaultServerValue');
+  const stale = { nitrado_server_id: '111', onlinePlayers: [{ updated_at: '2026-10-25T10:00:00Z' }] };
+  const fresh = { nitrado_server_id: '222', onlinePlayers: [{ updated_at: '2026-10-25T20:00:00Z' }] };
+  const idle = { nitrado_server_id: '333', onlinePlayers: [] };
+  assert.strictEqual(defaultServerValue([{ nitrado_server_id: '444' }]), '444', 'single server must be selected by default');
+  assert.strictEqual(defaultServerValue([stale, fresh, idle]), '222', 'most recently active server must win the default');
+  assert.strictEqual(defaultServerValue([idle, { nitrado_server_id: '555', onlinePlayers: undefined }]), '333', 'no online activity must fall back to the first server');
+  assert.strictEqual(defaultServerValue([]), '', 'no servers must not select a default');
+
+  // /map: the map select defaults to the server's configured map (active
+  // mission preselected at build time) with a first-available fallback —
+  // never a hardcoded map name.
+  assert(mapClient.includes('select.value = select.value || select.options[0].value;'), '/map does not default map-select to the server\'s configured map');
+
+  // No hardcoded preselected map in the static /map markup.
+  assert(!/<option[^>]*selected[^>]*>Livonia<\/option>/.test(mapHtml), 'map.html still hard-defaults the map select to Livonia');
+
+  // Merged map page: the configured map (Nitrado active mission) is preferred
+  // over the first available mission directory — in the loot layer's lookup
+  // and in map.js's player-mode map select.
+  assert(lootClient.includes('fetchJson(`/api/server-active-mission/${encodeURIComponent(serverId)}`)'), 'map loot layer does not derive the configured map from the server');
+  assert(mapClient.includes('mapOptions = [configuredMap, ...mapOptions.filter(m => m !== configuredMap)];'), 'map player mode does not default the map selector to the configured map');
+
+  // /player-map: ?mapName= still overrides; otherwise the page opens on the
+  // server's currently configured map from the live Nitrado snapshot.
+  assert(playerMapClient.includes('if (explicit) return explicit;'), 'player-map no longer honors an explicit ?mapName= override');
+  assert(playerMapClient.includes("/api/stats/' + encodeURIComponent(currentServerId) + '/overview"), 'player-map does not resolve the current map from the server overview');
+  assert(!/const mapParam = params\.get\('mapName'\) \|\| 'chernarusplus';/.test(playerMapClient), 'player-map still hard-defaults the map to chernarusplus');
+
+  // Portal: the player-map link no longer pins a hardcoded map.
+  assert(!portalClient.includes("'&mapName=' + encodeURIComponent"), 'player portal still hardcodes a map into the player-map link');
+}
+
 testCasinoStatsUsesGamertagHistory();
 testAdminReportsUsesDiscordReportSchema();
 testSupportHubUsesRegisteredServersEndpoint();
@@ -964,4 +1021,5 @@ testEconomyConflictRequiresSuccessfulReloadBeforeControlsEnable();
 testRequestLoggingSuppressesRoutineAssetNoise();
 testProductionReleaseGuardrails();
 testCredentialFallbacksAreNotShipped();
+testMapPagesDefaultToCurrentServerAndMap();
 console.log('✅ Dashboard regression tests passed');

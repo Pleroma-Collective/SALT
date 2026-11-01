@@ -3,6 +3,7 @@
 const { applyStaleness, DEFAULT_STALE_AFTER_MS, safeHealthMessage } = require('./serverHealthService');
 const { buildScheduledLogSyncPlan } = require('../utils/logSyncScheduling');
 const { loadPipelineStatuses, PIPELINES } = require('./pipelineStatusService');
+const { sessionView } = require('./sessionStateService');
 
 const PAGE_REFRESH_SECONDS = 30;
 const BOT_STALE_AFTER_MS = 90 * 1000;
@@ -237,7 +238,7 @@ async function loadServerOverview({
   );
   if (!server) return null;
 
-  const [healthRows, pipelineRows, automationRows, feed, bot, ceLoopRow] = await Promise.all([
+  const [healthRows, pipelineRows, automationRows, feed, bot, ceLoopRow, sessionRow] = await Promise.all([
     db.query(
       `SELECT component, state, detail, checked_at, last_healthy_at, error_code
          FROM server_health_status WHERE server_id = ? AND guild_id = ?`,
@@ -295,6 +296,11 @@ async function loadServerOverview({
           AND observed_at >= ?::timestamptz - INTERVAL '24 hours'`,
       [serverId, generatedAt]
     ),
+    db.get(
+      `SELECT session_started_at, next_restart_at, funded_until, funding_observed_at
+         FROM server_session_state WHERE server_id = ?`,
+      [serverId]
+    ),
   ]);
 
   const healthByComponent = Object.fromEntries((healthRows || []).map(row => [row.component, healthComponent(row)]));
@@ -334,6 +340,14 @@ async function loadServerOverview({
     warnings.push('NITRADO_UNAVAILABLE');
   }
   const ceLoop = summarizeCeLoop(ceLoopRow);
+
+  // Session uptime / time left / days funded (card t_c1de9125). Persisted by
+  // the bot's status loop; the live provider read is the fallback for the
+  // session start so a fresh deployment shows the anchor immediately.
+  const session = sessionView(sessionRow || null, generated.getTime());
+  if (!session.sessionStartedAt && providerStatus?.status === 'started') {
+    session.sessionStartedAt = providerTimestampIso(providerStatus.lastStatusChange);
+  }
 
   const components = {
     gameServer: healthByComponent.game_server || healthComponent(null),
@@ -375,6 +389,7 @@ async function loadServerOverview({
       observedAt: providerStatus ? generatedAt : components.gameServer.checkedAt || null,
     },
     health: { overall: state, components },
+    session,
     pipelines,
     ceLoop,
     service: {

@@ -6,6 +6,7 @@
   <title>Economy - DayZ Dashboard</title>
   <link rel="stylesheet" href="/css/theme.css">
   <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="/css/components.css">
   <style>
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .spinner { animation: spin 1s linear infinite; }
@@ -35,15 +36,6 @@
     .setting-control { margin-left: 1rem; min-width: 160px; text-align: right; }
 
     /* Input styles */
-    .form-input {
-      background: #374151; border: 1px solid #4b5563; border-radius: 0.375rem;
-      color: white; padding: 0.375rem 0.625rem; width: 100%; font-size: 0.875rem;
-    }
-    .form-input:focus { outline: none; border-color: #f97316; }
-    .form-select {
-      background: #374151; border: 1px solid #4b5563; border-radius: 0.375rem;
-      color: white; padding: 0.375rem 0.625rem; width: 100%; font-size: 0.875rem;
-    }
 
     /* Alert message */
     .alert { padding: 0.875rem 1rem; border-radius: 0.5rem; margin-bottom: 1rem; display: none; }
@@ -77,7 +69,7 @@
 
     <!-- Guild Selector -->
     <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-6">
-      <label class="block text-gray-300 mb-2 font-semibold">Select Guild to Configure</label>
+      <label class="block text-gray-300 mb-2 font-semibold" for="guildSelect">Select Guild to Configure</label>
       <select id="guildSelect" class="form-select max-w-sm">
         <option value="">-- Loading guilds... --</option>
       </select>
@@ -110,7 +102,7 @@
             <p class="text-gray-400 mt-1">Enable or disable the entire economy system for this guild.</p>
           </div>
           <label class="toggle-switch">
-            <input type="checkbox" id="economyEnabled">
+            <input type="checkbox" id="economyEnabled" aria-label="Enable economy">
             <span class="toggle-slider"></span>
           </label>
         </div>
@@ -118,7 +110,10 @@
 
       <!-- Stats Section (shown when economy is enabled) -->
       <div id="statsSection" class="hidden bg-gray-800 p-6 rounded-lg shadow-lg mb-6">
-        <h2 class="text-xl font-semibold mb-4">📊 Economy Statistics</h2>
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-semibold mb-0">📊 Economy Statistics</h2>
+          <div id="economyStatsFreshness" class="flex items-center gap-2"></div>
+        </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div class="bg-gray-700 p-4 rounded-lg text-center">
             <p class="text-gray-400 text-sm">Total Money</p>
@@ -151,7 +146,7 @@
               <p>Display name for the currency (e.g. "Dollar").</p>
             </div>
             <div class="setting-control">
-              <input type="text" id="currencyName" class="form-input" maxlength="32" placeholder="Dollar">
+              <input type="text" id="currencyName" aria-label="Currency name" class="form-input" maxlength="32" placeholder="Dollar">
             </div>
           </div>
           <div class="setting-row">
@@ -160,7 +155,7 @@
               <p>Short symbol shown before amounts (e.g. "$").</p>
             </div>
             <div class="setting-control">
-              <input type="text" id="currencySymbol" class="form-input" maxlength="8" placeholder="$">
+              <input type="text" id="currencySymbol" aria-label="Currency symbol" class="form-input" maxlength="8" placeholder="$">
             </div>
           </div>
           <div class="setting-row">
@@ -169,7 +164,7 @@
               <p>Cash on hand given to new players.</p>
             </div>
             <div class="setting-control">
-              <input type="number" id="startingCash" class="form-input" min="0" step="1" placeholder="1000">
+              <input type="number" id="startingCash" aria-label="Starting cash" class="form-input" min="0" step="1" placeholder="1000">
             </div>
           </div>
           <div class="setting-row">
@@ -178,7 +173,7 @@
               <p>Bank balance given to new players.</p>
             </div>
             <div class="setting-control">
-              <input type="number" id="startingBank" class="form-input" min="0" step="1" placeholder="0">
+              <input type="number" id="startingBank" aria-label="Starting bank balance" class="form-input" min="0" step="1" placeholder="0">
             </div>
           </div>
         </div>
@@ -192,7 +187,7 @@
               <p>Fiat: unlimited supply. Fixed: capped total supply.</p>
             </div>
             <div class="setting-control">
-              <select id="monetarySystem" class="form-select">
+              <select id="monetarySystem" aria-label="Monetary system type" class="form-select">
                 <option value="fiat">Fiat (Unlimited)</option>
                 <option value="fixed">Fixed Supply</option>
               </select>
@@ -204,7 +199,7 @@
               <p>Maximum total currency that can exist (Fixed Supply only).</p>
             </div>
             <div class="setting-control">
-              <input type="number" id="totalMoneySupply" class="form-input" min="0" step="1" placeholder="Leave blank for no cap">
+              <input type="number" id="totalMoneySupply" aria-label="Total money supply" class="form-input" min="0" step="1" placeholder="Leave blank for no cap">
             </div>
           </div>
 
@@ -217,7 +212,7 @@
               </div>
               <div class="setting-control">
                 <label class="toggle-switch">
-                  <input type="checkbox" id="fixedSupplyEnabled">
+                  <input type="checkbox" id="fixedSupplyEnabled" aria-label="Enable fixed supply enforcement">
                   <span class="toggle-slider"></span>
                 </label>
               </div>
@@ -229,7 +224,7 @@
                   <p>Hard cap on total currency across all wallets and banks. Leave blank for unlimited.</p>
                 </div>
                 <div class="setting-control">
-                  <input type="number" id="maxMoneySupply" class="form-input" min="0" step="1000" placeholder="No cap">
+                  <input type="number" id="maxMoneySupply" aria-label="Max money supply" class="form-input" min="0" step="1000" placeholder="No cap">
                 </div>
               </div>
               <div class="bg-blue-900 bg-opacity-30 border border-blue-700 p-4 rounded mt-2">
@@ -261,9 +256,9 @@
               <p>Reward players for killing other players.</p>
             </div>
             <div class="setting-control flex items-center gap-3">
-              <input type="number" id="killReward" class="form-input w-24" min="0" step="1" placeholder="100">
+              <input type="number" id="killReward" aria-label="Kill reward amount" class="form-input w-24" min="0" step="1" placeholder="100">
               <label class="toggle-switch flex-shrink-0">
-                <input type="checkbox" id="killRewardsEnabled">
+                <input type="checkbox" id="killRewardsEnabled" aria-label="Enable kill rewards">
                 <span class="toggle-slider"></span>
               </label>
             </div>
@@ -276,9 +271,9 @@
               <p>Reward players per hour of playtime.</p>
             </div>
             <div class="setting-control flex items-center gap-3">
-              <input type="number" id="playtimeRewardPerHour" class="form-input w-24" min="0" step="1" placeholder="10">
+              <input type="number" id="playtimeRewardPerHour" aria-label="Playtime reward per hour" class="form-input w-24" min="0" step="1" placeholder="10">
               <label class="toggle-switch flex-shrink-0">
-                <input type="checkbox" id="playtimeRewardsEnabled">
+                <input type="checkbox" id="playtimeRewardsEnabled" aria-label="Enable playtime rewards">
                 <span class="toggle-slider"></span>
               </label>
             </div>
@@ -291,9 +286,9 @@
               <p>Multiplier bonus for completing achievements.</p>
             </div>
             <div class="setting-control flex items-center gap-3">
-              <input type="number" id="achievementBonusMultiplier" class="form-input w-24" min="0" step="0.1" placeholder="1.0">
+              <input type="number" id="achievementBonusMultiplier" aria-label="Achievement bonus multiplier" class="form-input w-24" min="0" step="0.1" placeholder="1.0">
               <label class="toggle-switch flex-shrink-0">
-                <input type="checkbox" id="achievementRewardsEnabled">
+                <input type="checkbox" id="achievementRewardsEnabled" aria-label="Enable achievement rewards">
                 <span class="toggle-slider"></span>
               </label>
             </div>
@@ -306,9 +301,9 @@
               <p>Currently unavailable until authoritative territory ownership is supported.</p>
             </div>
             <div class="setting-control flex items-center gap-3">
-              <input type="number" id="territoryRewardPerHour" class="form-input w-24" min="0" step="1" placeholder="5" disabled aria-disabled="true">
+              <input type="number" id="territoryRewardPerHour" aria-label="Territory reward per hour" class="form-input w-24" min="0" step="1" placeholder="5" disabled aria-disabled="true">
               <label class="toggle-switch flex-shrink-0">
-                <input type="checkbox" id="territoryRewardsEnabled" disabled aria-disabled="true">
+                <input type="checkbox" id="territoryRewardsEnabled" aria-label="Enable territory rewards" disabled aria-disabled="true">
                 <span class="toggle-slider"></span>
               </label>
             </div>
@@ -320,7 +315,7 @@
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-xl font-semibold">💀 Death Penalties</h2>
             <label class="toggle-switch">
-              <input type="checkbox" id="deathPenaltyEnabled">
+              <input type="checkbox" id="deathPenaltyEnabled" aria-label="Enable death penalties">
               <span class="toggle-slider"></span>
             </label>
           </div>
@@ -331,7 +326,7 @@
                 <p>Percentage of wallet or fixed flat amount lost on death.</p>
               </div>
               <div class="setting-control">
-                <select id="deathPenaltyType" class="form-select">
+                <select id="deathPenaltyType" aria-label="Death penalty type" class="form-select">
                   <option value="percentage">Percentage</option>
                   <option value="fixed">Fixed Amount</option>
                 </select>
@@ -343,7 +338,7 @@
                 <p>Percentage (0-100) or flat amount lost on death.</p>
               </div>
               <div class="setting-control">
-                <input type="number" id="deathPenaltyAmount" class="form-input" min="0" step="0.1" placeholder="10">
+                <input type="number" id="deathPenaltyAmount" aria-label="Death penalty amount" class="form-input" min="0" step="0.1" placeholder="10">
               </div>
             </div>
             <div class="setting-row">
@@ -352,7 +347,7 @@
                 <p>Maximum amount that can be lost per death. Leave blank for no cap.</p>
               </div>
               <div class="setting-control">
-                <input type="number" id="deathPenaltyMaxLoss" class="form-input" min="0" step="1" placeholder="No cap">
+                <input type="number" id="deathPenaltyMaxLoss" aria-label="Death penalty max loss" class="form-input" min="0" step="1" placeholder="No cap">
               </div>
             </div>
             <div class="setting-row">
@@ -362,7 +357,7 @@
               </div>
               <div class="setting-control">
                 <label class="toggle-switch">
-                  <input type="checkbox" id="deathDropsMoneyOnGround">
+                  <input type="checkbox" id="deathDropsMoneyOnGround" aria-label="Drop money on death">
                   <span class="toggle-slider"></span>
                 </label>
               </div>
@@ -375,7 +370,7 @@
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-xl font-semibold">💸 Transfer Settings</h2>
             <label class="toggle-switch">
-              <input type="checkbox" id="transferEnabled">
+              <input type="checkbox" id="transferEnabled" aria-label="Enable player transfers">
               <span class="toggle-slider"></span>
             </label>
           </div>
@@ -386,7 +381,7 @@
                 <p>Percentage fee taken from each transfer.</p>
               </div>
               <div class="setting-control">
-                <input type="number" id="transferFeePercentage" class="form-input" min="0" max="100" step="0.1" placeholder="0">
+                <input type="number" id="transferFeePercentage" aria-label="Transfer fee percent" class="form-input" min="0" max="100" step="0.1" placeholder="0">
               </div>
             </div>
             <div class="setting-row">
@@ -396,7 +391,7 @@
               </div>
               <div class="setting-control">
                 <label class="toggle-switch">
-                  <input type="checkbox" id="transferRequireBothOnline">
+                  <input type="checkbox" id="transferRequireBothOnline" aria-label="Require both players online">
                   <span class="toggle-slider"></span>
                 </label>
               </div>
@@ -407,7 +402,7 @@
                 <p>Extra fee when receiver is offline (if offline transfers allowed).</p>
               </div>
               <div class="setting-control">
-                <input type="number" id="transferOfflineFeePercentage" class="form-input" min="0" max="100" step="0.1" placeholder="5">
+                <input type="number" id="transferOfflineFeePercentage" aria-label="Offline transfer fee percent" class="form-input" min="0" max="100" step="0.1" placeholder="5">
               </div>
             </div>
             <div class="setting-row">
@@ -416,7 +411,7 @@
                 <p>Smallest allowed transfer.</p>
               </div>
               <div class="setting-control">
-                <input type="number" id="transferMinAmount" class="form-input" min="0" step="1" placeholder="1">
+                <input type="number" id="transferMinAmount" aria-label="Minimum transfer amount" class="form-input" min="0" step="1" placeholder="1">
               </div>
             </div>
             <div class="setting-row">
@@ -425,7 +420,7 @@
                 <p>Largest allowed transfer. Leave blank for no limit.</p>
               </div>
               <div class="setting-control">
-                <input type="number" id="transferMaxAmount" class="form-input" min="0" step="1" placeholder="No limit">
+                <input type="number" id="transferMaxAmount" aria-label="Maximum transfer amount" class="form-input" min="0" step="1" placeholder="No limit">
               </div>
             </div>
           </div>
@@ -436,7 +431,7 @@
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-xl font-semibold">🏛️ Bank Settings</h2>
             <label class="toggle-switch">
-              <input type="checkbox" id="bankEnabled">
+              <input type="checkbox" id="bankEnabled" aria-label="Enable bank">
               <span class="toggle-slider"></span>
             </label>
           </div>
@@ -447,7 +442,7 @@
                 <p>Maximum balance a player can hold in the bank. Leave blank for no limit.</p>
               </div>
               <div class="setting-control">
-                <input type="number" id="maxBankBalance" class="form-input" min="0" step="1" placeholder="No limit">
+                <input type="number" id="maxBankBalance" aria-label="Max bank balance" class="form-input" min="0" step="1" placeholder="No limit">
               </div>
             </div>
             <div class="setting-row">
@@ -456,7 +451,7 @@
                 <p>Fee taken when depositing money into the bank.</p>
               </div>
               <div class="setting-control">
-                <input type="number" id="bankDepositFeePercentage" class="form-input" min="0" max="100" step="0.1" placeholder="0">
+                <input type="number" id="bankDepositFeePercentage" aria-label="Bank deposit fee percent" class="form-input" min="0" max="100" step="0.1" placeholder="0">
               </div>
             </div>
             <div class="setting-row">
@@ -465,7 +460,7 @@
                 <p>Fee taken when withdrawing money from the bank.</p>
               </div>
               <div class="setting-control">
-                <input type="number" id="bankWithdrawFeePercentage" class="form-input" min="0" max="100" step="0.1" placeholder="0">
+                <input type="number" id="bankWithdrawFeePercentage" aria-label="Bank withdrawal fee percent" class="form-input" min="0" max="100" step="0.1" placeholder="0">
               </div>
             </div>
             <div class="setting-row">
@@ -475,7 +470,7 @@
               </div>
               <div class="setting-control">
                 <label class="toggle-switch">
-                  <input type="checkbox" id="bankDailyFeeEnabled">
+                  <input type="checkbox" id="bankDailyFeeEnabled" aria-label="Enable bank daily fee">
                   <span class="toggle-slider"></span>
                 </label>
               </div>
@@ -487,7 +482,7 @@
                   <p>Charge as a percentage of balance or a flat amount per day.</p>
                 </div>
                 <div class="setting-control">
-                  <select id="bankDailyFeeType" class="form-select">
+                  <select id="bankDailyFeeType" aria-label="Bank daily fee type" class="form-select">
                     <option value="percentage">Percentage</option>
                     <option value="flat">Flat Amount</option>
                   </select>
@@ -499,7 +494,7 @@
                   <p>Percentage (0-100) or flat amount charged per day.</p>
                 </div>
                 <div class="setting-control">
-                  <input type="number" id="bankDailyFeeAmount" class="form-input" min="0" max="100" step="0.01" placeholder="0.1">
+                  <input type="number" id="bankDailyFeeAmount" aria-label="Bank daily fee amount" class="form-input" min="0" max="100" step="0.01" placeholder="0.1">
                 </div>
               </div>
             </div>
@@ -511,7 +506,7 @@
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-xl font-semibold">⏳ Inactivity Tax</h2>
             <label class="toggle-switch">
-              <input type="checkbox" id="inactivityTaxEnabled">
+              <input type="checkbox" id="inactivityTaxEnabled" aria-label="Enable inactivity tax">
               <span class="toggle-slider"></span>
             </label>
           </div>
@@ -523,7 +518,7 @@
                 <p>Days of inactivity before tax is applied.</p>
               </div>
               <div class="setting-control">
-                <input type="number" id="inactivityThresholdDays" class="form-input" min="1" step="1" placeholder="30">
+                <input type="number" id="inactivityThresholdDays" aria-label="Inactivity threshold in days" class="form-input" min="1" step="1" placeholder="30">
               </div>
             </div>
             <div class="setting-row">
@@ -532,7 +527,7 @@
                 <p>Percentage of wealth taxed per cycle from inactive players.</p>
               </div>
               <div class="setting-control">
-                <input type="number" id="inactivityTaxPercentage" class="form-input" min="0" max="100" step="0.1" placeholder="5">
+                <input type="number" id="inactivityTaxPercentage" aria-label="Inactivity tax rate percent" class="form-input" min="0" max="100" step="0.1" placeholder="5">
               </div>
             </div>
           </div>
@@ -556,6 +551,7 @@
 
   <script src="/js/api.js"></script>
   <script src="/js/csrf-helper.js"></script>
+  <script src="/js/data-freshness.js"></script>
   <script src="/js/admin/economy-settings.js"></script>
 </body>
 </html>

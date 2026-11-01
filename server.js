@@ -20,6 +20,7 @@ validateEnv();
 
 const { initializeDatabase } = require('./db/schema');
 const { createApp } = require('./src/app/createApp');
+const { verifyAllTokens } = require('./utils/guildTokens');
 const { startScheduler } = require('./scheduler');
 const { startEconomyScheduler } = require('./utils/economyScheduler');
 const { startFeedProcessor } = require('./workers/feedProcessor');
@@ -31,6 +32,12 @@ async function startServer() {
 
     const db = await initializeDatabase();
     const app = createApp(db);
+
+    // Startup self-check: warn (never crash) if any stored guild token was
+    // encrypted with a different ENCRYPTION_KEY.
+    verifyAllTokens(db).catch((err) => {
+      console.warn('[TOKEN-VERIFY] startup self-check failed:', err.message);
+    });
 
     const PORT = process.env.PORT || 3000;
     const listenHost = getListenHost();

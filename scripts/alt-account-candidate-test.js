@@ -16,6 +16,8 @@ const {
   loadAltCandidates,
   normalizeReviewStatus,
 } = require('../services/altAccountCandidateService');
+const missionFileService = require('../services/missionFileService');
+const nitradoService = require('../services/nitradoService');
 
 function session(identityId, loginAt, logoutAt) {
   return { identity_id: identityId, login_at: loginAt, logout_at: logoutAt };
@@ -339,6 +341,241 @@ async function run() {
   assert.match(browserSource, /dataset\.reviewNotes/,
     'status changes must preserve existing moderator notes');
   assert.match(browserSource, /data-review-status/);
+
+  // ── Alt auto-ban policy + execution (services/altAutoBanService.js) ────────
+  // Detection above stays review-only; the enforcement policy below decides
+  // when a definitive signal becomes an action. Every case asserts the
+  // acceptance contract: definitive → auto-ban with audit; candidate-only →
+  // never; kill-switch → off.
+
+  function requireFresh(rel) {
+    const resolved = require.resolve(rel);
+    delete require.cache[resolved];
+    return require(resolved);
+  }
+
+  const unlinkedAccounts = [
+    { identity_id: 1, gamertag: 'Alpha', platform: 'xbox', linked_user_id: null, verification_method: null },
+    { identity_id: 2, gamertag: 'Bravo', platform: 'xbox', linked_user_id: null, verification_method: null },
+  ];
+  const sameOwnerAccounts = [
+    { identity_id: 1, gamertag: 'Alpha', platform: 'xbox', linked_user_id: 10, verification_method: 'emote_challenge' },
+    { identity_id: 2, gamertag: 'Bravo', platform: 'xbox', linked_user_id: 10, verification_method: 'emote_challenge' },
+  ];
+  const definitiveBehaviorRows = [{
+    identity_id_low: 1, identity_id_high: 2, event_count: 2, strict_count: 2, distinct_days: 2,
+    strict_distinct_days: 2, direction_count: 1, strict_direction_count: 1, enforced_wait_count: 2,
+    minimum_delay_seconds: 60, minimum_wait_duration_ms: 90000, maximum_wait_duration_ms: 120000,
+  }];
+
+  function makeAutoBanDb({
+    accounts = unlinkedAccounts,
+    behaviorRows = definitiveBehaviorRows,
+    waitRows = [{ identity_id: 2, wait_count: 2 }],
+    reviewRows = [],
+    reviewId = null,
+    capCount = 0,
+    killSwitch = false,
+    featureEnabled = true,
+    exemptGamertags = [],
+  } = {}) {
+    const { encryptToken } = require('../utils/encryption');
+    const tokenHash = encryptToken('test-token');
+    return {
+      state: { auditRows: [] },
+      async transaction(cb) { return cb(this); },
+      async get(sql, params) {
+        if (sql.includes('FROM app_settings')) return killSwitch ? { value: 'true' } : null;
+        if (sql.includes('FROM server_features sf')) return { enabled: featureEnabled ? 1 : 0 };
+        if (sql.includes('FROM alt_auto_bans')) return { n: capCount };
+        if (sql.includes('FOR NO KEY UPDATE')) return { token_hash: tokenHash };
+        if (sql.includes('JOIN guild_tokens gt')) return { id: 44, platform_server_id: '9001', token_hash: tokenHash };
+        if (sql.includes('FROM alt_ban_exemptions')) {
+          const wanted = String(params?.[1] || '').toLowerCase();
+          return exemptGamertags.some(g => g.toLowerCase() === wanted) ? { id: 1 } : null;
+        }
+        if (sql.includes('SELECT id FROM alt_account_reviews')) return reviewId ? { id: reviewId } : null;
+        if (sql.includes('FROM player_gamertags')) {
+          const account = accounts.find(item => item.identity_id === Number(params?.[0]));
+          return account ? { gamertag: account.gamertag } : null;
+        }
+        return null;
+      },
+      async run(sql, params) {
+        if (sql.includes('INSERT INTO alt_auto_bans')) this.state.auditRows.push({ sql, params });
+        return { changes: 1 };
+      },
+      async all() { return []; },
+      async query(sql) {
+        if (sql.includes('AS wait_count')) return waitRows;
+        if (sql.includes('AS event_count')) return behaviorRows;
+        if (sql.includes('FROM alt_account_reviews aar')) return reviewRows;
+        return accounts;
+      },
+    };
+  }
+
+  const shopStub = requireFresh('../services/shopFileService');
+  const lockCalls = [];
+  shopStub.acquireProviderMutationLock = async (db, serverId) => { lockCalls.push(serverId); };
+  const journals = [];
+  shopStub.createFileMutationJournal = () => {
+    const journal = {
+      uploads: [],
+      async uploadFileToServer(psid, dir, filename, content) {
+        journal.uploads.push({ psid, dir, filename, content });
+      },
+    };
+    journals.push(journal);
+    return journal;
+  };
+  const recoveryStub = requireFresh('../services/providerMutationRecoveryService');
+  recoveryStub.prepareProviderMutation = async (db, details) => {
+    recoveryStub.__prepared.push(details);
+    return 999;
+  };
+  recoveryStub.__prepared = [];
+  recoveryStub.updatePreparedProviderMutation = async (db, operationId, status) => {
+    recoveryStub.__status.push(status);
+  };
+  recoveryStub.__status = [];
+  recoveryStub.registerProviderMutationRollback = () => {};
+  const realDownload = missionFileService.downloadFileFromServer;
+  missionFileService.downloadFileFromServer = async () => 'Alpha\n';
+  const realRawGameserver = nitradoService.getRawGameserver;
+  nitradoService.getRawGameserver = async () => ({
+    game: 'dayzxb',
+    game_specific: { path: '/games/abc123/noftp/dayzxb' },
+  });
+  delete require.cache[require.resolve('../services/providerListMutationService')];
+  const altAutoBan = requireFresh('../services/altAutoBanService');
+  const { CONFIRMED_WAITS_REQUIRED, AUTO_BAN_DAILY_CAP } = altAutoBan;
+
+  // Policy: a single confirmed wait stays review-only (2 correlated waits required)
+  assert.strictEqual(CONFIRMED_WAITS_REQUIRED, 2, 'policy default: two correlated enforced waits');
+  const singleWaitTargets = await altAutoBan.findAutoBanTargets(
+    makeAutoBanDb({ waitRows: [{ identity_id: 2, wait_count: 1 }] }), 44);
+  assert.deepStrictEqual(singleWaitTargets, [],
+    'one confirmed enforced wait must stay in the review queue, not auto-ban');
+
+  // Policy: waits on BOTH sides = shared-ownership pattern → review only
+  const bothSidesTargets = await altAutoBan.findAutoBanTargets(
+    makeAutoBanDb({ waitRows: [{ identity_id: 1, wait_count: 2 }, { identity_id: 2, wait_count: 2 }] }), 44);
+  assert.deepStrictEqual(bothSidesTargets, [],
+    'enforced waits observed on both sides must never pick an auto-ban target');
+
+  // Policy: same verified Discord owner → the alt is legitimately owned
+  const sameOwnerTargets = await altAutoBan.findAutoBanTargets(
+    makeAutoBanDb({ accounts: sameOwnerAccounts }), 44);
+  assert.deepStrictEqual(sameOwnerTargets, [],
+    'pairs with a verified shared Discord owner must never auto-ban');
+
+  // Policy: review-dismissed pairs are off-limits even with definitive evidence
+  const dismissedTargets = await altAutoBan.findAutoBanTargets(
+    makeAutoBanDb({ reviewRows: [{ identity_id_low: 1, identity_id_high: 2, status: 'dismissed', notes: 'Known siblings' }] }), 44);
+  assert.deepStrictEqual(dismissedTargets, [],
+    'a dismissed owner review must override definitive enforcement evidence');
+
+  // Policy: exempted gamertags are never touched
+  const exemptTargets = await altAutoBan.findAutoBanTargets(
+    makeAutoBanDb({ exemptGamertags: ['Bravo'] }), 44);
+  assert.deepStrictEqual(exemptTargets, [], 'exempted gamertags must never auto-ban');
+
+  // Policy: behavioral-only candidate (likely, no enforced waits) never auto-bans:
+  // three strict switches on two days is a 'likely' candidate with no wait
+  // evidence at all — detection without the definitive signal.
+  const likelyOnlyDb = makeAutoBanDb({
+    waitRows: [],
+    behaviorRows: [{
+      identity_id_low: 1, identity_id_high: 2, event_count: 3, strict_count: 3, distinct_days: 2,
+      strict_distinct_days: 2, direction_count: 2, strict_direction_count: 2, enforced_wait_count: 0,
+      minimum_delay_seconds: 60,
+    }],
+  });
+  const likelyOnlyTargets = await altAutoBan.findAutoBanTargets(likelyOnlyDb, 44);
+  assert.deepStrictEqual(likelyOnlyTargets, [],
+    'a likely candidate without enforced waits must never auto-ban');
+  assert.strictEqual((await altAutoBan.evaluateAltAutoBan(likelyOnlyDb, 44)).banned.length, 0,
+    'candidate-only evidence must never auto-ban');
+
+  // Gate: kill switch halts the feature everywhere
+  const killSwitched = await altAutoBan.evaluateAltAutoBan(makeAutoBanDb({ killSwitch: true }), 44);
+  assert.deepStrictEqual(killSwitched.banned, []);
+  assert.strictEqual(killSwitched.skipped, 'kill_switch',
+    'the global kill switch must halt auto-ban even with the server toggle on');
+  // Gate: per-server toggle off halts this server only
+  const disabled = await altAutoBan.evaluateAltAutoBan(makeAutoBanDb({ featureEnabled: false }), 44);
+  assert.deepStrictEqual(disabled.banned, []);
+  assert.strictEqual(disabled.skipped, 'disabled');
+
+  // Simulated definitive-alt flow: two enforced waits on Bravo → auto-ban
+  {
+    const flowDb = makeAutoBanDb({ reviewId: 77 });
+    const summary = await altAutoBan.evaluateAltAutoBan(flowDb, 44);
+    assert.deepStrictEqual(summary.banned, [{ gamertag: 'Bravo', identityId: 2 }],
+      'the simulated definitive-alt flow must auto-ban the alt side');
+    assert.deepStrictEqual(summary.skipped, []);
+
+    // Ban file was edited through the provider-mutation journal
+    assert.strictEqual(journals.length, 1, 'one provider mutation journal per auto-ban');
+    const upload = journals[0].uploads[0];
+    assert.strictEqual(upload.psid, '9001');
+    assert.match(upload.dir, /\/games\/abc123\/noftp\/dayzxb\//);
+    assert.strictEqual(upload.filename, 'ban.txt');
+    assert.strictEqual(upload.content, 'Alpha\nBravo\n',
+      'the ban file gains exactly the auto-banned gamertag');
+    assert.deepStrictEqual(lockCalls, [44], 'the provider mutation lock must be taken per exact server');
+
+    // Provider mutation was prepared and completed, attributed to the policy
+    assert.strictEqual(recoveryStub.__prepared.length, 1);
+    assert.strictEqual(recoveryStub.__prepared[0].serverId, 44);
+    assert.strictEqual(recoveryStub.__prepared[0].triggeredBy, 'autoban:alt_policy');
+    assert.deepStrictEqual(recoveryStub.__status, ['completed']);
+
+    // Audit row: which signal, which candidate pair, which review row
+    assert.strictEqual(flowDb.state.auditRows.length, 1, 'every auto-ban must write exactly one audit row');
+    const auditParams = flowDb.state.auditRows[0].params;
+    assert.deepStrictEqual([auditParams[0], auditParams[1], auditParams[2]], [44, 2, 'Bravo']);
+    const auditEvidence = JSON.parse(auditParams[3]);
+    assert.deepStrictEqual(auditEvidence.pair, [1, 2]);
+    assert.deepStrictEqual(auditEvidence.waitsBySide, { 1: 0, 2: 2 });
+    assert.strictEqual(auditEvidence.enforcedWaits, 2);
+    assert.strictEqual(auditParams[4], 77, 'the audit row must reference the candidate review row');
+    assert.strictEqual(auditParams[5], 'autoban:alt_policy');
+  }
+
+  // Already-banned gamertag: no file change, no audit row, no cap consumed
+  {
+    missionFileService.downloadFileFromServer = async () => 'Alpha\nBravo\n';
+    const journalCountBefore = journals.length;
+    const existsDb = makeAutoBanDb({ reviewId: 77 });
+    const existsSummary = await altAutoBan.evaluateAltAutoBan(existsDb, 44);
+    assert.deepStrictEqual(existsSummary.banned, []);
+    assert.deepStrictEqual(existsSummary.skipped, [{ gamertag: 'Bravo', reason: 'already_banned' }]);
+    assert.strictEqual(existsDb.state.auditRows.length, 0,
+      'an already-banned gamertag must not produce an audit row');
+    assert.strictEqual(journals.length, journalCountBefore,
+      'an unchanged ban file must not be uploaded');
+    missionFileService.downloadFileFromServer = realDownload;
+  }
+
+  // Daily cap: reached under the provider mutation lock → no upload, no audit row
+  {
+    missionFileService.downloadFileFromServer = async () => 'Alpha\n';
+    const completedBefore = recoveryStub.__status.filter(s => s === 'completed').length;
+    const journalCountBefore = journals.length;
+    const cappedDb = makeAutoBanDb({ capCount: AUTO_BAN_DAILY_CAP, reviewId: 77 });
+    const capSummary = await altAutoBan.evaluateAltAutoBan(cappedDb, 44);
+    assert.deepStrictEqual(capSummary.banned, []);
+    assert.deepStrictEqual(capSummary.skipped, [{ gamertag: 'Bravo', reason: 'AUTO_BAN_DAILY_CAP' }]);
+    assert.strictEqual(cappedDb.state.auditRows.length, 0, 'a capped ban must not write an audit row');
+    assert.strictEqual(journals.length, journalCountBefore,
+      'a capped ban must not upload the ban file');
+    assert.strictEqual(recoveryStub.__status.filter(s => s === 'completed').length, completedBefore,
+      'a capped ban must not complete a provider mutation');
+    missionFileService.downloadFileFromServer = realDownload;
+    nitradoService.getRawGameserver = realRawGameserver;
+  }
 
   console.log('Alt account candidate tests passed');
 }

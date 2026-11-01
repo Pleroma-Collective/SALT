@@ -14,6 +14,21 @@ function ensureAuthenticated(req, res, next) {
 }
 
 /**
+ * Pure predicate: true when the request belongs to a dashboard admin/owner
+ * (global is_admin, or platform_role dashboard_admin/dashboard_owner).
+ * Mirrors ensureAdmin's role check without redirecting, for handlers that
+ * branch on role (e.g. serving role-gated data instead of 403/redirect).
+ */
+function isDashboardAdmin(req) {
+  if (!req || typeof req.isAuthenticated !== 'function' || !req.isAuthenticated()) return false;
+  const u = req.user;
+  if (!u) return false;
+  return !!(u.is_admin ||
+    u.platform_role === 'dashboard_admin' ||
+    u.platform_role === 'dashboard_owner');
+}
+
+/**
  * Middleware to ensure user is a global admin
  */
 function ensureAdmin(req, res, next) {
@@ -141,5 +156,6 @@ function requireRole(minRole) {
 module.exports = {
   ensureAuthenticated,
   ensureAdmin,
+  isDashboardAdmin,
   requireRole
 };

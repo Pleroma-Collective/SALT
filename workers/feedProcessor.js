@@ -13,9 +13,12 @@ const {
   markEventFailed,
   cleanupOldEvents,
 } = require('../utils/feedEventQueue');
-const { formatMessage, getDefaultTemplate, formatEmbed, buildKillEmbedPayload } = require('../utils/feedMessageFormatter');
+const { formatMessage, getDefaultTemplate, formatEmbed, buildKillEmbedPayload, buildDeSpawnEmbedPayload } = require('../utils/feedMessageFormatter');
+const { shouldAnnounceDeSpawn } = require('../utils/ceDynamicEvents');
+const { getPublicConfig } = require('../utils/publicConfig');
 const { postToDiscord, validateDiscordDestination, MIN_DELAY_MS } = require('../utils/discordPoster');
 const { amountForResponse } = require('../utils/money');
+const ZoneService = require('../services/zoneService');
 const {
   PIPELINES,
   beginPipelineRun,
@@ -231,19 +234,32 @@ async function processFeedEvents(db, {
  */
 async function processServerFeedEvents(db, guildId, serverId, {
   processOne = processEvent,
+  processZones = ZoneService.processZonesForServer,
 } = {}) {
   try {
-    const [killFeedConfig, factionFeedConfig] = await Promise.all([
-      db.get(`SELECT * FROM discord_feeds WHERE guild_id = ? AND server_id = ? AND feed_type = 'kill_feed'    AND enabled = 1`, [guildId, serverId]),
-      db.get(`SELECT * FROM discord_feeds WHERE guild_id = ? AND server_id = ? AND feed_type = 'faction_feed' AND enabled = 1`, [guildId, serverId]),
+    // Zone activity is position-matched against ingested kill_events and is
+    // independent of feed config, so run it before the "no active feeds" early
+    // return — a server with only zones (and an active ADM stream) still posts.
+    // Failures must never fail the feed tick.
+    try {
+      await processZones(db, guildId, serverId);
+    } catch (zoneError) {
+      console.error(`❌ Zone activity failed for server ${serverId} in guild ${guildId}:`, zoneError.message);
+    }
+
+    const [killFeedConfig, factionFeedConfig, dynamicEventsFeedConfig] = await Promise.all([
+      db.get(`SELECT * FROM discord_feeds WHERE guild_id = ? AND server_id = ? AND feed_type = 'kill_feed'      AND enabled = 1`, [guildId, serverId]),
+      db.get(`SELECT * FROM discord_feeds WHERE guild_id = ? AND server_id = ? AND feed_type = 'faction_feed'   AND enabled = 1`, [guildId, serverId]),
+      db.get(`SELECT * FROM discord_feeds WHERE guild_id = ? AND server_id = ? AND feed_type = 'dynamic_events' AND enabled = 1`, [guildId, serverId]),
     ]);
 
     const enabledFeedTypes = [];
     if (killFeedConfig) enabledFeedTypes.push('kill_feed');
     if (factionFeedConfig) enabledFeedTypes.push('faction_feed');
+    if (dynamicEventsFeedConfig) enabledFeedTypes.push('dynamic_events');
     await suppressDisabledFeedEvents(db, guildId, serverId, enabledFeedTypes);
 
-    if (!killFeedConfig && !factionFeedConfig) {
+    if (!killFeedConfig && !factionFeedConfig && !dynamicEventsFeedConfig) {
       const pendingCount = await db.get(
         `SELECT COUNT(*) AS count FROM feed_events WHERE guild_id = ? AND server_id = ? AND processed = 0`,
         [guildId, serverId]
@@ -260,8 +276,9 @@ async function processServerFeedEvents(db, guildId, serverId, {
     const events = await claimPendingEvents(db, guildId, serverId, 50, enabledFeedTypes);
     console.log(`📬 Processing ${events.length} events for server ${serverId} in guild ${guildId}`);
 
-    const killSettings    = killFeedConfig    ? (JSON.parse(killFeedConfig.settings    || '{}')) : null;
+    const killSettings    = killFeedConfig ? (JSON.parse(killFeedConfig.settings || '{}')) : null;
     const factionSettings = factionFeedConfig ? (JSON.parse(factionFeedConfig.settings || '{}')) : null;
+    const deSettings      = dynamicEventsFeedConfig ? (JSON.parse(dynamicEventsFeedConfig.settings || '{}')) : null;
 
     let failed = 0;
     for (let i = 0; i < events.length; i++) {
@@ -272,6 +289,8 @@ async function processServerFeedEvents(db, guildId, serverId, {
         outcome = await processOne(db, event, factionFeedConfig, factionSettings);
       } else if (event.feed_type === 'kill_feed' && killFeedConfig) {
         outcome = await processOne(db, event, killFeedConfig, killSettings);
+      } else if (event.feed_type === 'dynamic_events' && dynamicEventsFeedConfig) {
+        outcome = await processOne(db, event, dynamicEventsFeedConfig, deSettings);
       } else {
         console.log(`⏸️ Keeping ${event.feed_type} event ${event.id} pending; no matching enabled feed`);
         outcome = 'failed';
@@ -331,6 +350,8 @@ async function processEvent(db, event, feedConfig, settings) {
     if (event.event_type === 'player_kill' && (settings?.useEmbed !== false)) {
       // Build the rich kill-feed embed with live stats
       content = await buildPlayerKillEmbed(db, eventData, settings, serverName, server.id);
+    } else if (event.event_type === 'de_spawn') {
+      content = buildDeSpawnEmbedPayload(eventData, settings, serverName, dashboardOriginForFeed());
     } else {
       // Legacy template path for non-kill events
       const template = await getTemplate(db, event.server_id, event.feed_type, event.event_type);
@@ -442,6 +463,15 @@ async function buildPlayerKillEmbed(db, eventData, settings, serverName, serverI
 
 /* ─── Filters & templates ─────────────────────────────────────────────────── */
 
+/** Dashboard origin for map deep-links; null when DASHBOARD_URL is unset. */
+function dashboardOriginForFeed() {
+  try {
+    return getPublicConfig(process.env).dashboardUrl || null;
+  } catch {
+    return null;
+  }
+}
+
 function shouldPostEvent(eventType, eventData, settings) {
   if (eventType === 'player_kill') {
     if (settings.showPlayers === false) return false;
@@ -451,6 +481,10 @@ function shouldPostEvent(eventType, eventData, settings) {
   if (eventType === 'zombie_kill'  && settings.showZombies === false) return false;
   if (eventType === 'animal_kill'  && settings.showAnimals === false) return false;
   if (eventType === 'suicide'      && settings.showSuicides === false) return false;
+  if (eventType === 'de_spawn') {
+    return shouldAnnounceDeSpawn(eventData.deType, settings);
+  }
+
   return true;
 }
 

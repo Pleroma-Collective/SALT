@@ -487,7 +487,7 @@ function testMapsPreserveCoordinateStableTilesAndExposeEvidenceBackedData() {
   );
   assert.doesNotMatch(serverChangeHandler, /loadHeatmap\(\)|loadKillHeatmap\(\)|loadDeathHeatmap\(\)|loadMovementHeatmap\(\)/,
     'server switches must wait for selected-map discovery before loading scaled heatmaps');
-  assert.match(adminClient, /if \(activeMission\)[\s\S]{0,120}loadEnabledHeatmaps\(\)/,
+  assert.match(adminClient, /loadMapData\(serverId, select\.value\);\s*loadEnabledHeatmaps\(\)/,
     'active-map discovery must load enabled heatmaps after establishing map context');
   assert.match(adminClient, /getActiveMission\(currentServer,\s*serverContext\.guildId\)/,
     'auto-refresh must retain the exact selected guild for active-mission discovery');

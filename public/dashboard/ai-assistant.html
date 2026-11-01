@@ -6,6 +6,7 @@
   <title>AI Assistant - DayZ Dashboard</title>
   <link rel="stylesheet" href="/css/theme.css">
   <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="/css/components.css">
   <script src="/js/instance-config.js" defer></script>
   <script src="/js/ai-assistant.js" defer></script>
 </head>
@@ -74,7 +75,7 @@
 
     <!-- Server Selector -->
     <div class="bg-gray-800 p-4 rounded-lg mb-6 border border-gray-700">
-      <label class="block mb-2 font-semibold">Select Server</label>
+      <label class="block mb-2 font-semibold" for="serverSelect">Select Server</label>
       <select id="serverSelect"  class="bg-gray-700 border border-gray-600 rounded px-3 py-2 w-full max-w-md">
         <option value="">-- Select a server --</option>
       </select>
@@ -97,7 +98,7 @@
         <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
           <h3 class="font-bold text-lg mb-3">Load a Config File</h3>
           <p class="text-sm text-gray-400 mb-3">Load a file from your Nitrado server to chat about it. The AI will have the file content as context.</p>
-          <select id="fileNameSelect" class="bg-gray-700 border border-gray-600 rounded px-3 py-2 w-full mb-3">
+          <select id="fileNameSelect" aria-label="Server file to load" class="bg-gray-700 border border-gray-600 rounded px-3 py-2 w-full mb-3">
             <option value="">Select a server, then pick a file</option>
           </select>
           <button data-action="load-file" id="loadFileBtn" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded w-full mb-2">Load File from Server</button>
@@ -128,7 +129,7 @@
           <!-- Input -->
           <div class="p-3 border-t border-gray-700">
             <div class="flex gap-2">
-              <textarea id="chatInput" rows="2" placeholder="Ask the AI to edit or explain your config file..."
+              <textarea id="chatInput" aria-label="Message to the AI" rows="2" placeholder="Ask the AI to edit or explain your config file..."
                 class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm resize-none"
                 ></textarea>
               <button data-action="send-message" id="sendBtn" class="bg-blue-600 hover:bg-blue-700 px-4 rounded font-semibold">Send</button>
@@ -144,7 +145,7 @@
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-xl font-bold">💡 AI Suggestions</h2>
         <div class="flex gap-2">
-          <select id="analyzeFileSelect" class="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm">
+          <select id="analyzeFileSelect" aria-label="Server file to analyze" class="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm">
             <option value="">Select a server, then pick a file</option>
           </select>
           <button data-action="run-analysis" id="analyzeBtn" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded">
@@ -175,7 +176,7 @@
           (e.g. "lower the spawn rate of all military weapons in both the Chernarus and Enoch types files").</p>
         <div class="flex flex-wrap gap-2 mb-3" id="configFilePicker"></div>
         <div class="flex gap-2">
-          <textarea id="configEditInstruction" rows="2"
+          <textarea id="configEditInstruction" aria-label="Edit instruction for the AI" rows="2"
             placeholder='e.g. "Add 2 to the nominal value of every type that ends in _F and is under 10, in both files"'
             class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm resize-none"></textarea>
           <button data-action="run-config-edit" id="configEditBtn" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded font-semibold self-end">Run edit</button>
@@ -191,7 +192,7 @@
           typically types.xml, events.xml and randompresets.xml. Each suggested patch carries its own rationale.</p>
         <div class="flex flex-wrap gap-2 mb-3" id="balanceFilePicker"></div>
         <div class="flex gap-2 mb-3">
-          <input id="balanceGoal" type="text" placeholder="e.g. make early game harder, keep late game as-is"
+          <input id="balanceGoal" aria-label="Balance goal" type="text" placeholder="e.g. make early game harder, keep late game as-is"
             class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm" />
           <button data-action="run-balance-pass" id="balanceBtn" class="bg-teal-600 hover:bg-teal-500 px-4 py-2 rounded font-semibold">Run pass</button>
         </div>
@@ -207,7 +208,7 @@
           report works without any provider.</p>
         <div class="flex flex-wrap gap-2 mb-3" id="validateFilePicker"></div>
         <div class="flex flex-wrap gap-2 mb-2">
-          <input id="validateQuestion" type="text" placeholder="optional: what are you worried about in this file?"
+          <input id="validateQuestion" aria-label="Your concern about this file (optional)" type="text" placeholder="optional: what are you worried about in this file?"
             class="flex-1 min-w-[240px] bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm" />
           <button data-action="run-config-validate" id="validateBtn" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded font-semibold">Validate</button>
         </div>
@@ -269,7 +270,7 @@
         <h3 class="font-bold mb-2">✨ AI explanation</h3>
         <p class="text-sm text-gray-400 mb-2">Ask a grounded question about the analysis (uses your AI provider; shared router counts against the daily budget).</p>
         <div class="flex gap-2 mb-3">
-          <input id="logQuestionInput" type="text"
+          <input id="logQuestionInput" aria-label="Question about the server logs" type="text"
             placeholder="e.g. What is most likely causing the lag spikes?"
             class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm" />
           <button data-action="run-log-explain" id="logExplainBtn" class="bg-purple-600 hover:bg-purple-700 px-4 rounded font-semibold">Explain</button>
@@ -283,7 +284,7 @@
         <h3 class="font-bold mb-2">🔎 Why did it crash / lag at a moment?</h3>
         <p class="text-sm text-gray-400 mb-2">Correlates RPT warnings/ticks with ADM tick telemetry, sessions and deaths around an instant.</p>
         <div class="flex flex-wrap gap-2 mb-3">
-          <input id="logWhyAtInput" type="datetime-local" class="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm" />
+          <input id="logWhyAtInput" aria-label="When the issue happened" type="datetime-local" class="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm" />
           <button data-action="run-log-why" id="logWhyBtn" class="bg-teal-600 hover:bg-teal-500 px-4 py-2 rounded font-semibold">Analyze moment</button>
         </div>
         <div id="logWhyStatus" class="text-sm text-gray-500 mb-2"></div>
@@ -322,19 +323,19 @@
 
         <div class="space-y-4">
           <div>
-            <label class="block text-sm mb-1">Repository</label>
+            <label class="block text-sm mb-1" for="repoSelect">Repository</label>
             <select id="repoSelect" class="bg-gray-700 border border-gray-600 rounded px-3 py-2 w-full" >
               <option value="">-- Select a repo --</option>
             </select>
           </div>
           <div>
-            <label class="block text-sm mb-1">Branch</label>
+            <label class="block text-sm mb-1" for="branchSelect">Branch</label>
             <select id="branchSelect" class="bg-gray-700 border border-gray-600 rounded px-3 py-2 w-full">
               <option value="main">main</option>
             </select>
           </div>
           <div>
-            <label class="block text-sm mb-1">Base path in repo <span class="text-gray-500">(where mission files are stored)</span></label>
+            <label class="block text-sm mb-1" for="basePathInput">Base path in repo <span class="text-gray-500">(where mission files are stored)</span></label>
             <input type="text" id="basePathInput" value="/" placeholder="e.g. / or /mpmissions/dayzOffline.chernarusplus/"
               class="bg-gray-700 border border-gray-600 rounded px-3 py-2 w-full">
           </div>
@@ -352,17 +353,17 @@
     <div class="bg-gray-800 rounded-lg p-6 w-full max-w-lg border border-gray-600">
       <h2 class="text-xl font-bold mb-2">✨ Connect AI Provider</h2>
       <p class="text-sm text-gray-400 mb-4">Credentials are verified server-side, encrypted at rest, and never displayed again.</p>
-      <label class="block text-sm mb-1">Provider</label>
+      <label class="block text-sm mb-1" for="aiProviderType">Provider</label>
       <select id="aiProviderType" class="bg-gray-700 border border-gray-600 rounded px-3 py-2 w-full mb-4">
         <option value="openai-compatible">My OpenAI-compatible provider</option>
         <option value="copilot">GitHub Copilot</option>
       </select>
       <div id="openAiProviderFields">
-        <label class="block text-sm mb-1">Provider URL</label>
+        <label class="block text-sm mb-1" for="aiProviderBaseUrl">Provider URL</label>
         <input id="aiProviderBaseUrl" type="url" value="https://api.openai.com/v1/" class="bg-gray-700 border border-gray-600 rounded px-3 py-2 w-full mb-3">
-        <label class="block text-sm mb-1">Model</label>
+        <label class="block text-sm mb-1" for="aiProviderModel">Model</label>
         <input id="aiProviderModel" type="text" value="gpt-4o-mini" class="bg-gray-700 border border-gray-600 rounded px-3 py-2 w-full mb-3">
-        <label class="block text-sm mb-1">AI provider token</label>
+        <label class="block text-sm mb-1" for="aiProviderToken">AI provider token</label>
         <input id="aiProviderToken" type="password" autocomplete="new-password" placeholder="Token is encrypted and never returned" class="bg-gray-700 border border-gray-600 rounded px-3 py-2 w-full mb-4">
       </div>
       <div id="copilotProviderFields" class="hidden text-sm text-gray-300 bg-gray-900 rounded p-3 mb-4">
@@ -388,7 +389,7 @@
          class="block text-center bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded mb-4 text-sm">
         📝 Create token on GitHub ↗
       </a>
-      <label class="block text-sm mb-1">Paste token here:</label>
+      <label class="block text-sm mb-1" for="patInput">Paste token here:</label>
       <input type="password" id="patInput" autocomplete="new-password" placeholder="github_pat_..." class="bg-gray-700 border border-gray-600 rounded px-3 py-2 w-full mb-4">
       <div id="connectError" class="text-red-400 text-sm mb-3 hidden"></div>
       <div class="flex gap-3">

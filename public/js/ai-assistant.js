@@ -47,9 +47,11 @@ function showAiProviderModal() {
   document.getElementById('aiProviderError').classList.add('hidden');
   document.getElementById('aiProviderToken').value = '';
   updateAiProviderFields();
+  window.DzcOverlayFocus.open(document.getElementById('aiProviderModal'), { onClose: closeAiProviderModal });
 }
 
 function closeAiProviderModal() {
+  window.DzcOverlayFocus.close(document.getElementById('aiProviderModal'));
   document.getElementById('aiProviderModal').classList.add('hidden');
   document.getElementById('aiProviderToken').value = '';
 }
@@ -393,8 +395,10 @@ function showConnectModal() {
   document.getElementById('connectModal').classList.remove('hidden');
   document.getElementById('connectError').classList.add('hidden');
   document.getElementById('patInput').value = '';
+  window.DzcOverlayFocus.open(document.getElementById('connectModal'), { onClose: closeConnectModal, focusEl: document.getElementById('patInput') });
 }
 function closeConnectModal() {
+  window.DzcOverlayFocus.close(document.getElementById('connectModal'));
   document.getElementById('patInput').value = '';
   document.getElementById('connectModal').classList.add('hidden');
 }
@@ -729,6 +733,7 @@ async function openDiffModal(suggestionId) {
   document.getElementById('diffContent').textContent     = data.suggested_content || '';
   renderDiffExplanationPanel(data.diff_explanation);
   document.getElementById('diffModal').classList.remove('hidden');
+  window.DzcOverlayFocus.open(document.getElementById('diffModal'), { onClose: closeDiffModal });
 }
 
 function renderDiffExplanationPanel(text) {
@@ -764,6 +769,7 @@ async function refreshDiffExplain() {
 }
 
 function closeDiffModal() {
+  window.DzcOverlayFocus.close(document.getElementById('diffModal'));
   document.getElementById('diffModal').classList.add('hidden');
   activeSuggestion = null;
 }
@@ -813,6 +819,7 @@ function previewApply(content, filename, suggestionId) {
   document.getElementById('diffExplanation').textContent = 'Review the AI-edited file below, then click Apply.';
   document.getElementById('diffContent').textContent     = content;
   document.getElementById('diffModal').classList.remove('hidden');
+  window.DzcOverlayFocus.open(document.getElementById('diffModal'), { onClose: closeDiffModal });
 }
 
 /* ── Config Intelligence (multi-file edits, balance pass, validation) ──

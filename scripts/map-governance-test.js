@@ -26,6 +26,30 @@ assert(chernarus.extents.every(item => item.geometry === 'display-radius'));
 assert.strictEqual(catalog.getSettlementLayers('enoch').labels.length, 0,
   'Chernarus-first layers must not be projected onto other terrains');
 
+// Nasdara's mission files embed no settlement names, so its labels come from
+// the extracted location dump (scripts/extract-nasdara-settlements.js).
+const nasdaraSettlements = JSON.parse(
+  fs.readFileSync(path.join(root, 'data', 'nasdara', 'settlements.json'), 'utf8'));
+assert.strictEqual(nasdaraSettlements.map, 'nasdara');
+assert.strictEqual(nasdaraSettlements.settlements.length, 156);
+assert.strictEqual(nasdaraSettlements.settlements.filter(s => s.type === 'City').length, 19,
+  'all 19 named cities get a label');
+assert.strictEqual(nasdaraSettlements.settlements.filter(s => s.type === 'Village').length, 46,
+  'all 46 named villages get a label');
+assert.strictEqual(nasdaraSettlements.settlements.filter(s => s.kind === 'village').length, 136,
+  'village bucket = all non-city named places (46 villages + locals/ruins/marine/hills)');
+assert.strictEqual(nasdaraSettlements.settlements.filter(s => s.kind === 'city' || s.kind === 'capital').length, 20,
+  'city bucket = 19 cities + the capital (always visible)');
+assert(nasdaraSettlements.settlements.every(s =>
+  s.position.east >= 0 && s.position.east <= 16350 &&
+  s.position.north >= 0 && s.position.north <= 16350),
+  'settlement positions must stay inside the nasdara world extent');
+assert(new Set(nasdaraSettlements.settlements.map(s => s.id)).size === 156,
+  'settlement ids must be unique');
+assert.match(fs.readFileSync(path.join(root, 'src', 'app', 'registerRoutes.js'), 'utf8'),
+  /MAP_DATA_FILES = new Set\(\[[^\]]*'settlements\.json'/,
+  'the /data route allowlist must serve settlements.json');
+
 const territory = require(path.join(root, 'services', 'factionTerritoryService.js'));
 assert.strictEqual(territory.FLAG_POLE_RADIUS_METERS, 60);
 assert.deepStrictEqual(

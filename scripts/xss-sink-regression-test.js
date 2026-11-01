@@ -5,7 +5,8 @@
  *
  * The Aug release-plan audit flagged two unescaped-API-value-into-innerHTML
  * sinks:
- *   - public/js/loot-finder.js  renderItemList / renderItemDetailFull
+ *   - public/js/map-loot-layer.js (ex loot-finder.js) renderItemList /
+ *     renderItemDetailFull
  *   - public/js/dashboard.js    loadRecentActivity (activity feed)
  *
  * Both are now escaped with the shared `escapeHtml` helper (newer screens
@@ -20,7 +21,7 @@
  *
  * Run standalone:   node scripts/xss-sink-regression-test.js [basePath]
  *   basePath defaults to <repo>/public/js. Supplying a directory that holds
- *   `loot-finder.js` + `dashboard.js` with the `escapeHtml(...)` wrappers
+ *   `map-loot-layer.js` + `dashboard.js` with the `escapeHtml(...)` wrappers
  *   removed reproduces the vulnerable state and makes this suite fail
  *   (red-on-old proof).
  */
@@ -106,7 +107,7 @@ function loadScript(file, { fetchImpl, withWindowLocation } = {}) {
     JSON,
     Promise,
     encodeURIComponent,
-    // loot-finder.js reads this at module scope for MAP_DEFINITIONS.
+    // map-loot-layer.js reads this at module scope for MAP_DEFINITIONS.
     DayzMapCoordinates: { MAP_DEFINITIONS: {} },
   });
   const source = fs.readFileSync(path.join(basePath, file), 'utf8');
@@ -139,10 +140,13 @@ function assertNoRawInjection(html, where, ...rawPayloads) {
 }
 
 function testLootFinderItemCardEscapesNameAndCategory() {
-  const ctx = loadScript('loot-finder.js');
-  // Populate the module's cached DOM refs from the fake document so the
-  // render functions (which read `dom.*`) have real elements to write to.
-  ctx.cacheDomElements();
+  const ctx = loadScript('map-loot-layer.js');
+  // The layer exposes its render path via window.MapLootLayer; populate the
+  // module's cached DOM refs from the fake document so the render functions
+  // (which read `dom.*`) have real elements to write to.
+  const layer = ctx.window.MapLootLayer;
+  assert.ok(layer, 'map-loot-layer.js must expose window.MapLootLayer');
+  assert.ok(layer.cacheDomElements(), 'loot layer DOM cache must resolve on the merged page ids');
   const doc = ctx.document;
 
   const malicious = {
@@ -154,17 +158,17 @@ function testLootFinderItemCardEscapesNameAndCategory() {
     spawnCount: 2,
   };
 
-  ctx.renderItemList([malicious]);
-  const listHtml = collectRenderedHtml(doc.getElementById('itemList'));
-  assertNoRawInjection(listHtml, 'loot-finder item card', ADV_SCRIPT, ADV_IMG, ADV_QUOTED);
+  layer.renderItemList([malicious]);
+  const listHtml = collectRenderedHtml(doc.getElementById('loot-item-list'));
+  assertNoRawInjection(listHtml, 'map loot layer item card', ADV_SCRIPT, ADV_IMG, ADV_QUOTED);
   assert.ok(listHtml.includes(ESCAPED_SCRIPT),
-    'loot-finder item card must render the escaped item name');
+    'map loot layer item card must render the escaped item name');
 
-  ctx.renderItemDetailFull(malicious);
-  const detailHtml = doc.getElementById('itemDetail').innerHTML;
-  assertNoRawInjection(detailHtml, 'loot-finder item detail', ADV_SCRIPT, ADV_IMG, ADV_QUOTED);
+  layer.renderItemDetailFull(malicious);
+  const detailHtml = doc.getElementById('loot-item-detail').innerHTML;
+  assertNoRawInjection(detailHtml, 'map loot layer item detail', ADV_SCRIPT, ADV_IMG, ADV_QUOTED);
   assert.ok(detailHtml.includes('&lt;img'),
-    'loot-finder item detail must escape the category list');
+    'map loot layer item detail must escape the category list');
 }
 
 function testDashboardActivityFeedEscapesDescription() {
@@ -204,10 +208,10 @@ function main() {
 
   try {
     testLootFinderItemCardEscapesNameAndCategory();
-    console.log('✅ loot-finder item card/detail escape adversarial values');
+    console.log('✅ map loot layer item card/detail escape adversarial values');
   } catch (err) {
     failures++;
-    console.error('❌ loot-finder sink:', err.message);
+    console.error('❌ map loot layer sink:', err.message);
   }
 
   return testDashboardActivityFeedEscapesDescription()

@@ -6,6 +6,7 @@
   <title>Transaction History - DayZ Dashboard</title>
   <link rel="stylesheet" href="/css/theme.css">
   <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="/css/components.css">
   <style>
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .spinner { animation: spin 1s linear infinite; }
@@ -44,7 +45,7 @@
       <div class="bg-gray-800 p-4 rounded-lg border border-gray-700 mb-4">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
           <div>
-            <label class="block text-xs text-gray-400 mb-1">Type</label>
+            <label class="block text-xs text-gray-400 mb-1" for="typeFilter">Type</label>
             <select id="typeFilter" class="w-full bg-gray-700 px-3 py-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm">
               <option value="all">All Types</option>
               <option value="earn">Earnings</option>
@@ -56,23 +57,23 @@
             </select>
           </div>
           <div>
-            <label class="block text-xs text-gray-400 mb-1">Start Date</label>
+            <label class="block text-xs text-gray-400 mb-1" for="startDate">Start Date</label>
             <input type="date" id="startDate" class="w-full bg-gray-700 px-3 py-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
           </div>
           <div>
-            <label class="block text-xs text-gray-400 mb-1">End Date</label>
+            <label class="block text-xs text-gray-400 mb-1" for="endDate">End Date</label>
             <input type="date" id="endDate" class="w-full bg-gray-700 px-3 py-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
           </div>
           <div>
-            <label class="block text-xs text-gray-400 mb-1">Min Amount</label>
+            <label class="block text-xs text-gray-400 mb-1" for="minAmount">Min Amount</label>
             <input type="number" id="minAmount" min="0" step="0.01" placeholder="0.00" class="w-full bg-gray-700 px-3 py-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
           </div>
           <div>
-            <label class="block text-xs text-gray-400 mb-1">Max Amount</label>
+            <label class="block text-xs text-gray-400 mb-1" for="maxAmount">Max Amount</label>
             <input type="number" id="maxAmount" min="0" step="0.01" placeholder="Any" class="w-full bg-gray-700 px-3 py-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
           </div>
           <div>
-            <label class="block text-xs text-gray-400 mb-1">Search Description</label>
+            <label class="block text-xs text-gray-400 mb-1" for="tl-search">Search Description</label>
             <input type="text" id="tl-search" placeholder="Search..." class="w-full bg-gray-700 px-3 py-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
           </div>
         </div>
@@ -84,6 +85,7 @@
       </div>
 
       <!-- Transaction List -->
+      <div id="tx-freshness" class="mb-2"></div>
       <div id="transactionList">
         <div class="text-center py-12">
           <div class="spinner border-4 border-green-600 border-t-transparent rounded-full w-10 h-10 mx-auto"></div>
@@ -105,13 +107,14 @@
 
   <!-- Transaction Detail Modal -->
   <div id="txDetailModal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-    <div class="bg-gray-800 p-8 rounded-lg shadow-xl max-w-md w-full mx-4">
+    <div class="bg-gray-800 p-8 rounded-lg shadow-xl max-w-md w-full mx-4" role="dialog" aria-modal="true" aria-label="Transaction details">
       <h2 class="text-2xl font-bold mb-4">💱 Transaction Details</h2>
       <div id="txDetailBody"></div>
       <button id="closeTxDetail" class="bg-gray-600 hover:bg-gray-700 px-6 py-3 rounded font-semibold w-full mt-4">Close</button>
     </div>
   </div>
 
+  <script src="/js/data-freshness.js"></script>
   <script src="/js/components/transactionList.js"></script>
   <script src="/js/economy-transactions-init.js"></script>
 </body>

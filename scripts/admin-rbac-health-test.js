@@ -616,7 +616,50 @@ async function testCasinoStrictLimiterReturnsJson() {
     assert.equal(response.statusCode, 429, 'casino strict limiter should be exhausted');
     assert.match(response.headers['content-type'] || '', /^application\/json\b/,
       'casino rate-limit responses must remain JSON for browser response parsing');
-    assert.deepStrictEqual(JSON.parse(body), { error: 'Too many requests, please slow down.' });
+    const payload = JSON.parse(body);
+    assert.match(payload.error, /^Too many requests, please slow down\./,
+      'casino rate-limit error must keep the slow-down wording');
+    assert.match(payload.error, /Try again in ~\d+ minute/,
+      'casino rate-limit error must state the approximate reset time');
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+  }
+}
+
+async function testCasinoStrictLimiterKeysPerAccount() {
+  const express = require('express');
+  const http = require('http');
+  const { strictLimiter } = require('../middleware/rateLimiter');
+
+  // Simulate the auth middleware setting req.user before the limiter runs.
+  const app = express();
+  app.post('/api/casino/play/slots', (req, res, next) => {
+    req.user = { id: req.url.split('u=')[1] || 'anon' };
+    next();
+  }, strictLimiter, (req, res) => res.json({ ok: true }));
+  const server = http.createServer(app);
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const request = (u) => new Promise((resolve, reject) => {
+    const requestHandle = http.request({
+      host: '127.0.0.1',
+      port: server.address().port,
+      path: `/api/casino/play/slots?u=${u}`,
+      method: 'POST',
+    }, response => {
+      response.resume();
+      response.on('end', () => resolve(response.statusCode));
+    });
+    requestHandle.on('error', reject);
+    requestHandle.end();
+  });
+
+  try {
+    for (let index = 0; index < 10; index += 1) {
+      assert.equal(await request('player-a'), 200, 'player-a within its own account budget');
+    }
+    assert.equal(await request('player-a'), 429, 'player-a exhausted its own budget');
+    assert.equal(await request('player-b'), 200,
+      'player-b on the same IP must get its own account budget');
   } finally {
     await new Promise(resolve => server.close(resolve));
   }
@@ -632,6 +675,7 @@ async function main() {
   testAdminFrontendContracts();
   await testOnboardingRateLimitIsolation();
   await testCasinoStrictLimiterReturnsJson();
+  await testCasinoStrictLimiterKeysPerAccount();
   console.log('✅ Admin RBAC, setup, health, and isolation tests passed');
 }
 

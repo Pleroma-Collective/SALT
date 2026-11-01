@@ -375,6 +375,16 @@ function testShopSpawnEntriesPreserveDayzXyzCoordinateOrder() {
   if (JSON.stringify(objectSpawner.ypr) !== JSON.stringify([45, 5, -5])) {
     throw new Error('Object-spawner placement does not preserve yaw, pitch, and roll');
   }
+  // shop_order_items.pos_*/ypr_* are Postgres `numeric` (string-typed in JS):
+  // the checkout path must accept them, matching buildEffectAreaEntry.
+  const numericStringSpawner = shop.buildObjectSpawnerEntry({
+    ...placement,
+    posX: '8810.1930', posY: '0.0000', posZ: '6795.0950',
+    yaw: '0.0000', pitch: '0.0000', roll: '0.0000',
+  });
+  if (JSON.stringify(numericStringSpawner.pos) !== JSON.stringify([8810.193, 0, 6795.095])) {
+    throw new Error('Object-spawner placement must accept numeric-string coordinates from Postgres');
+  }
 
   const eventPosition = shop.buildEventSpawnPosition(placement);
   if (JSON.stringify(eventPosition) !== JSON.stringify({ x: 4169.9641, z: 10728.7067, a: 45 })) {
@@ -455,9 +465,7 @@ function testShopRejectsUnprovisionableCatalogItemsBeforeCheckout() {
     { spawn_method: 'event', item_class: 'AKM', event_name: 'StaticShopAKM', event_config: { children: [{ type: '', min: 1, max: 1, lootmin: 0, lootmax: 0 }] } },
     { spawn_method: 'event', item_class: 'AKM', event_name: 'StaticShopAKM', event_config: { eventGroupChildren: [{ type: 'AKM', x: 0, y: 0, z: 0, a: 0, spawnsecondary: 'true' }] } },
     { spawn_method: 'event', item_class: 'AKM', event_name: 'StaticShopAKM', event_config: { effectAreaComponents: [{ type: 'Flag_APA', offset: [0, 0] }] } },
-    { spawn_method: 'event', item_class: 'AKM', event_name: 'StaticShopAKM', event_config: { effectAreaComponents: [{ type: 'ContaminatedArea_Static', offset: [0, 0, 0], radius: 10 }] } },
     { spawn_method: 'event', item_class: 'AKM', event_name: 'StaticShopAKM', event_config: { objectSpawnerComponents: [{ name: 'AKM', file: '../bad.json', offset: [0, 0, 0] }] } },
-    { spawn_method: 'event', item_class: 'AKM', event_name: 'StaticShopAKM', event_config: { objectSpawnerComponents: [{ name: 'AKM', file: 'custom/shop.json', offset: [0, 0, 0] }] } },
     { spawn_method: 'event', item_class: 'Animal_CanisLupus_Grey', event_name: 'AnimalShopWolf', event_config: {} },
     { spawn_method: 'event', item_class: 'AKM', event_name: 'StaticShopAKM', event_config: { children: [{ type: 'Animal_CanisLupus_Grey', min: 1, max: 1, lootmin: 0, lootmax: 0 }] } },
     { spawn_method: 'event', item_class: 'AKM', event_name: 'StaticShopAKM', event_config: { secondary: 'AnimalWolf' } },
@@ -491,6 +499,104 @@ function testShopRejectsUnprovisionableCatalogItemsBeforeCheckout() {
       eventGroupChildren: [{ type: 'StaticObj_Misc_SupplyBox1_DE', x: 0, y: 0, z: 0, a: 0, spawnsecondary: true }],
     },
   });
+  shop.validateProvisioningItem({
+    spawn_method: 'event',
+    item_class: 'AKM',
+    event_name: 'StaticShopCompanions',
+    event_config: {
+      effectAreaComponents: [{ type: 'ContaminatedArea_Static', offset: [0, 0, 0], radius: 10 }],
+      objectSpawnerComponents: [{ name: 'Land_Barn_Wood2', file: 'custom/shop.json', offset: [2, 0, -3], ypr: [0, 0, 0], scale: 1 }],
+    },
+  });
+}
+
+async function testShopEventCompanionRoundTrip() {
+  const assert = require('assert');
+  const fs = require('fs');
+  const vm = require('vm');
+  const shop = require('../services/shopFileService');
+
+  // Form round-trip: shop-admin.js fields -> event_config -> re-populated form -> identical values.
+  const fields = new Map();
+  const elementFor = id => {
+    if (!fields.has(id)) fields.set(id, { value: '', checked: false, addEventListener() {} });
+    return fields.get(id);
+  };
+  const sandbox = {
+    document: { addEventListener() {}, getElementById: elementFor },
+    console,
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(
+    fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'shop-admin.js'), 'utf8'),
+    sandbox
+  );
+
+  const effectJson = JSON.stringify([{ type: 'ContaminatedArea_Static', offset: [0, 0, 0], radius: 10 }]);
+  const objectJson = JSON.stringify([{ name: 'Land_Barn_Wood2', file: 'custom/shop.json', offset: [2, 0, -3], ypr: [0, 0, 0], scale: 1 }]);
+  elementFor('ec-effect-components-json').value = effectJson;
+  elementFor('ec-object-components-json').value = objectJson;
+  const saved = sandbox.readEventConfig();
+  // compare serialized: vm-realm objects fail deepStrictEqual on cross-realm prototypes
+  assert.strictEqual(JSON.stringify(saved.effectAreaComponents), effectJson);
+  assert.strictEqual(JSON.stringify(saved.objectSpawnerComponents), objectJson);
+  sandbox.writeEventConfig(saved); // the admin save route stores event_config verbatim
+  const reloaded = sandbox.readEventConfig();
+  assert.strictEqual(JSON.stringify(reloaded.effectAreaComponents), JSON.stringify(saved.effectAreaComponents));
+  assert.strictEqual(JSON.stringify(reloaded.objectSpawnerComponents), JSON.stringify(saved.objectSpawnerComponents));
+
+  // Acknowledgement gates save: non-empty companion fields without the checkbox must not reach the network.
+  vm.runInContext('currentServerId = 7;', sandbox); // top-level let, only writable in-context
+  const alerts = [];
+  const network = [];
+  sandbox.alert = message => alerts.push(message);
+  sandbox.fetchWithCsrf = (url, _options) => { network.push(url); throw new Error('network blocked'); };
+  elementFor('item-name').value = 'Companion Test';
+  elementFor('item-price').value = '1.00';
+  elementFor('item-spawn-method').value = 'event';
+  await sandbox.saveItem();
+  assert.strictEqual(network.length, 0, 'save without acknowledgement must not reach the network');
+  assert.match(alerts.join(' '), /acknowledgement/i);
+  elementFor('ec-companion-ack').checked = true;
+  await sandbox.saveItem(); // the sentinel error is swallowed by saveItem's catch; the call itself is the proof
+  assert.strictEqual(network.length, 1, 'save with acknowledgement must proceed to the network call');
+  assert.strictEqual(network[0], '/api/shop/admin/items');
+
+  // Provision -> cleanup round-trip: companion entries are built with tracked ids and
+  // removed by exactly those ids on refund/cancel/expiry, leaving other entries intact.
+  const itemId = 424242;
+  const effectComponent = saved.effectAreaComponents[0];
+  const objectComponent = saved.objectSpawnerComponents[0];
+  const effectEntryId = shop.generateAreaName(itemId + '_effect_0');
+  const effectEntry = shop.buildEffectAreaEntry({
+    entryId: effectEntryId,
+    itemClass: effectComponent.type,
+    posX: 100 + effectComponent.offset[0],
+    posY: 50 + effectComponent.offset[1],
+    posZ: -200 + effectComponent.offset[2],
+  });
+  effectEntry.Data.Radius = Number(effectComponent.radius ?? 1);
+  const objectEntryId = shop.generateAreaName(itemId + '_object_1');
+  const objectEntry = shop.buildObjectSpawnerEntry({
+    entryId: objectEntryId,
+    itemClass: objectComponent.name,
+    posX: 100 + objectComponent.offset[0],
+    posY: 50 + objectComponent.offset[1],
+    posZ: -200 + objectComponent.offset[2],
+    yaw: 0, pitch: 0, roll: 0,
+    objectSpawnerConfig: shop.normalizeEventObjectSpawnerComponent(objectComponent),
+  });
+  const areas = shop.removeEffectAreaEntries(
+    { Areas: [effectEntry, { AreaName: 'PREEXISTING_area', Type: 'ContaminatedArea_Static', Data: { Pos: [0, 0, 0], Radius: 5 } }] },
+    new Set([effectEntryId])
+  );
+  assert.deepStrictEqual(areas.Areas.map(area => area.AreaName), ['PREEXISTING_area']);
+  const objects = shop.removeObjectSpawnerEntries(
+    { Objects: [objectEntry, { name: 'Land_Wreck_C130J', pos: [1, 2, 3], ypr: [0, 0, 0], scale: 1 }], Metadata: { owner: 'server' } },
+    new Set([objectEntryId])
+  );
+  assert.deepStrictEqual(objects.Objects.map(object => object.name), ['Land_Wreck_C130J']);
+  assert.strictEqual(objects.Metadata.owner, 'server');
 }
 
 async function testSpawnsecondaryReferencesMustExist() {
@@ -606,20 +712,19 @@ async function testEventXmlValidationAndSafeRewriting() {
     }
     if (!rejected) throw new Error('Missing cfgeventspawns.xml bypassed rental metadata validation');
   }
-  await rejects(
-    () => shop.removeEventSpawnPositions(
-      '1', 'token', '/mission', ['{"event":"E","x":1,"z":2,"a":3,"y":4}'], missing
-    ),
-    'Missing cfgeventspawns.xml was treated as successful cleanup'
-  );
-  await rejects(
-    () => shop.removeShopEventDefinition('1', 'token', '/mission', 'E', missing),
-    'Missing shop_events.xml was treated as successful cleanup'
-  );
-  await rejects(
-    () => shop.removeShopEventGroupDefinition('1', 'token', '/mission', 'E_Group', missing),
-    'Missing cfgeventgroups.xml was treated as successful cleanup'
-  );
+  // d8f280a2: a missing file (404) means the end state — nothing left to
+  // remove — is already achieved; cleanup logs, skips, and resolves without
+  // rewriting (the old throw bricked re-seeded missions into a permanent
+  // cleanup retry loop).
+  let missingUploads = 0;
+  const missingNoUpload = {
+    downloadFileFromServer: async () => null,
+    uploadFileToServer: async () => { missingUploads += 1; },
+  };
+  await shop.removeEventSpawnPositions('1', 'token', '/mission', ['{"event":"E","x":1,"z":2,"a":3,"y":4}'], missingNoUpload);
+  await shop.removeShopEventDefinition('1', 'token', '/mission', 'E', missingNoUpload);
+  await shop.removeShopEventGroupDefinition('1', 'token', '/mission', 'E_Group', missingNoUpload);
+  if (missingUploads !== 0) throw new Error('Missing-file cleanup rewrote a file that does not exist');
 
   let cleanupRewrite = null;
   const cleanupSource = '<eventposdef><event name="ZoneOnly"><zone smin="0" smax="0" dmin="0" dmax="0" r="0"/></event><event name="Target"><zone smin="0" smax="0" dmin="0" dmax="0" r="0"/><pos x="1" z="2" a="3" y="4"/></event></eventposdef>';
@@ -632,15 +737,42 @@ async function testEventXmlValidationAndSafeRewriting() {
   if (!cleanupRewrite?.includes('name="ZoneOnly"') || cleanupRewrite.includes('name="Target"')) {
     throw new Error('Event spawn cleanup removed an unrelated zone-only event');
   }
-  await rejects(
-    () => shop.removeEventSpawnPositions(
-      '1', 'token', '/mission', ['{"event":"Target","x":999,"z":2,"a":3,"y":4}'], {
-        downloadFileFromServer: async () => cleanupSource,
-        uploadFileToServer: async () => { throw new Error('Unmatched cleanup must not upload'); },
-      }
-    ),
-    'Unmatched event position was treated as successful cleanup'
+  // A tracked position that is already absent from the live file (e.g. the
+  // mission dir was re-seeded while the DB still tracks it) is treated as
+  // already-cleaned: no throw, and no no-op rewrite of the unchanged file.
+  let noOpUploadAttempted = false;
+  await shop.removeEventSpawnPositions(
+    '1', 'token', '/mission', ['{"event":"Target","x":999,"z":2,"a":3,"y":4}'], {
+      downloadFileFromServer: async () => cleanupSource,
+      uploadFileToServer: async () => { noOpUploadAttempted = true; },
+    }
   );
+  if (noOpUploadAttempted) {
+    throw new Error('Already-absent tracked position triggered a no-op file rewrite');
+  }
+
+  // Mixed case: some tracked positions present, some absent — the present ones
+  // are removed (and uploaded) while the absent ones are tolerated.
+  let mixedRewrite = null;
+  let mixedUploadCount = 0;
+  await shop.removeEventSpawnPositions(
+    '1', 'token', '/mission', [
+      '{"event":"Target","x":1,"z":2,"a":3,"y":4}',
+      '{"event":"Target","x":999,"z":2,"a":3,"y":4}',
+    ], {
+      downloadFileFromServer: async () => cleanupSource,
+      uploadFileToServer: async (_serverId, _dir, _name, content) => {
+        mixedUploadCount += 1;
+        mixedRewrite = content;
+      },
+    }
+  );
+  if (mixedUploadCount !== 1 || mixedRewrite === null ||
+      !mixedRewrite.includes('name="ZoneOnly"') ||
+      mixedRewrite.includes('name="Target"') ||
+      mixedRewrite.includes('x="1"')) {
+    throw new Error('Mixed present/absent cleanup must remove the present position and tolerate the absent one');
+  }
 
   const fixture = raw => ({
     downloadFileFromServer: async () => raw,
@@ -881,6 +1013,483 @@ async function testEventXmlValidationAndSafeRewriting() {
     }),
     'A stale existing event-group definition was accepted for new checkout configuration'
   );
+}
+
+async function testShopTerritoryZoneFileService() {
+  const shop = require('../services/shopFileService');
+  const { XMLValidator } = require('fast-xml-parser');
+  const entryA = 'DAYZ_DASHBOARD_SHOP_' + 'a'.repeat(32);
+  const entryB = 'DAYZ_DASHBOARD_SHOP_' + 'b'.repeat(32);
+  const entryC = 'DAYZ_DASHBOARD_SHOP_' + 'c'.repeat(32);
+  const zone = (id, overrides = {}) => Object.assign({
+    name: id,
+    color: '0.6 0.4 0.2 1',
+    x: 10597.5, z: 13432.5, r: 60,
+    smin: 0, smax: 0, dmin: 0, dmax: 0,
+  }, overrides);
+  const rejects = async (operation, message) => {
+    try {
+      await operation();
+    } catch (_) {
+      return;
+    }
+    throw new Error(message);
+  };
+
+  // 1) First purchase: file absent -> created in the verified format, and the
+  //    write stays inside custom/<name>_territories.xml (env/ never targeted).
+  let created = null;
+  const uploads = [];
+  await shop.ensureShopTerritoryZone('1', 'token', '/mission', 'custom_wolf_territories', zone(entryA), {
+    downloadFileFromServer: async () => null,
+    uploadFileToServer: async (_serverId, dir, name, content) => {
+      uploads.push({ dir, name });
+      created = content;
+    },
+  });
+  if (!created || XMLValidator.validate(created) !== true) {
+    throw new Error('New shop territory file was not well-formed');
+  }
+  if (uploads.length !== 1 || uploads[0].dir !== '/mission/custom' || uploads[0].name !== 'custom_wolf_territories.xml') {
+    throw new Error('Shop territory write escaped custom/<name>_territories.xml: ' + JSON.stringify(uploads));
+  }
+  if (!created.includes('name="' + entryA + '"') || !created.includes('r="60"') ||
+      !created.includes('smin="0"') || !created.includes('smax="0"') ||
+      !created.includes('dmin="0"') || !created.includes('dmax="0"') ||
+      !created.includes('color="0.6 0.4 0.2 1"') || !/<territory-type>/.test(created)) {
+    throw new Error('Created shop territory file did not match the verified zone format');
+  }
+
+  // 2) Second purchase appends next to the first zone (append round-trip).
+  let second = null;
+  await shop.ensureShopTerritoryZone('1', 'token', '/mission', 'custom_wolf_territories',
+    zone(entryB, { x: 4200, z: 6800, r: 75 }), {
+      downloadFileFromServer: async () => created,
+      uploadFileToServer: async (_serverId, _dir, _name, content) => { second = content; },
+    });
+  if (!second || XMLValidator.validate(second) !== true ||
+      !second.includes('name="' + entryA + '"') || !second.includes('name="' + entryB + '"') ||
+      !second.includes('r="75"')) {
+    throw new Error('Second shop territory purchase did not append while preserving the first zone');
+  }
+
+  // 3) Re-ensuring an identical zone is a no-op (entry-id tracking, idempotent).
+  let duplicateUploads = 0;
+  await shop.ensureShopTerritoryZone('1', 'token', '/mission', 'custom_wolf_territories', zone(entryA), {
+    downloadFileFromServer: async () => second,
+    uploadFileToServer: async () => { duplicateUploads += 1; },
+  });
+  if (duplicateUploads !== 0) throw new Error('Matching existing territory zone was rewritten unnecessarily');
+
+  // 4) Same entry id with different geometry conflicts instead of overwriting.
+  await rejects(
+    () => shop.ensureShopTerritoryZone('1', 'token', '/mission', 'custom_wolf_territories',
+      zone(entryA, { r: 999 }), {
+        downloadFileFromServer: async () => second,
+        uploadFileToServer: async () => { throw new Error('Conflicting zone must not be overwritten'); },
+      }),
+    'Conflicting territory zone geometry was accepted for the same entry id'
+  );
+
+  // 5) Refund/cancel removes exactly the tracked zone and nothing else.
+  let removed = null;
+  await shop.removeShopTerritoryZone('1', 'token', '/mission', 'custom_wolf_territories', entryA, {
+    downloadFileFromServer: async () => second,
+    uploadFileToServer: async (_serverId, _dir, _name, content) => { removed = content; },
+  });
+  if (!removed || XMLValidator.validate(removed) !== true ||
+      removed.includes('name="' + entryA + '"') || !removed.includes('name="' + entryB + '"')) {
+    throw new Error('Territory zone removal did not remove only the tracked zone');
+  }
+
+  // 6) Removal is idempotent: absent zone and missing file skip without upload.
+  let noOpUploads = 0;
+  await shop.removeShopTerritoryZone('1', 'token', '/mission', 'custom_wolf_territories', entryA, {
+    downloadFileFromServer: async () => removed,
+    uploadFileToServer: async () => { noOpUploads += 1; },
+  });
+  if (noOpUploads !== 0) throw new Error('Already-absent territory zone triggered a no-op file rewrite');
+  let missingUploads = 0;
+  await shop.removeShopTerritoryZone('1', 'token', '/mission', 'custom_wolf_territories', entryA, {
+    downloadFileFromServer: async () => null,
+    uploadFileToServer: async () => { missingUploads += 1; },
+  });
+  if (missingUploads !== 0) throw new Error('Missing territory file cleanup rewrote a file that does not exist');
+
+  // 7) Entry-id tracking: an unrelated shop entry id does not rewrite the file.
+  let wrongIdUploads = 0;
+  await shop.removeShopTerritoryZone('1', 'token', '/mission', 'custom_wolf_territories', entryC, {
+    downloadFileFromServer: async () => removed,
+    uploadFileToServer: async () => { wrongIdUploads += 1; },
+  });
+  if (wrongIdUploads !== 0) throw new Error('Unrelated shop entry id triggered a territory file rewrite');
+
+  // 8) Non-shop zones are never removable, and the file is never rewritten.
+  const managedXml = '<territory-type><territory color="1 1 1 1"><zone name="PlayerZone1" smin="0" smax="0" dmin="0" dmax="0" x="1" z="2" r="3"/></territory></territory-type>';
+  await rejects(
+    () => shop.removeShopTerritoryZone('1', 'token', '/mission', 'custom_wolf_territories', 'PlayerZone1', {
+      downloadFileFromServer: async () => managedXml,
+      uploadFileToServer: async () => { throw new Error('Non-shop zone must not be removed'); },
+    }),
+    'Non-shop-owned territory zone name was removable'
+  );
+
+  // 9) Invalid geometry is rejected before any file service call.
+  const frozenFile = {
+    downloadFileFromServer: async () => { throw new Error('Invalid geometry must not reach the file service'); },
+    uploadFileToServer: async () => { throw new Error('Invalid geometry must not be uploaded'); },
+  };
+  for (const bad of [
+    zone(entryB, { x: 'abc' }),
+    zone(entryB, { z: null }),
+    zone(entryB, { r: 0 }),
+    zone(entryB, { r: -5 }),
+    zone(entryB, { smin: -1 }),
+    zone(entryB, { smax: 'x' }),
+    zone(entryB, { smin: 2, smax: 1 }),
+    zone(entryB, { dmin: 2, dmax: 1 }),
+    zone(entryB, { name: 'not-a-shop-id' }),
+    zone(entryB, { color: 'red"quote' }),
+    zone(entryB, { color: '' }),
+  ]) {
+    await rejects(
+      () => shop.ensureShopTerritoryZone('1', 'token', '/mission', 'custom_wolf_territories', bad, frozenFile),
+      'Invalid territory geometry was accepted: ' + JSON.stringify(bad)
+    );
+  }
+
+  // 10) smin/smax/dmin/dmax fall back to the sane all-zero defaults.
+  let defaulted = null;
+  await shop.ensureShopTerritoryZone('1', 'token', '/mission', 'custom_bear_territories',
+    { name: entryB, color: '1 1 1 1', x: 1, z: 2, r: 3 }, {
+      downloadFileFromServer: async () => null,
+      uploadFileToServer: async (_serverId, _dir, _name, content) => { defaulted = content; },
+    });
+  if (!defaulted || !defaulted.includes('smin="0"') || !defaulted.includes('smax="0"') ||
+      !defaulted.includes('dmin="0"') || !defaulted.includes('dmax="0"')) {
+    throw new Error('Territory zone geometry did not default smin/smax/dmin/dmax to 0');
+  }
+
+  // 11) The file name is locked to custom/<name>_territories.xml; env/ and
+  //     vanilla territory files are structurally unreachable.
+  for (const badName of ['env', 'wolf', 'wolf_territories_backup', '../evil_territories', 'custom wolf_territories', 'env/territories']) {
+    await rejects(
+      () => shop.ensureShopTerritoryZone('1', 'token', '/mission', badName, zone(entryA), frozenFile),
+      'Territory file name escaped custom/<name>_territories.xml: ' + badName
+    );
+    await rejects(
+      () => shop.removeShopTerritoryZone('1', 'token', '/mission', badName, entryA, frozenFile),
+      'Territory removal escaped custom/<name>_territories.xml: ' + badName
+    );
+  }
+
+  // 12) Malformed or unsupported territory files are never rewritten.
+  for (const raw of [
+    '',
+    '<territory-type><territory></territory-type>',
+    '<wrongroot/>',
+    '<territory-type><territory color="1"><unknown/></territory></territory-type>',
+    '<territory-type><territory color="1"><zone name="DAYZ_DASHBOARD_SHOP_d" smin="0" smax="0" dmin="0" dmax="0" x="1" z="2" r="3" extra="1"/></territory></territory-type>',
+  ]) {
+    const liveFile = {
+      downloadFileFromServer: async () => raw,
+      uploadFileToServer: async () => { throw new Error('Malformed territory file must not be rewritten'); },
+    };
+    await rejects(
+      () => shop.ensureShopTerritoryZone('1', 'token', '/mission', 'custom_wolf_territories', zone(entryA), liveFile),
+      'Malformed territory file was rewritten by ensure: ' + raw
+    );
+    await rejects(
+      () => shop.removeShopTerritoryZone('1', 'token', '/mission', 'custom_wolf_territories', entryA, liveFile),
+      'Malformed territory file was rewritten by removal: ' + raw
+    );
+  }
+}
+
+async function testShopAnimalTerritoryProvisioning() {
+  const crypto = require('crypto');
+  const shop = require('../services/shopFileService');
+  const missionFileService = require('../services/missionFileService');
+  const spawnExclusionService = require('../services/spawnExclusionService');
+  const moneySupplyManager = require('../utils/moneySupplyManager');
+  const { XMLValidator } = require('fast-xml-parser');
+
+  const TERRITORY = { species: 'Wolf', file: 'shop_wolf_territories', radius: 500, color: '0.8 0.2 0.2 1' };
+  const ENV_FIXTURE = `<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<env>
+	<territories>
+		<file path="env/wolf_territories.xml" />
+		<territory type="Herd" name="Wolf" behavior="DZWolfGroupBeh">
+			<file usable="wolf_territories" />
+		</territory>
+	</territories>
+</env>`;
+
+  // 1) Validation unblocked: supported animal items pass with a territory config.
+  for (const item of [
+    { spawn_method: 'event', item_class: 'Animal_Wolf_Domestic', event_name: 'StaticWolfPack',
+      event_config: { territory: TERRITORY } },
+    { spawn_method: 'event', item_class: 'AKM', event_name: 'StaticWolfSecondary',
+      event_config: { secondary: 'Animal_Wolf_Hunter', territory: TERRITORY } },
+    { spawn_method: 'event', item_class: 'AKM', event_name: 'StaticWolfChildren',
+      event_config: { children: [{ type: 'Animal_Wolf', min: 1, max: 1, lootmin: 0, lootmax: 0 }], territory: TERRITORY } },
+  ]) {
+    try {
+      shop.validateProvisioningItem(item);
+    } catch (error) {
+      throw new Error('Supported animal item was rejected: ' + error.message);
+    }
+  }
+  for (const [item, pattern] of [
+    [{ spawn_method: 'event', item_class: 'Animal_Wolf_Domestic', event_name: 'StaticWolfPack', event_config: {} },
+      /require a territory configuration/],
+    [{ spawn_method: 'event', item_class: 'AKM', event_name: 'StaticWolfSecondary',
+      event_config: { secondary: 'AnimalWolf', territory: {} } },
+      /valid territory species name/],
+    [{ spawn_method: 'event', item_class: 'AKM', event_name: 'StaticWolfSecondary',
+      event_config: { secondary: 'AnimalWolf', territory: { species: 'Wolf', file: 'shop-wolf', radius: 500, color: '1 1 1 1' } } },
+      /custom\/<name>_territories\.xml/],
+    [{ spawn_method: 'event', item_class: 'AKM', event_name: 'StaticWolfSecondary',
+      event_config: { secondary: 'AnimalWolf', territory: { species: 'Wolf', file: 'shop_wolf_territories', radius: 0, color: '1 1 1 1' } } },
+      /radius must be a positive number/],
+    [{ spawn_method: 'event', item_class: 'AKM', event_name: 'StaticWolfSecondary',
+      event_config: { secondary: 'AnimalWolf', territory: { species: 'Wolf', file: 'shop_wolf_territories', radius: 500 } } },
+      /color/],
+    [{ spawn_method: 'event', item_class: 'AKM', event_name: 'StaticShopAKM',
+      event_config: { territory: TERRITORY } },
+      /only valid on animal/],
+  ]) {
+    let rejected = null;
+    try { shop.validateProvisioningItem(item); } catch (error) { rejected = error; }
+    if (!rejected || !pattern.test(rejected.message)) {
+      throw new Error('Animal territory validation mismatch for ' + pattern + ': ' + (rejected && rejected.message));
+    }
+  }
+
+  // 2) Full checkout: purchase creates the zone at the chosen spot, registers the
+  //    custom territory file in cfgenvironment.xml, and persists the tracked id.
+  const key = Buffer.alloc(32, 7);
+  const iv = Buffer.alloc(16, 3);
+  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+  const tokenHash = iv.toString('hex') + ':' + (cipher.update('test-token', 'utf8', 'hex') + cipher.final('hex'));
+  const previousKey = process.env.ENCRYPTION_KEY;
+  process.env.ENCRYPTION_KEY = key.toString('hex');
+
+  const fsState = new Map([
+    ['/mission/cfgenvironment.xml', ENV_FIXTURE],
+    ['/mission/cfgeconomycore.xml', '<economycore><ce folder="custom"><file name="shop_events.xml" type="events"/></ce></economycore>'],
+  ]);
+  const uploads = [];
+  const missionFs = {
+    get: filePath => (fsState.has(filePath) ? fsState.get(filePath) : null),
+    upload: (dir, name, content) => {
+      const filePath = dir.replace(/\/$/, '') + '/' + name;
+      uploads.push(filePath);
+      fsState.set(filePath, content);
+    },
+  };
+  const originalMission = {
+    getActiveMission: missionFileService.getActiveMission,
+    downloadFileFromServer: missionFileService.downloadFileFromServer,
+    uploadFileToServer: missionFileService.uploadFileToServer,
+    deleteFileFromServer: missionFileService.deleteFileFromServer,
+  };
+  const originalExclusion = spawnExclusionService.assertEventPlacementsAllowed;
+  const originalSupply = moneySupplyManager.lockSupplyForUpdate;
+  missionFileService.getActiveMission = async () => ({ mission: 'test.mission', missionPath: '/mission' });
+  missionFileService.downloadFileFromServer = async (_serverId, filePath) => missionFs.get(filePath);
+  missionFileService.uploadFileToServer = async (_serverId, dir, name, content) => missionFs.upload(dir, name, content);
+  missionFileService.deleteFileFromServer = async (_serverId, filePath) => { fsState.delete(filePath); };
+  spawnExclusionService.assertEventPlacementsAllowed = async () => {};
+  moneySupplyManager.lockSupplyForUpdate = async () => ({ fixed_supply_enabled: false });
+
+  const checkoutItem = {
+    id: 11,
+    order_id: 10,
+    shop_item_id: 20,
+    spawn_method: 'event',
+    item_class: 'Animal_Wolf_Domestic',
+    item_type: 'permanent',
+    quantity: 1,
+    unit_price: '25.00',
+    pos_x: 10597.5,
+    pos_y: 0,
+    pos_z: 13432.5,
+    ypr_x: 90,
+    event_name: 'StaticWolfPack42',
+    event_config: { nominal: 10, position: 'fixed', limit: 'child', active: 1, territory: TERRITORY },
+    capability_config: null,
+    catalog_server_id: 1,
+    catalog_is_active: true,
+  };
+
+  function checkoutDb() {
+    const writes = [];
+    let fileEntryId = null;
+    let mutationSequence = 500;
+    return {
+      writes,
+      fileEntryId: () => fileEntryId,
+      async acquireTransactionAdvisoryLock() {},
+      onTransactionRollback() {},
+      async independentTransaction(fn) { return fn(this); },
+      async get(sql) {
+        if (/SELECT \* FROM shop_orders/.test(sql)) {
+          return { id: 10, server_id: 1, identity_id: 5, status: 'cart', total_price: '25.00' };
+        }
+        if (/COUNT\(\*\).*shop_order_items/.test(sql)) return { cart_line_count: 1 };
+        if (/cash_on_hand FROM player_wallets/.test(sql)) return { cash_on_hand: '100.00' };
+        if (/SELECT gt\.token_hash/.test(sql)) {
+          return { token_hash: tokenHash, platform_server_id: 'service-1' };
+        }
+        if (/FROM provider_mutations/.test(sql)) return null;
+        if (/INSERT INTO provider_mutations/.test(sql)) return { id: ++mutationSequence };
+        if (/pg_advisory_xact_lock/.test(sql)) return {};
+        if (/SELECT guild_id FROM servers/.test(sql)) return { guild_id: 4 };
+        if (/SELECT id FROM guilds/.test(sql)) return { id: 4 };
+        if (/SELECT id FROM servers/.test(sql)) return { id: 1 };
+        if (/SELECT server_id FROM guild_economy_config/.test(sql)) return { server_id: 1 };
+        if (/FROM server_player_memberships/.test(sql) && !/FOR UPDATE/.test(sql)) return { id: 11, source_link_id: 13 };
+        if (/FROM linked_accounts/.test(sql)) return { id: 13 };
+        if (/FROM server_player_memberships/.test(sql)) return { id: 11 };
+        if (/INSERT INTO economy_transactions/.test(sql)) return { id: 900 };
+        throw new Error('Unexpected checkout get: ' + sql);
+      },
+      async query(sql, params) {
+        if (/SELECT soi\.\*/.test(sql)) return [checkoutItem];
+        if (/UPDATE shop_order_items SET file_entry_id/.test(sql)) fileEntryId = params[0];
+        writes.push(sql);
+        return [];
+      },
+      async run(sql) {
+        writes.push(sql);
+        return { changes: 1 };
+      },
+    };
+  }
+
+  try {
+    const db = checkoutDb();
+    const result = await shop.processCheckout(db, 10, 6);
+    if (JSON.stringify(result) !== JSON.stringify({ success: true, totalCharged: 25 })) {
+      throw new Error('Animal checkout did not complete: ' + JSON.stringify(result));
+    }
+
+    // The purchase persisted a tracked territory zone id in the event entry JSON.
+    const fileEntryId = db.fileEntryId();
+    if (!fileEntryId) throw new Error('Animal checkout did not persist a file entry id');
+    const tracked = JSON.parse(fileEntryId);
+    if (!tracked || tracked.event !== 'StaticWolfPack42' ||
+        tracked.territory?.file !== 'shop_wolf_territories' ||
+        !/^[A-Z][A-Z0-9_]{1,63}_SHOP_[A-Za-z0-9_-]+$/.test(tracked.territory?.zone || '')) {
+      throw new Error('Animal checkout did not track the territory zone by shop entry id: ' + JSON.stringify(tracked));
+    }
+
+    // The zone file exists in the verified format with the purchased geometry.
+    const zoneFile = missionFs.get('/mission/custom/shop_wolf_territories.xml');
+    if (!zoneFile || XMLValidator.validate(zoneFile) !== true) {
+      throw new Error('Purchase did not create a well-formed custom territory file');
+    }
+    if (!zoneFile.includes('name="' + tracked.territory.zone + '"') ||
+        !zoneFile.includes('x="10597.5"') || !zoneFile.includes('z="13432.5"') ||
+        !zoneFile.includes('r="500"') || !zoneFile.includes('color="0.8 0.2 0.2 1"')) {
+      throw new Error('Purchased territory zone does not match the chosen spot/config: ' + zoneFile);
+    }
+
+    // cfgenvironment.xml gained the one-time custom file registration; the
+    // vanilla env/ declarations are untouched and no env/ file was ever written.
+    const envFile = missionFs.get('/mission/cfgenvironment.xml');
+    if (!envFile || XMLValidator.validate(envFile) !== true ||
+        !envFile.includes('custom/shop_wolf_territories.xml') ||
+        !envFile.includes('usable="shop_wolf_territories"') ||
+        !envFile.includes('behavior="DZWolfGroupBeh"') ||
+        !envFile.includes('env/wolf_territories.xml')) {
+      throw new Error('cfgenvironment.xml registration is missing or malformed: ' + envFile);
+    }
+    if (envFile.match(/path="env\//g)?.length !== 1) {
+      throw new Error('cfgenvironment.xml env/ file declarations were modified: ' + envFile);
+    }
+    for (const filePath of uploads) {
+      if (filePath.includes('/env/')) throw new Error('Checkout wrote a vanilla env/ territory file: ' + filePath);
+    }
+
+    // The standard event provisioning path also ran for the animal event.
+    if (!missionFs.get('/mission/cfgeventspawns.xml')?.includes('StaticWolfPack42')) {
+      throw new Error('Animal event spawn position was not provisioned');
+    }
+
+    // 3) Reversal (expiry/refund/cancel) removes the zone through the same
+    //    journal/reversal path and keeps the cfgenvironment registration.
+    const envAfterPurchase = missionFs.get('/mission/cfgenvironment.xml');
+    const cleanupUploads = [];
+    const originalUpload = missionFileService.uploadFileToServer;
+    missionFileService.uploadFileToServer = async (_serverId, dir, name, content) => {
+      cleanupUploads.push(dir.replace(/\/$/, '') + '/' + name);
+      return originalUpload(_serverId, dir, name, content);
+    };
+
+    const cleanupDb = {
+      async acquireTransactionAdvisoryLock() {},
+      onTransactionRollback() {},
+      async independentTransaction(fn) { return fn(this); },
+      async get(sql) {
+        if (/SELECT gt\.token_hash/.test(sql)) {
+          return { token_hash: tokenHash, platform_server_id: 'service-1' };
+        }
+        if (/FROM provider_mutations/.test(sql)) return null;
+        if (/soi\.is_active = TRUE/.test(sql)) return null;
+        if (/INSERT INTO provider_mutations/.test(sql)) return { id: 999 };
+        throw new Error('Unexpected cleanup get: ' + sql);
+      },
+      async query(sql) {
+        if (/FOR UPDATE OF soi/.test(sql)) return [{ id: 11 }];
+        if (/soi\.is_active = TRUE/.test(sql)) return null;
+        if (/FROM teleport_requests/.test(sql)) return [];
+        if (/spawn_method = 'capability'/.test(sql)) return [];
+        if (/so\.status = 'completed'/.test(sql)) return { 1: 1 };
+        if (/soi\.file_entry_id/.test(sql)) {
+          return [{
+            id: 11,
+            file_entry_id: JSON.stringify({ event: 'StaticWolfPack42', x: 10597.5, z: 13432.5, a: 90, territory: tracked.territory }),
+            spawn_method: 'event',
+            custom_json_file: null,
+            event_name: 'StaticWolfPack42',
+          }];
+        }
+        return [];
+      },
+      async run() {
+        return { changes: 1 };
+      },
+    };
+    await shop.removeExpiredRentals(cleanupDb, 1, [11]);
+
+    const zoneAfter = missionFs.get('/mission/custom/shop_wolf_territories.xml');
+    if (zoneAfter && zoneAfter.includes('name="' + tracked.territory.zone + '"')) {
+      throw new Error('Reversal did not remove the purchased territory zone');
+    }
+    if (zoneAfter !== null && zoneAfter !== undefined && XMLValidator.validate(zoneAfter) !== true) {
+      throw new Error('Reversal left a malformed territory file: ' + zoneAfter);
+    }
+    if (missionFs.get('/mission/cfgeventspawns.xml')?.includes('StaticWolfPack42')) {
+      throw new Error('Reversal did not remove the animal event spawn position');
+    }
+    if (missionFs.get('/mission/cfgenvironment.xml') !== envAfterPurchase) {
+      throw new Error('Reversal rewrote the one-time cfgenvironment.xml registration');
+    }
+    for (const filePath of cleanupUploads) {
+      if (filePath.includes('/env/')) throw new Error('Reversal wrote a vanilla env/ territory file: ' + filePath);
+    }
+  } finally {
+    if (previousKey === undefined) delete process.env.ENCRYPTION_KEY;
+    else process.env.ENCRYPTION_KEY = previousKey;
+    missionFileService.getActiveMission = originalMission.getActiveMission;
+    missionFileService.downloadFileFromServer = originalMission.downloadFileFromServer;
+    missionFileService.uploadFileToServer = originalMission.uploadFileToServer;
+    missionFileService.deleteFileFromServer = originalMission.deleteFileFromServer;
+    spawnExclusionService.assertEventPlacementsAllowed = originalExclusion;
+    moneySupplyManager.lockSupplyForUpdate = originalSupply;
+  }
 }
 
 async function testExpiredRentalMetadataPreflightPrecedesMutation() {
@@ -3616,6 +4225,9 @@ process.env.PORT = process.env.PORT || '3000';
     testShopRejectsUnprovisionableCatalogItemsBeforeCheckout();
     console.log('✅ Shop provisioning preflight passed');
 
+    await testShopEventCompanionRoundTrip();
+    console.log('✅ Shop event companion (effect-area + object-spawner) round-trip passed');
+
     await testSpawnsecondaryReferencesMustExist();
     console.log('✅ Shop spawnsecondary event reference validation passed');
 
@@ -3624,6 +4236,12 @@ process.env.PORT = process.env.PORT || '3000';
 
     await testEventXmlValidationAndSafeRewriting();
     console.log('✅ Event XML validation and safe rewriting passed');
+
+    await testShopTerritoryZoneFileService();
+    console.log('✅ Shop territory zone file service passed');
+
+    await testShopAnimalTerritoryProvisioning();
+    console.log('✅ Shop animal territory provisioning and reversal passed');
 
     await testExpiredRentalMetadataPreflightPrecedesMutation();
     console.log('✅ Expired rental metadata preflight passed');

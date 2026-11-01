@@ -6,6 +6,7 @@
     <title>Mission File Editor - TSB Dashboard</title>
 
   <link rel="stylesheet" href="/css/theme.css">
+  <link rel="stylesheet" href="/css/components.css">
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -262,7 +263,7 @@
             line-height: 1.6;
         }
 
-        #editor:focus {
+        #editor:focus:not(:focus-visible) {
             outline: none;
         }
 
@@ -478,8 +479,24 @@
                     <pre id="doctorReport" hidden aria-live="polite" style="white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto;"></pre>
                 </section>
 
+                <section aria-label="Dynamic messages" style="padding: 10px 15px; border-bottom: 1px solid #ddd;">
+                    <p style="margin: 0 0 6px;"><strong>⚡ Dynamic messages</strong> — regenerates the managed block of <code>messages.xml</code>: MVP of the day from PVP kill data + your server-update announcement. Other messages in the file are left untouched.</p>
+                    <p id="dmMvpLine" style="margin: 0 0 6px; font-size: 13px;">Loading…</p>
+                    <div style="display: flex; gap: 10px; align-items: flex-start;">
+                        <textarea id="dmUpdateMessage" rows="2" maxlength="500" placeholder="Server update announcement (leave blank to omit)…" style="flex: 1; font-size: 13px; padding: 6px;"></textarea>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <label style="font-size: 12px;">Repeat (min)
+                                <input id="dmUpdateRepeat" type="number" min="1" max="240" value="15" style="width: 64px; padding: 2px;">
+                            </label>
+                            <label style="font-size: 12px;"><input id="dmMvpEnabled" type="checkbox" checked> MVP block</label>
+                            <button id="dmDeployBtn" class="btn-info">⚡ Generate &amp; deploy</button>
+                        </div>
+                    </div>
+                    <p id="dmStatus" style="margin: 6px 0 0; font-size: 12px;" aria-live="polite"></p>
+                </section>
+
                 <div class="editor-container">
-                    <textarea id="editor" placeholder="Select a file from the list to begin editing..."></textarea>
+                    <textarea id="editor" aria-label="Mission file editor" placeholder="Select a file from the list to begin editing..."></textarea>
                 </div>
 
                 <div class="status-bar">

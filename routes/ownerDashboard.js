@@ -527,6 +527,22 @@ router.get('/dashboard/stats', async (req, res) => {
         WHERE gr.user_id = ? AND gr.role = 'owner' AND g.status = 'approved'
       `, [userId])
     ]);
+    // Server-health indicator: real state from the persisted ops warnings
+    // (per-server log intelligence — crash precursors + error/warning volume).
+    // 'critical' when an active warning carries critical severity (crash /
+    // memory pressure), 'degraded' for any active warning, else 'healthy'.
+    const opsRow = await db.get(`
+      SELECT COUNT(*) AS count,
+             MAX(CASE WHEN ow.severity = 'critical' THEN 1 ELSE 0 END) AS has_critical
+        FROM ops_warnings ow
+        JOIN servers s ON s.id = ow.server_id
+        JOIN guilds g ON g.id = s.guild_id
+        JOIN guild_roles gr ON gr.guild_id = g.id AND gr.user_id = ? AND gr.role = 'owner'
+       WHERE ow.deleted_at IS NULL AND s.status = 'active' AND g.status = 'approved'
+    `, [userId]);
+    const healthStatus = opsRow?.has_critical
+      ? 'critical'
+      : (opsRow?.count ? 'degraded' : 'healthy');
 
     res.json({
       success: true,
@@ -534,7 +550,7 @@ router.get('/dashboard/stats', async (req, res) => {
         totalServers: serversRow?.count || 0,
         totalPlayers: playersRow?.count || 0,
         activeGuilds: guildsRow?.count || 0,
-        healthStatus: 'healthy'
+        healthStatus
       }
     });
   } catch (err) {
@@ -1015,6 +1031,44 @@ router.get('/servers/:id/alts', ensureServerAccess, async (req, res) => {
   } catch (err) {
     console.error('❌ Error fetching possible-alt candidates:', err);
     res.status(500).json({ error: 'Failed to fetch possible-alt candidates' });
+  }
+});
+
+/**
+ * GET /api/owner/servers/:id/alt-auto-bans
+ * Who was auto-banned on this server and why (audit trail for appeals).
+ * Auto-bans only ever come from the conservative policy in
+ * services/altAutoBanService.js; every row carries its evidence.
+ */
+router.get('/servers/:id/alt-auto-bans', ensureServerAccess, async (req, res) => {
+  try {
+    const rows = await req.app.locals.db.all(
+      `SELECT aab.id, aab.gamertag, aab.identity_id, aab.signal, aab.evidence,
+              aab.review_id, aab.triggered_by, aab.banned_at
+       FROM alt_auto_bans aab
+       JOIN servers s ON s.id = aab.server_id AND s.status = 'active'
+       JOIN guilds g ON g.id = s.guild_id AND g.status = 'approved'
+       WHERE aab.server_id = ?
+       ORDER BY aab.banned_at DESC, aab.id DESC
+       LIMIT 50`,
+      [req.params.id]
+    );
+    res.json({
+      success: true,
+      autoBans: (rows || []).map(row => ({
+        id: row.id,
+        gamertag: row.gamertag,
+        identityId: row.identity_id,
+        signal: row.signal,
+        evidence: row.evidence || {},
+        reviewId: row.review_id,
+        triggeredBy: row.triggered_by,
+        bannedAt: row.banned_at,
+      })),
+    });
+  } catch (err) {
+    console.error('❌ Error fetching alt auto-bans:', err);
+    res.status(500).json({ error: 'Failed to fetch alt auto-bans' });
   }
 });
 

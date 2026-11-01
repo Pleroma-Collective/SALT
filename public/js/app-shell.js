@@ -31,18 +31,9 @@
   var sidebar = document.getElementById('dzc-shell-sidebar');
   var backdrop = document.querySelector('[data-shell-backdrop]');
 
-  var lastFocused = null;
-
-  function focusables() {
-    if (!sidebar) return [];
-    return Array.prototype.filter.call(
-      sidebar.querySelectorAll('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'),
-      function (el) {
-        return el.offsetParent !== null || getComputedStyle(el).display !== 'none';
-      }
-    );
-  }
-
+  /* Focus trap / save-restore / Esc live in the shared overlay helper
+     (public/js/overlay-a11y.js — card t_6cca8223); the drawer is just a
+     consumer of it now. */
   function setDrawer(open) {
     if (!root) return;
     root.classList.toggle('is-open', open);
@@ -52,35 +43,11 @@
     }
     if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
     if (open) {
-      lastFocused = document.activeElement;
-      var items = focusables();
-      if (items.length) items[0].focus();
-    } else if (lastFocused && typeof lastFocused.focus === 'function') {
-      lastFocused.focus();
-      lastFocused = null;
-    }
-  }
-
-  function onKeydown(ev) {
-    if (!root || !root.classList.contains('is-open')) return;
-    if (ev.key === 'Escape') {
-      ev.preventDefault();
-      setDrawer(false);
-      return;
-    }
-    if (ev.key === 'Tab') {
-      var items = focusables();
-      if (!items.length) return;
-      var first = items[0];
-      var last = items[items.length - 1];
-      var active = document.activeElement;
-      if (ev.shiftKey && (active === first || !sidebar.contains(active))) {
-        ev.preventDefault();
-        last.focus();
-      } else if (!ev.shiftKey && (active === last || !sidebar.contains(active))) {
-        ev.preventDefault();
-        first.focus();
-      }
+      window.DzcOverlayFocus.open(sidebar, {
+        onClose: function () { setDrawer(false); }
+      });
+    } else {
+      window.DzcOverlayFocus.close(sidebar);
     }
   }
 
@@ -98,7 +65,6 @@
     if (backdrop) {
       backdrop.addEventListener('click', function () { setDrawer(false); });
     }
-    document.addEventListener('keydown', onKeydown);
     window.addEventListener('resize', function () {
       if (!isMobile() && root.classList.contains('is-open')) setDrawer(false);
     });
@@ -109,18 +75,63 @@
   var pill = document.querySelector('.dzc-context-pill');
   var pollTimer = null;
 
-  function setPillMeta(status, players, lastSync) {
+  function setPillMeta(status, players, lastSync, session) {
     if (!pill) return;
     pill.setAttribute('data-state', status || 'unknown');
     var meta = pill.querySelector('.dzc-pill-meta');
-    var empty = !(status || players || lastSync);
+    var empty = !(status || players || lastSync || session);
     if (meta) meta.setAttribute('data-empty', empty ? 'true' : 'false');
     var statusEl = pill.querySelector('.dzc-pill-status');
     var playersEl = pill.querySelector('.dzc-pill-players');
     var syncEl = pill.querySelector('.dzc-pill-sync');
+    var sessionEl = pill.querySelector('.dzc-pill-session');
     if (statusEl) statusEl.textContent = status ? String(status) : '';
     if (playersEl) playersEl.textContent = players != null ? String(players) : '';
     if (syncEl) syncEl.textContent = lastSync ? String(lastSync) : '';
+    if (sessionEl) sessionEl.textContent = session ? String(session) : '';
+  }
+
+  /** Compact duration: "42m", "3h 12m", "2d" (card t_c1de9125). */
+  function durMs(ms) {
+    var min = Math.floor(ms / 60000);
+    if (min < 60) return Math.max(1, min) + 'm';
+    var h = Math.floor(min / 60);
+    if (h < 48) return h + 'h ' + (min % 60) + 'm';
+    return Math.floor(h / 24) + 'd';
+  }
+
+  /**
+   * "up 3h 12m · restart in 1h 48m · funded 23d" from the overview's session
+   * block. Unknown segments fall back honestly (funded n/a) rather than
+   * inventing a value.
+   */
+  function sessionText(session) {
+    if (!session) return '';
+    var now = Date.now();
+    var parts = [];
+    if (session.sessionStartedAt) {
+      var upMs = now - Date.parse(session.sessionStartedAt);
+      if (upMs >= 0) parts.push('up ' + durMs(upMs));
+    }
+    if (session.nextRestartAt) {
+      var leftMs = Date.parse(session.nextRestartAt) - now;
+      if (leftMs > 0) parts.push('restart in ' + durMs(leftMs));
+      else if (leftMs > -30 * 60 * 1000) parts.push('restarting…');
+    }
+    parts.push(session.fundedUntil
+      ? 'funded ' + (session.daysFunded != null ? session.daysFunded : 0) + 'd'
+      : 'funded n/a');
+    return parts.join(' · ');
+  }
+
+  function applyOverview(data) {
+    var s = (data && data.server) || {};
+    var status = s.status || 'unknown';
+    var players = s.players && s.players.current != null
+      ? (s.players.current + '/' + (s.players.maximum != null ? s.players.maximum : '?'))
+      : null;
+    setPillMeta(status, players, relTime(s.observedAt || (data && data.generatedAt)),
+      sessionText(data && data.session));
   }
 
   function relTime(value) {

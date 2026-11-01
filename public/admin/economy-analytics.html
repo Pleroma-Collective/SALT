@@ -6,6 +6,7 @@
   <title>Economy Analytics - DayZ Dashboard</title>
   <link rel="stylesheet" href="/css/theme.css">
   <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="/css/components.css">
   <style>
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .spinner { animation: spin 1s linear infinite; }
@@ -30,13 +31,13 @@
     <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-6">
       <div class="flex flex-wrap gap-4 items-end">
         <div class="flex-1 min-w-48">
-          <label class="block text-gray-300 mb-2 font-semibold">Select Guild</label>
+          <label class="block text-gray-300 mb-2 font-semibold" for="guildSelect">Select Guild</label>
           <select id="guildSelect" class="bg-gray-700 border border-gray-600 rounded p-2 w-full text-white">
             <option value="">-- Loading guilds... --</option>
           </select>
         </div>
         <div>
-          <label class="block text-gray-300 mb-2 font-semibold">Date Range</label>
+          <label class="block text-gray-300 mb-2 font-semibold" for="dateRange">Date Range</label>
           <select id="dateRange" class="bg-gray-700 border border-gray-600 rounded p-2 text-white">
             <option value="7">Last 7 days</option>
             <option value="30">Last 30 days</option>

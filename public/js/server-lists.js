@@ -2,6 +2,9 @@
 
 let currentServerId = null;
 let activeTab = 'whitelist';
+let dfh = null; // DataFreshness handle
+let loadedTabs = {}; // listType -> true once loaded successfully
+let lastEntries = {}; // listType -> last successful entries (stale-keep on error)
 
 function escHtml(str) {
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -37,9 +40,20 @@ async function loadList(listType) {
     const res = await fetch(`/api/owner/servers/${currentServerId}/list/${listType}`);
     const data = await res.json();
     if (!data.success) throw new Error(data.error);
+    lastEntries[listType] = data.entries;
+    loadedTabs[listType] = true;
     renderList(listType, data.entries);
+    if (dfh && activeTab === listType) dfh.markSuccess();
+    return { ok: true };
   } catch (err) {
-    container.innerHTML = `<p class="text-red-400">❌ Error: ${escHtml(err.message)}</p>`;
+    if (loadedTabs[listType]) {
+      // Keep the stale rows for this tab; the freshness row reports the error.
+      renderList(listType, lastEntries[listType]);
+      if (dfh && activeTab === listType) dfh.markError(err.message);
+    } else {
+      container.innerHTML = `<p class="text-red-400">❌ Error: ${escHtml(err.message)}</p>`;
+    }
+    return { ok: false, message: err.message };
   }
 }
 
@@ -155,6 +169,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const section = document.getElementById('listSection');
     if (!currentServerId) { section.classList.add('hidden'); return; }
     section.classList.remove('hidden');
+    loadedTabs = {};
+    lastEntries = {};
+    if (dfh) dfh.reset(); // new server: no stale data, timestamp restarts
     await loadList(activeTab);
   });
 
@@ -164,6 +181,15 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.key === 'Enter') addEntry(t);
     });
   });
+
+  // Shared DataFreshness helper; Refresh re-fetches the active list.
+  if (window.DataFreshness) {
+    dfh = DataFreshness.mount('lists-freshness', async () => {
+      if (!currentServerId) throw new Error('No server selected');
+      const r = await loadList(activeTab);
+      if (!r.ok) throw new Error(r.message);
+    }, { auto: false });
+  }
 
   loadServers();
 });

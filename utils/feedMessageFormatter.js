@@ -7,6 +7,7 @@
  */
 
 const { parseCentsBigInt, centsToDecimal } = require('./money');
+const { humanNameForDeType, buildMapDeepLink } = require('./ceDynamicEvents');
 
 /* ─── Helpers ─────────────────────────────────────────────────────────────── */
 
@@ -245,11 +246,42 @@ function buildKillEmbedPayload(eventData, killerStats, victimStats, economyInfo,
   };
 }
 
+/**
+ * Discord embed payload for a CE dynamic event spawn (dynamic_events feed).
+ * eventData = the ce.dynamic_event payload: { deType, pos, humanName, mapName, timestamp }.
+ * The map deep-link is included unless settings.includeMapLink === false or the
+ * origin/bounds reject it — the description then still shows the coordinates.
+ */
+function buildDeSpawnEmbedPayload(eventData, settings, serverName, dashboardOrigin) {
+  const humanName = humanNameForDeType(eventData.deType);
+  const spawnTime = eventData.timestamp
+    ? new Date(eventData.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' })
+    : 'Unknown time';
+  const pos = eventData.pos || {};
+  const lines = [`**${humanName}** spawned at **${Math.round(pos.x)}, ${Math.round(pos.z)}**`];
+  if (settings?.includeMapLink !== false) {
+    const mapLink = buildMapDeepLink({ mapName: eventData.mapName || 'nasdara', east: pos.x, north: pos.z, origin: dashboardOrigin });
+    if (mapLink) lines.push(`[🗺️ View on map](${mapLink})`);
+  }
+  return {
+    embeds: [
+      {
+        title: `📦 ${humanName} · ${spawnTime}`,
+        description: lines.join('\n'),
+        color: 0xf59e0b,
+        footer: { text: serverName || 'DayZ' },
+        timestamp: new Date().toISOString(),
+      },
+    ],
+  };
+}
+
 module.exports = {
   formatMessage,
   getDefaultTemplate,
   formatEmbed,
   parseEmbedColor,
   buildKillEmbedPayload,
+  buildDeSpawnEmbedPayload,
 };
 

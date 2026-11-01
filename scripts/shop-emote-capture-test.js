@@ -233,6 +233,7 @@ async function testMigrationDefinesDurableExactScopeAndOneTimeClaims() {
 
 function testCrossLayerIntegrationContract() {
   const routeSource = fs.readFileSync(path.join(__dirname, '../routes/shop.js'), 'utf8');
+  const cartServiceSource = fs.readFileSync(path.join(__dirname, '../services/shopCartService.js'), 'utf8');
   const parserSource = fs.readFileSync(path.join(__dirname, '../routes/logParser.js'), 'utf8');
   const serviceSource = fs.readFileSync(path.join(__dirname, '../services/shopEmoteCaptureService.js'), 'utf8');
   const playerSource = fs.readFileSync(path.join(__dirname, '../public/js/shop.js'), 'utf8');
@@ -247,7 +248,7 @@ function testCrossLayerIntegrationContract() {
     'cart responses must project expired captures so polling terminates');
   assert.match(playerSource, /capture\?\.status === 'expired'/,
     'cart UI must render expired capture status');
-  assert.match(routeSource, /emote_capture_config_snapshot/,
+  assert.match(cartServiceSource, /emote_capture_config_snapshot/,
     'cart lines must snapshot the catalog capture policy');
   assert.ok(routeSource.indexOf('const checkoutFingerprint = buildShopCartFingerprint(cart, items);') <
     routeSource.indexOf('item.emote_capture = captureByItemId'),

@@ -306,8 +306,18 @@ function buildEffectAreaEntry(placement) {
 function buildObjectSpawnerEntry(placement) {
   return buildManagedSpawnDefinition({
     name: placement.itemClass,
-    pos: [placement.posX, placement.posY, placement.posZ],
-    ypr: [placement.yaw || 0, placement.pitch || 0, placement.roll || 0],
+    // shop_order_items.pos_* / ypr_* are `numeric`: node-postgres returns them
+    // as strings, so coerce before the finiteVector (typeof number) check.
+    pos: [
+      finitePlacementNumber(placement.posX, 'posX'),
+      finitePlacementNumber(placement.posY, 'posY'),
+      finitePlacementNumber(placement.posZ, 'posZ'),
+    ],
+    ypr: [
+      finitePlacementNumber(placement.yaw || 0, 'yaw'),
+      finitePlacementNumber(placement.pitch || 0, 'pitch'),
+      finitePlacementNumber(placement.roll || 0, 'roll'),
+    ],
     ...(placement.objectSpawnerConfig || {}),
   }, placement.entryId);
 }
@@ -485,6 +495,63 @@ function parseCustomJsonCleanupMetadata(fileEntryId, currentCatalogPath) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Animal territory provisioning (species + custom/<name>_territories.xml)
+// ---------------------------------------------------------------------------
+
+const ANIMAL_SECONDARY_PATTERN = /^Animal/i;
+const ANIMAL_CLASS_PATTERN = /^Animal(?:_|$)/i;
+
+/** Detect whether an event item spawns animals (secondary spawner or child class). */
+function eventHasAnimalSpawns(cfg, itemClass) {
+  const children = cfg.children?.length ? cfg.children : [{ type: itemClass }];
+  return Boolean(cfg.secondary && ANIMAL_SECONDARY_PATTERN.test(cfg.secondary)) ||
+    children.some(child => ANIMAL_CLASS_PATTERN.test(String(child?.type || '')));
+}
+
+/**
+ * Validate + normalize the animal territory configuration.  Animal events
+ * provision a shop-owned <zone> in custom/<file>_territories.xml at purchase
+ * time and register that file in cfgenvironment.xml on first use.
+ */
+function resolveEventTerritoryConfig(cfg) {
+  const territory = cfg.territory;
+  if (territory === null || territory === undefined) return null;
+  if (typeof territory !== 'object' || Array.isArray(territory)) {
+    throw new Error('Territory configuration must be an object');
+  }
+  const species = String(territory.species || '');
+  if (!/^[A-Za-z0-9_]+$/.test(species)) {
+    throw new Error('Animal shop events require a valid territory species name');
+  }
+  const file = String(territory.file || '');
+  if (!TERRITORY_FILE_STEM_PATTERN.test(file)) {
+    throw new Error('Territory file must be named custom/<name>_territories.xml');
+  }
+  const radius = Number(territory.radius);
+  if (!Number.isFinite(radius) || radius <= 0) {
+    throw new Error('Territory zone radius must be a positive number');
+  }
+  const color = String(territory.color || '').trim();
+  if (!color || /[<"]/.test(color)) {
+    throw new Error('Territory zone color is required and must be attribute-safe');
+  }
+  return { species, file, radius, color };
+}
+
+/** Animal events require a territory configuration; non-animal events must not carry one. */
+function assertEventTerritoryProvisioning(item, cfg) {
+  const animal = eventHasAnimalSpawns(cfg, item.item_class);
+  const territory = resolveEventTerritoryConfig(cfg);
+  if (animal && !territory) {
+    throw new Error('Animal shop events require a territory configuration (species, territory file, radius, color)');
+  }
+  if (!animal && territory) {
+    throw new Error('Territory configuration is only valid on animal shop events');
+  }
+  return territory;
+}
+
 function validateProvisioningItem(item) {
   const supportedMethods = new Set(['cfgEffectArea', 'event', 'custom_json']);
   if (!supportedMethods.has(item?.spawn_method)) {
@@ -510,9 +577,6 @@ function validateProvisioningItem(item) {
       throw new Error('Event name must begin with a supported DayZ CE spawner type');
     }
     const cfg = resolveEventConfig(item.event_config);
-    if (cfg.secondary && /^Animal/i.test(cfg.secondary)) {
-      throw new Error('Animal secondary events require territory provisioning and are not supported yet');
-    }
     const numericFields = [
       cfg.nominal, cfg.min, cfg.max, cfg.lifetime, cfg.restock,
       cfg.saferadius, cfg.distanceradius, cfg.cleanupradius, cfg.placement_clearance,
@@ -526,9 +590,6 @@ function validateProvisioningItem(item) {
       throw new Error('Invalid shop event configuration');
     }
     const children = cfg.children?.length ? cfg.children : [{ type: item.item_class, ...cfg.child }];
-    if (children.some(child => /^Animal(?:_|$)/i.test(String(child?.type || '')))) {
-      throw new Error('Animal shop events require territory provisioning and are not supported yet');
-    }
     if (children.length > 100 || children.some(child =>
       !child || !identifierPattern.test(String(child.type || '')) ||
       ['min', 'max', 'lootmin', 'lootmax'].some(field =>
@@ -538,10 +599,11 @@ function validateProvisioningItem(item) {
     )) {
       throw new Error('Invalid shop event children');
     }
+    assertEventTerritoryProvisioning(item, cfg);
     if (cfg.eventGroupChildren?.some(child =>
       /^(?:Animal(?:_|$)|Zmb|Infected|NPC)/i.test(String(child?.type || ''))
     )) {
-      throw new Error('Event groups cannot directly contain AI, and animal secondary events are not supported yet');
+      throw new Error('Event groups cannot directly contain AI classes');
     }
     if (cfg.eventGroupChildren?.some(child => child?.spawnsecondary === true) && !cfg.secondary) {
       throw new Error('Event-group spawnsecondary requires the parent event secondary reference');
@@ -556,11 +618,13 @@ function validateProvisioningItem(item) {
         ))) {
       throw new Error('Invalid shop event group children');
     }
-    if (cfg.effectAreaComponents?.length) {
-      throw new Error('Companion cfgEffectArea entries are disabled because their Type must inherit DayZ EffectArea');
-    }
-    if (cfg.objectSpawnerComponents?.length) {
-      throw new Error('Object Spawner components are disabled until registration cleanup is reversible');
+    if (cfg.effectAreaComponents && (cfg.effectAreaComponents.length > 100 || cfg.effectAreaComponents.some(component =>
+      !component || !identifierPattern.test(String(component.type || '')) ||
+      !Array.isArray(component.offset) || component.offset.length !== 3 ||
+      component.offset.some(value => !Number.isFinite(Number(value))) ||
+      (component.radius !== undefined && (!Number.isFinite(Number(component.radius)) || Number(component.radius) <= 0))
+    ))) {
+      throw new Error('Invalid companion cfgEffectArea entries');
     }
     if (cfg.objectSpawnerComponents && (cfg.objectSpawnerComponents.length > 100 || cfg.objectSpawnerComponents.some(component => {
       try { normalizeMissionRelativeJsonPath(component?.file || 'custom/shop.json'); } catch (_error) { return true; }
@@ -865,6 +929,7 @@ function resolveEventConfig(raw) {
     eventGroupChildren: Array.isArray(cfg.eventGroupChildren) ? cfg.eventGroupChildren : null,
     effectAreaComponents: Array.isArray(cfg.effectAreaComponents) ? cfg.effectAreaComponents : null,
     objectSpawnerComponents: Array.isArray(cfg.objectSpawnerComponents) ? cfg.objectSpawnerComponents : null,
+    territory:      cfg.territory      || null,
   };
 }
 
@@ -1027,14 +1092,20 @@ async function removeShopEventDefinition(platformServerId, nitradoToken, mission
   console.log('🛍️  Removing event "' + eventName + '" from shop_events.xml');
 
   const raw = await fileService.downloadFileFromServer(platformServerId, filePath, nitradoToken);
-  if (raw === null || raw === undefined) throw new Error('shop_events.xml not found during cleanup');
+  if (raw === null || raw === undefined) {
+    console.log('ℹ️  shop_events.xml not present — event "' + eventName + '" already clean, skipping removal');
+    return;
+  }
 
   const parsed = parseOrderedXml(raw, 'events', 'shop_events.xml');
   validateShopEventChildren(parsed.children);
   const eventIndex = parsed.children.findIndex(node =>
     orderedNodeName(node) === 'event' && orderedAttributes(node).name === eventName
   );
-  if (eventIndex < 0) throw new Error('Shop event definition not found during cleanup');
+  if (eventIndex < 0) {
+    console.log('ℹ️  Event "' + eventName + '" already absent from shop_events.xml — nothing to remove');
+    return;
+  }
   const commentIndex = findShopOwnershipCommentIndex(parsed.children, eventIndex, 'DayZ Shop');
   if (commentIndex < 0) throw new Error('Existing event definition is not owned by the shop');
   parsed.children.splice(eventIndex, 1);
@@ -1340,13 +1411,19 @@ async function ensureShopEventGroupDefinition(platformServerId, nitradoToken, mi
 async function removeShopEventGroupDefinition(platformServerId, nitradoToken, missionDir, groupName, fileService = missionFileService) {
   const filePath = missionDir + '/cfgeventgroups.xml';
   const raw = await fileService.downloadFileFromServer(platformServerId, filePath, nitradoToken);
-  if (raw === null || raw === undefined) throw new Error('cfgeventgroups.xml not found during cleanup');
+  if (raw === null || raw === undefined) {
+    console.log('ℹ️  cfgeventgroups.xml not present — event group "' + groupName + '" already clean, skipping removal');
+    return;
+  }
   const parsed = parseOrderedXml(raw, 'eventgroupdef', 'cfgeventgroups.xml');
   validateEventGroupChildren(parsed.children);
   const index = parsed.children.findIndex(node =>
     orderedNodeName(node) === 'group' && orderedAttributes(node).name === groupName
   );
-  if (index < 0) throw new Error('Shop event group not found during cleanup');
+  if (index < 0) {
+    console.log('ℹ️  Event group "' + groupName + '" already absent from cfgeventgroups.xml — nothing to remove');
+    return;
+  }
   const commentIndex = findShopOwnershipCommentIndex(parsed.children, index, 'DayZ Shop event group ' + groupName);
   if (commentIndex < 0) throw new Error('Existing event group is not owned by the shop');
   parsed.children.splice(index, 1);
@@ -1356,6 +1433,545 @@ async function removeShopEventGroupDefinition(platformServerId, nitradoToken, mi
   await fileService.uploadFileToServer(
     platformServerId, filePath.slice(0, lastSlash), filePath.slice(lastSlash + 1), content, nitradoToken
   );
+}
+
+// ---------------------------------------------------------------------------
+// Shop-owned territory zone files (custom/<name>_territories.xml)
+// ---------------------------------------------------------------------------
+// Verified live format (one purchase = one appended <zone>):
+//   <territory-type><territory color="...">
+//     <zone name="..." smin="0" smax="0" dmin="0" dmax="0" x="..." z="..." r="..."/>
+//   </territory></territory-type>
+// The zone <name> IS the shop entry id (same DAYZ_DASHBOARD_SHOP_ namespace
+// as every other shop entry), so removal on expiry/refund/cancel is keyed and
+// idempotent. Files are shop-owned and live in custom/ only — env/ and
+// vanilla territory files are never downloaded or rewritten.
+
+const TERRITORY_FILE_STEM_PATTERN = /^[A-Za-z0-9_]{1,57}_territories$/;
+
+/** Validate + normalize a shop territory zone purchase; throws on bad geometry. */
+function validateTerritoryZone(zone, label = 'Territory zone') {
+  const name = String(zone?.name ?? '');
+  if (!isOwnedShopEntryId(name)) throw new Error(`${label} name must be a shop entry ID`);
+  const geometry = {};
+  for (const field of ['x', 'z', 'r']) {
+    const value = Number(zone[field]);
+    if (!Number.isFinite(value)) throw new Error(`${label} ${field} must be a finite number`);
+    geometry[field] = value;
+  }
+  if (geometry.r <= 0) throw new Error(`${label} radius must be positive`);
+  for (const field of ['smin', 'smax', 'dmin', 'dmax']) {
+    const value = zone[field] === undefined ? 0 : Number(zone[field]);
+    if (!Number.isSafeInteger(value) || value < 0) {
+      throw new Error(`${label} ${field} must be a non-negative integer (default 0)`);
+    }
+    geometry[field] = value;
+  }
+  if (geometry.smin > geometry.smax) throw new Error(`${label} smin must not exceed smax`);
+  if (geometry.dmin > geometry.dmax) throw new Error(`${label} dmin must not exceed dmax`);
+  const color = String(zone?.color ?? '').trim();
+  if (!color || /[<"]/.test(color)) throw new Error(`${label} color must be a non-empty attribute-safe string`);
+  return { name, color, ...geometry };
+}
+
+/** <zone> element node in the verified attribute order. */
+function buildTerritoryZoneNode(zone) {
+  return {
+    zone: [],
+    ':@': {
+      '@_name': zone.name,
+      '@_smin': String(zone.smin),
+      '@_smax': String(zone.smax),
+      '@_dmin': String(zone.dmin),
+      '@_dmax': String(zone.dmax),
+      '@_x': String(zone.x),
+      '@_z': String(zone.z),
+      '@_r': String(zone.r),
+    },
+  };
+}
+
+function validateTerritoryZoneElement(node, label) {
+  const attrs = assertExactAttributes(
+    node, ['name', 'smin', 'smax', 'dmin', 'dmax', 'x', 'z', 'r'], [], label
+  );
+  if (!/^[A-Za-z0-9_]{1,64}$/.test(attrs.name)) throw new Error(`Invalid ${label} name`);
+  if (['x', 'z', 'r'].some(field => !isFiniteNumberText(attrs[field]))) {
+    throw new Error(`Invalid ${label} coordinates`);
+  }
+  if (Number(attrs.r) <= 0) throw new Error(`Invalid ${label} radius`);
+  if (['smin', 'smax', 'dmin', 'dmax'].some(field => !isNonNegativeIntegerText(attrs[field]))) {
+    throw new Error(`Invalid ${label} bounds`);
+  }
+  if (Number(attrs.smin) > Number(attrs.smax) || Number(attrs.dmin) > Number(attrs.dmax)) {
+    throw new Error(`Invalid ${label} bounds`);
+  }
+  assertEmptyElement(node, 'zone', label);
+}
+
+function validateTerritoryTypeNode(node, label) {
+  for (const child of node['territory-type'] || []) {
+    const name = orderedNodeName(child);
+    if (name === '#text' && String(child['#text'] || '').trim() !== '') {
+      throw new Error(`Unsupported text in ${label}`);
+    }
+  }
+  for (const territory of node['territory-type'] || []) {
+    if (orderedNodeName(territory) !== 'territory') throw new Error(`Unsupported ${label} child element`);
+    const attrs = assertExactAttributes(territory, ['color'], [], `${label} territory`);
+    if (!attrs.color || /[<"]/.test(attrs.color)) throw new Error(`Invalid ${label} territory color`);
+    for (const zone of territory.territory || []) {
+      const name = orderedNodeName(zone);
+      if (name === '#text') {
+        if (String(zone['#text'] || '').trim() !== '') throw new Error(`Unsupported text in ${label}`);
+        continue;
+      }
+      if (name === '#comment') continue;
+      if (name !== 'zone') throw new Error(`Unsupported ${label} territory child element`);
+      validateTerritoryZoneElement(zone, `${label} zone`);
+    }
+  }
+}
+
+/**
+ * Parse a shop territory file. The verified live format uses <territory-type>
+ * as the document root; a wrapper root whose only element children are
+ * <territory-type> blocks is tolerated so both shapes round-trip.
+ */
+function parseTerritoryXml(raw, label) {
+  if (typeof raw !== 'string' || raw.trim() === '') throw new Error(`${label} is empty`);
+  const validation = XMLValidator.validate(raw);
+  if (validation !== true) throw new Error(`Cannot update malformed ${label}: ${validation.err.msg}`);
+  const document = orderedParser.parse(raw);
+  const roots = document.filter(node => {
+    const name = orderedNodeName(node);
+    return name && !['?xml', '#text', '#comment'].includes(name);
+  });
+  if (roots.length !== 1) throw new Error(`Unsupported ${label} root structure`);
+  const root = roots[0];
+  const rootName = orderedNodeName(root);
+  const territoryTypes = rootName === 'territory-type'
+    ? [root]
+    : (root[rootName] || []).filter(node => orderedNodeName(node) === 'territory-type');
+  if (rootName !== 'territory-type') {
+    if (!territoryTypes.length) throw new Error(`Unsupported ${label} root structure`);
+    for (const child of root[rootName] || []) {
+      const name = orderedNodeName(child);
+      if (name === '#text' && String(child['#text'] || '').trim() !== '') {
+        throw new Error(`Unsupported text in ${label}`);
+      }
+      if (name !== '#comment' && name !== 'territory-type') {
+        throw new Error(`Unsupported ${label} root child element`);
+      }
+    }
+  }
+  return { document, root, rootName, territoryTypes };
+}
+
+function validateTerritoryXml(parsed, label) {
+  for (const node of parsed.territoryTypes) validateTerritoryTypeNode(node, label);
+}
+
+function buildTerritoryXmlContent(parsed, label) {
+  const content = orderedBuilder.build(parsed.document);
+  const validation = XMLValidator.validate(content);
+  if (validation !== true) throw new Error(`Generated invalid ${label}: ${validation.err.msg}`);
+  const verified = parseTerritoryXml(content, label);
+  validateTerritoryXml(verified, label);
+  return content;
+}
+
+/** Find every <zone name=entryId> across all <territory> blocks. */
+function collectTerritoryZones(territoryTypes, entryId) {
+  const matches = [];
+  for (const type of territoryTypes) {
+    for (const territory of type['territory-type'] || []) {
+      if (orderedNodeName(territory) !== 'territory') continue;
+      for (const zone of territory.territory || []) {
+        if (orderedNodeName(zone) === 'zone' && orderedAttributes(zone).name === entryId) {
+          matches.push({ type, territory, zone });
+        }
+      }
+    }
+  }
+  return matches;
+}
+
+function appendTerritoryZone(parsed, zone) {
+  // color is only consulted when a new <territory> (and thus a new file) is
+  // created; appends reuse the file's existing territory block.
+  let type = parsed.territoryTypes.length
+    ? parsed.territoryTypes[parsed.territoryTypes.length - 1]
+    : null;
+  if (!type) {
+    type = { 'territory-type': [], ':@': {} };
+    parsed.root[parsed.rootName].push(type);
+    parsed.territoryTypes.push(type);
+  }
+  let territory = (type['territory-type'] || []).find(node => orderedNodeName(node) === 'territory');
+  if (!territory) {
+    territory = { territory: [], ':@': { '@_color': zone.color } };
+    (type['territory-type'] = type['territory-type'] || []).push(territory);
+  }
+  (territory.territory = territory.territory || []).push(buildTerritoryZoneNode(zone));
+}
+
+/**
+ * Download custom/<stem>.xml (creating it in the verified format when
+ * absent), validate it, append the purchase's <zone> keyed by its shop entry
+ * id, and upload back. An identical existing zone is a no-op; a conflicting
+ * one is rejected.
+ */
+async function ensureShopTerritoryZone(platformServerId, nitradoToken, missionDir, specName, zoneConfig, fileService = missionFileService) {
+  const stem = String(specName || '');
+  if (!TERRITORY_FILE_STEM_PATTERN.test(stem)) {
+    throw new Error('Territory file must be named custom/<name>_territories.xml');
+  }
+  const zone = validateTerritoryZone(zoneConfig);
+  const filePath = missionDir + '/custom/' + stem + '.xml';
+  const label = stem + '.xml';
+  const raw = await fileService.downloadFileFromServer(platformServerId, filePath, nitradoToken);
+  let parsed;
+  if (raw === null || raw === undefined) {
+    const root = { 'territory-type': [], ':@': {} };
+    parsed = {
+      document: [{ '?xml': [{ '#text': ' version="1.0" encoding="utf-8"' }] }, root],
+      root,
+      rootName: 'territory-type',
+      territoryTypes: [root],
+    };
+  } else {
+    parsed = parseTerritoryXml(raw, label);
+    validateTerritoryXml(parsed, label);
+    const existing = collectTerritoryZones(parsed.territoryTypes, zone.name);
+    if (existing.length > 1) throw new Error(`Duplicate territory zone definition for "${zone.name}"`);
+    if (existing.length === 1) {
+      const expected = JSON.stringify(canonicalOrderedNode(buildTerritoryZoneNode(zone)));
+      const current = JSON.stringify(canonicalOrderedNode(existing[0].zone));
+      if (expected !== current) {
+        throw new Error(`Existing territory zone "${zone.name}" conflicts with the current catalog configuration`);
+      }
+      return;
+    }
+  }
+  appendTerritoryZone(parsed, zone);
+  const content = buildTerritoryXmlContent(parsed, label);
+  const lastSlash = filePath.lastIndexOf('/');
+  await fileService.uploadFileToServer(
+    platformServerId, filePath.slice(0, lastSlash), filePath.slice(lastSlash + 1), content, nitradoToken
+  );
+}
+
+/**
+ * Remove the shop-owned <zone> keyed by entryId from custom/<stem>.xml
+ * (expiry/refund/cancel). A missing file or already-absent zone is
+ * already-clean: log and skip without rewriting. Non-shop zone names are
+ * never removed; emptied <territory>/<territory-type> blocks are collapsed
+ * away (the file itself is kept — the cfgenvironment registration stays
+ * valid with zero zones).
+ */
+async function removeShopTerritoryZone(platformServerId, nitradoToken, missionDir, specName, entryId, fileService = missionFileService) {
+  const stem = String(specName || '');
+  if (!TERRITORY_FILE_STEM_PATTERN.test(stem)) {
+    throw new Error('Territory file must be named custom/<name>_territories.xml');
+  }
+  const id = String(entryId || '');
+  if (!isOwnedShopEntryId(id)) throw new Error('Territory zone entry ID must be a shop entry ID');
+  const filePath = missionDir + '/custom/' + stem + '.xml';
+  const label = stem + '.xml';
+  const raw = await fileService.downloadFileFromServer(platformServerId, filePath, nitradoToken);
+  if (raw === null || raw === undefined) {
+    console.log(`ℹ️  ${label} not present — territory zone "${id}" already clean, skipping removal`);
+    return;
+  }
+  const parsed = parseTerritoryXml(raw, label);
+  validateTerritoryXml(parsed, label);
+  const matches = collectTerritoryZones(parsed.territoryTypes, id);
+  if (!matches.length) {
+    console.log(`ℹ️  Territory zone "${id}" already absent from ${label} — nothing to remove`);
+    return;
+  }
+  if (matches.length > 1) throw new Error(`Duplicate territory zone definition for "${id}"`);
+  const { type, territory, zone } = matches[0];
+  const zones = territory.territory;
+  zones.splice(zones.indexOf(zone), 1);
+  if (!(territory.territory || []).some(node => orderedNodeName(node) === 'zone')) {
+    const types = type['territory-type'];
+    types.splice(types.indexOf(territory), 1);
+    if (parsed.rootName !== 'territory-type' &&
+        !types.some(node => orderedNodeName(node) === 'territory')) {
+      parsed.root[parsed.rootName].splice(parsed.root[parsed.rootName].indexOf(type), 1);
+    }
+  }
+  const content = buildTerritoryXmlContent(parsed, label);
+  const lastSlash = filePath.lastIndexOf('/');
+  await fileService.uploadFileToServer(
+    platformServerId, filePath.slice(0, lastSlash), filePath.slice(lastSlash + 1), content, nitradoToken
+  );
+}
+
+// ---------------------------------------------------------------------------
+// cfgenvironment.xml (one-time shop registration of custom territory files)
+// ---------------------------------------------------------------------------
+//
+// Vanilla shape (verified on the Bohemia chernarusplus/sakhal missions and the
+// live Nasadara server): a single <territories> block inside <env> holds both
+// the <file path="env/x.xml" /> declarations and the per-species
+// <territory type="Herd" name="Wolf" behavior="DZWolfGroupBeh">
+//     <file usable="wolf_territories" />
+// </territory>
+// mappings (plus vanilla-only <agent>/<item> children on Ambient/infecteds).
+// The shop adds to the same block:
+//   <file path="custom/<name>.xml" />
+//   <territory type="Herd" name="<Species>" behavior="<Behavior>"><file usable="<name>"/></territory>
+// Registration is one-time per (species, file) and deliberately never
+// removed — a zero-zone custom territory file is harmless, so the mapping
+// stays after the last zone is removed.  Re-running for an already
+// registered pair is a no-op without an upload.
+
+const TERRITORY_TYPES = new Set(['Herd', 'Ambient']);
+
+function validateEnvironmentItemNode(node, label) {
+  const attrs = assertExactAttributes(node, ['name', 'val'], [], label);
+  if (!attrs.name.trim() || !attrs.val.trim()) throw new Error('Invalid ' + label);
+  assertEmptyElement(node, 'item', label);
+}
+
+function validateEnvironmentTerritoryNode(node) {
+  const attrs = assertExactAttributes(node, ['type', 'name', 'behavior'], [], 'territory');
+  if (!TERRITORY_TYPES.has(attrs.type) || !attrs.name.trim() || !attrs.behavior.trim()) {
+    throw new Error('Invalid territory entry');
+  }
+  let fileCount = 0;
+  for (const child of node.territory || []) {
+    const name = orderedNodeName(child);
+    if (name === '#text') {
+      if (String(child['#text'] || '').trim() !== '') throw new Error('Unsupported territory text');
+      continue;
+    }
+    if (name === '#comment') continue;
+    if (name === 'file') {
+      const fileAttrs = assertExactAttributes(child, ['usable'], [], 'territory file');
+      if (!fileAttrs.usable.trim()) throw new Error('Invalid territory file usable');
+      assertEmptyElement(child, 'file', 'territory file');
+      fileCount += 1;
+    } else if (name === 'agent') {
+      const agentAttrs = assertExactAttributes(child, ['type'], ['chance'], 'territory agent');
+      if (!agentAttrs.type.trim()) throw new Error('Invalid territory agent type');
+      for (const grandchild of child.agent || []) {
+        const grandName = orderedNodeName(grandchild);
+        if (grandName === '#text') {
+          if (String(grandchild['#text'] || '').trim() !== '') throw new Error('Unsupported agent text');
+          continue;
+        }
+        if (grandName === '#comment') continue;
+        if (grandName === 'spawn') {
+          const spawnAttrs = assertExactAttributes(grandchild, ['configName'], ['chance'], 'territory spawn');
+          if (!spawnAttrs.configName.trim()) throw new Error('Invalid territory spawn');
+          assertEmptyElement(grandchild, 'spawn', 'territory spawn');
+        } else if (grandName === 'item') {
+          validateEnvironmentItemNode(grandchild, 'territory agent item');
+        } else {
+          throw new Error('Unsupported nested territory agent structure');
+        }
+      }
+    } else if (name === 'item') {
+      validateEnvironmentItemNode(child, 'territory item');
+    } else {
+      throw new Error('Unsupported nested territory structure');
+    }
+  }
+  if (fileCount === 0) throw new Error('Territory entry without a usable file');
+}
+
+function validateEnvironmentChildren(children) {
+  let territoriesCount = 0;
+  for (const node of children) {
+    const name = orderedNodeName(node);
+    if (name === '#text') {
+      if (String(node['#text'] || '').trim() !== '') throw new Error('Unsupported text in cfgenvironment.xml');
+      continue;
+    }
+    if (name === '#comment') continue;
+    if (name !== 'territories') throw new Error('Unsupported cfgenvironment.xml child element');
+    assertExactAttributes(node, [], [], 'territories');
+    territoriesCount += 1;
+    for (const child of node.territories || []) {
+      const childName = orderedNodeName(child);
+      if (childName === '#text') {
+        if (String(child['#text'] || '').trim() !== '') throw new Error('Unsupported territories text');
+        continue;
+      }
+      if (childName === '#comment') continue;
+      if (childName === 'file') {
+        const attrs = assertExactAttributes(child, ['path'], [], 'territories file');
+        if (!attrs.path.trim()) throw new Error('Invalid territories file path');
+        assertEmptyElement(child, 'file', 'territories file');
+      } else if (childName === 'territory') {
+        validateEnvironmentTerritoryNode(child);
+      } else {
+        throw new Error('Unsupported nested territories structure');
+      }
+    }
+  }
+  if (territoriesCount !== 1) throw new Error('cfgenvironment.xml must contain exactly one territories block');
+}
+
+/**
+ * Parse cfgenvironment.xml content and list the Herd territories the shop
+ * can register against.  The behavior comes from the server's own existing
+ * mapping (DZWolfGroupBeh, BlissBearGroupBeh, ...) and envFileDeclared
+ * reports whether the species' vanilla env/ file is actually listed in the
+ * <territories> block.  Ambient/infecteds entries are excluded.
+ */
+function listEnvironmentSpecies(raw) {
+  if (typeof raw !== 'string' || raw.trim() === '') throw new Error('cfgenvironment.xml is empty');
+  const parsed = parseOrderedXml(raw, 'env', 'cfgenvironment.xml');
+  validateEnvironmentChildren(parsed.children);
+  const envRoot = parsed.children.find(node => orderedNodeName(node) === 'territories');
+  const declaredFiles = new Set();
+  const species = [];
+  for (const child of envRoot.territories || []) {
+    const name = orderedNodeName(child);
+    if (name === 'file') {
+      declaredFiles.add(orderedAttributes(child).path);
+      continue;
+    }
+    if (name !== 'territory') continue;
+    const attrs = orderedAttributes(child);
+    if (attrs.type !== 'Herd') continue;
+    const usables = (child.territory || [])
+      .filter(node => orderedNodeName(node) === 'file')
+      .map(node => orderedAttributes(node).usable);
+    const usable = usables.length === 1 ? usables[0] : null;
+    species.push({
+      name: attrs.name,
+      behavior: attrs.behavior,
+      usable: usable,
+      envFile: usable ? `env/${usable}.xml` : null,
+      envFileDeclared: usable ? declaredFiles.has(`env/${usable}.xml`) : false,
+    });
+  }
+  return species;
+}
+
+async function listEnvironmentSpeciesOnServer(platformServerId, nitradoToken, missionDir, fileService = missionFileService) {
+  const raw = await fileService.downloadFileFromServer(platformServerId, missionDir + '/cfgenvironment.xml', nitradoToken);
+  if (raw === null || raw === undefined) throw new Error('cfgenvironment.xml not found');
+  return listEnvironmentSpecies(raw);
+}
+
+/**
+ * One-time idempotent registration of a shop-owned custom/<fileName>.xml
+ * territory file in cfgenvironment.xml:
+ *   1. <file path="custom/<fileName>.xml" /> inside the <territories> block
+ *   2. <territory type="Herd" name="<Species>" behavior="<Behavior>">
+ *        <file usable="<fileName>" />
+ *      </territory>
+ * appended to the same block.  <Behavior> and the canonical <Species> name
+ * are resolved from the species' existing Herd mapping, so the custom file
+ * inherits the server's own AI behavior.  species/fileName are matched
+ * case-insensitively against the canonical existing name.  The registration
+ * is never removed (it stays after the last zone is removed), so an already
+ * registered (species, file) pair returns without uploading.
+ */
+async function registerCustomTerritoryInEnvironment(platformServerId, nitradoToken, missionDir, options = {}, fileService = missionFileService) {
+  const species = String(options.species || '');
+  const fileName = String(options.fileName || '');
+  if (!/^[A-Za-z0-9_]+$/.test(species)) throw new Error('Invalid territory species name');
+  if (!/^[A-Za-z0-9_]+$/.test(fileName)) throw new Error('Invalid custom territory file name');
+
+  const filePath = missionDir + '/cfgenvironment.xml';
+  const raw = await fileService.downloadFileFromServer(platformServerId, filePath, nitradoToken);
+  if (raw === null || raw === undefined) throw new Error('cfgenvironment.xml not found');
+  const parsed = parseOrderedXml(raw, 'env', 'cfgenvironment.xml');
+  validateEnvironmentChildren(parsed.children);
+  const envRoot = parsed.children.find(node => orderedNodeName(node) === 'territories');
+  const territoryChildren = envRoot.territories || [];
+
+  const herdMatches = territoryChildren.filter(node => {
+    if (orderedNodeName(node) !== 'territory') return false;
+    const attrs = orderedAttributes(node);
+    return attrs.type === 'Herd' && attrs.name.toLowerCase() === species.toLowerCase();
+  });
+  if (!herdMatches.length) {
+    const available = listEnvironmentSpecies(raw).map(entry => entry.name);
+    throw new Error(
+      `Species "${species}" is not a supported Herd on this server (available: ${available.join(', ') || 'none'})`
+    );
+  }
+  const behaviors = [...new Set(herdMatches.map(node => orderedAttributes(node).behavior))];
+  if (behaviors.length > 1) {
+    throw new Error(`Ambiguous Herd mappings for species "${species}" (behaviors: ${behaviors.join(', ')})`);
+  }
+  const behavior = behaviors[0];
+  const canonicalName = orderedAttributes(herdMatches[0]).name;
+  const existingUsables = (herdMatches[0].territory || [])
+    .filter(node => orderedNodeName(node) === 'file')
+    .map(node => orderedAttributes(node).usable);
+  if (existingUsables.length !== 1) {
+    throw new Error(`Ambiguous env/ file set for species "${species}" (usables: ${existingUsables.join(', ') || 'none'})`);
+  }
+  const declaredFiles = new Set(
+    territoryChildren
+      .filter(node => orderedNodeName(node) === 'file')
+      .map(node => orderedAttributes(node).path)
+  );
+  const envFile = 'env/' + existingUsables[0] + '.xml';
+  if (!declaredFiles.has(envFile)) {
+    throw new Error(`Species "${species}" is not in this server's env/ set: ${envFile} is not declared in cfgenvironment.xml`);
+  }
+
+  const target = {
+    territory: [{ file: [], ':@': { '@_usable': fileName } }],
+    ':@': { '@_type': 'Herd', '@_name': canonicalName, '@_behavior': behavior },
+  };
+  const fileDeclaration = { file: [], ':@': { '@_path': `custom/${fileName}.xml` } };
+
+  const declarationExists = territoryChildren.some(node =>
+    orderedNodeName(node) === 'file' && orderedAttributes(node).path === `custom/${fileName}.xml`
+  );
+  const mappingExists = territoryChildren.some(node => {
+    if (orderedNodeName(node) !== 'territory') return false;
+    const attrs = orderedAttributes(node);
+    if (attrs.type !== 'Herd' || attrs.behavior !== behavior) return false;
+    if (attrs.name.toLowerCase() !== species.toLowerCase()) return false;
+    const files = (node.territory || []).filter(child => orderedNodeName(child) === 'file');
+    return files.length === 1 &&
+      orderedAttributes(files[0]).usable === fileName &&
+      JSON.stringify(canonicalOrderedNode(node)) === JSON.stringify(canonicalOrderedNode(target));
+  });
+  if (declarationExists && mappingExists) {
+    console.log('   ℹ️  custom/' + fileName + '.xml already registered for ' + canonicalName + ' in cfgenvironment.xml');
+    return { changed: false, species: canonicalName, behavior };
+  }
+
+  if (!mappingExists) {
+    territoryChildren.push(
+      { '#text': '\n\n\t\t' },
+      { '#comment': [{ '#text': ` DayZ Shop territory mapping custom/${fileName}.xml (${canonicalName}) ` }] },
+      { '#text': '\n\t\t' },
+      target
+    );
+  }
+  if (!declarationExists) {
+    // Insert after the last <file> declaration so the env/ file list stays
+    // visually grouped; the mapping was pushed to the end of the block.
+    let insertAt = 0;
+    territoryChildren.forEach((node, index) => {
+      if (orderedNodeName(node) === 'file') insertAt = index + 1;
+    });
+    territoryChildren.splice(insertAt, 0, { '#text': '\n\t\t' }, fileDeclaration);
+  }
+  envRoot.territories = territoryChildren;
+
+  const content = buildValidatedOrderedXml(parsed.document, 'env', 'cfgenvironment.xml', validateEnvironmentChildren);
+  const lastSlash = filePath.lastIndexOf('/');
+  await fileService.uploadFileToServer(
+    platformServerId, filePath.slice(0, lastSlash), filePath.slice(lastSlash + 1), content, nitradoToken
+  );
+  console.log('   ✅ Registered custom/' + fileName + '.xml for ' + canonicalName + ' in cfgenvironment.xml');
+  return { changed: true, species: canonicalName, behavior };
 }
 
 /**
@@ -1382,6 +1998,17 @@ function parseEventRentalEntryIds(fileEntryIds) {
   return entries;
 }
 
+/**
+ * Single source of truth for the coordinate match used both when removing
+ * tracked positions and when verifying that none survived the removal pass.
+ */
+function positionMatchesRentalEntry(attrs, entry) {
+  const px = Number(attrs.x), pz = Number(attrs.z);
+  const pa = Number(attrs.a || 0), py = Number(attrs.y || 0);
+  return Math.abs(Number(entry.x) - px) < 0.01 && Math.abs(Number(entry.z) - pz) < 0.01 &&
+    Math.abs(Number(entry.a) - pa) < 0.01 && Math.abs(Number(entry.y || 0) - py) < 0.01;
+}
+
 async function removeEventSpawnPositions(platformServerId, nitradoToken, missionDir, fileEntryIds, fileService = missionFileService) {
   if (!fileEntryIds || fileEntryIds.length === 0) return;
 
@@ -1391,7 +2018,10 @@ async function removeEventSpawnPositions(platformServerId, nitradoToken, mission
   console.log('🛍️  Removing ' + fileEntryIds.length + ' event spawn position(s)');
 
   const raw = await fileService.downloadFileFromServer(platformServerId, filePath, nitradoToken);
-  if (raw === null || raw === undefined) throw new Error('cfgeventspawns.xml not found during cleanup');
+  if (raw === null || raw === undefined) {
+    console.log('ℹ️  cfgeventspawns.xml not present — event spawn positions already clean, skipping removal');
+    return;
+  }
 
   const parsed = parseOrderedXml(raw, 'eventposdef', 'cfgeventspawns.xml');
   validateEventPositionChildren(parsed.children);
@@ -1404,13 +2034,7 @@ async function removeEventSpawnPositions(platformServerId, nitradoToken, mission
     const originalChildren = block.event || [];
     block.event = originalChildren.filter(node => {
       if (orderedNodeName(node) !== 'pos') return true;
-      const attrs = orderedAttributes(node);
-      const px = Number(attrs.x), pz = Number(attrs.z);
-      const pa = Number(attrs.a || 0), py = Number(attrs.y || 0);
-      const remove = relevant.some(r =>
-        Math.abs(Number(r.x) - px) < 0.01 && Math.abs(Number(r.z) - pz) < 0.01 &&
-        Math.abs(Number(r.a) - pa) < 0.01 && Math.abs(Number(r.y || 0) - py) < 0.01
-      );
+      const remove = relevant.some(r => positionMatchesRentalEntry(orderedAttributes(node), r));
       if (remove) removedPositions += 1;
       return !remove;
     });
@@ -1420,8 +2044,39 @@ async function removeEventSpawnPositions(platformServerId, nitradoToken, mission
     }
   }
 
-  if (removedPositions !== toRemove.length) {
+  // Distinguish the two failure shapes explicitly:
+  //  - "the file lost the position": a tracked position that was never in the
+  //    live file (mission dir re-seeded/wiped while the DB still tracked it) is
+  //    already-clean.  Tolerate it and move on — throwing here turned a single
+  //    stale rental into a permanent restart-cleanup failure loop.
+  //  - "the file has it but we failed to remove it": a tracked position that
+  //    STILL matches in the file after the removal pass is a real removal
+  //    failure (concurrent edit / corruption) and must fail closed.
+  let survivingTracked = 0;
+  for (const block of parsed.children.filter(node => orderedNodeName(node) === 'event')) {
+    const blockName = orderedAttributes(block).name;
+    const relevant = toRemove.filter(r => r.event === blockName);
+    if (!relevant.length) continue;
+    for (const node of block.event || []) {
+      if (orderedNodeName(node) !== 'pos') continue;
+      if (relevant.some(r => positionMatchesRentalEntry(orderedAttributes(node), r))) survivingTracked += 1;
+    }
+  }
+  if (survivingTracked > 0) {
     throw new Error('Event spawn cleanup did not match every tracked position');
+  }
+
+  if (removedPositions === 0) {
+    // Every tracked position was already absent: nothing to rewrite.  Skipping
+    // the upload also avoids re-uploading an unchanged file (no-op write and a
+    // stale-overwrite window if the server changed the file in the meantime).
+    console.log('   ℹ️  All ' + toRemove.length +
+      ' tracked position(s) already absent from cfgeventspawns.xml — treated as cleaned');
+    return;
+  }
+  if (removedPositions < toRemove.length) {
+    console.log('   ℹ️  ' + (toRemove.length - removedPositions) +
+      ' tracked position(s) already absent from cfgeventspawns.xml — treated as cleaned');
   }
 
   // Drop only targeted event blocks whose final position was actually removed.
@@ -1478,6 +2133,7 @@ function collectShopCheckoutFilePaths(missionDir, items) {
   let needsEffectAreas = false;
   let needsEvents = false;
   let needsEventGroups = false;
+  let needsTerritories = false;
 
   for (const item of items || []) {
     if (item.spawn_method === 'cfgEffectArea') needsEffectAreas = true;
@@ -1496,6 +2152,13 @@ function collectShopCheckoutFilePaths(missionDir, items) {
     const config = resolveEventConfig(item.event_config);
     if (config.effectAreaComponents?.length) needsEffectAreas = true;
     if (config.eventGroupChildren?.length) needsEventGroups = true;
+    if (config.territory) {
+      if (!TERRITORY_FILE_STEM_PATTERN.test(String(config.territory.file || ''))) {
+        throw new Error('Territory file must be named custom/<name>_territories.xml');
+      }
+      needsTerritories = true;
+      paths.add(`${missionDir}/custom/${config.territory.file}.xml`);
+    }
     for (const component of config.objectSpawnerComponents || []) {
       const relativePath = normalizeMissionRelativeJsonPath(
         normalizeEventObjectSpawnerComponent(component).file
@@ -1516,6 +2179,7 @@ function collectShopCheckoutFilePaths(missionDir, items) {
     paths.add(`${missionDir}/cfgeventspawns.xml`);
   }
   if (needsEventGroups) paths.add(`${missionDir}/cfgeventgroups.xml`);
+  if (needsTerritories) paths.add(`${missionDir}/cfgenvironment.xml`);
   return [...paths];
 }
 
@@ -1525,12 +2189,14 @@ function collectShopCleanupFilePaths(missionDir, {
   eventEntryIds,
   eventsToCheck,
   eventGroupsByEvent,
+  territoryZones,
 }) {
   const paths = new Set(Object.keys(customJsonFiles || {}));
   if (effectAreaIds?.size) paths.add(`${missionDir}/cfgEffectArea.json`);
   if (eventEntryIds?.length) paths.add(`${missionDir}/cfgeventspawns.xml`);
   if (eventsToCheck?.size) paths.add(`${missionDir}/custom/shop_events.xml`);
   if (eventGroupsByEvent?.size) paths.add(`${missionDir}/cfgeventgroups.xml`);
+  if (territoryZones) for (const stem of territoryZones.keys()) paths.add(`${missionDir}/custom/${stem}.xml`);
   return [...paths];
 }
 
@@ -2054,6 +2720,7 @@ async function processCheckout(db, orderId, actorUserId, options = {}) {
             itemType:       item.item_type,
             rentalRestarts: qty,
             companions,
+            territory:      resolvedConfig.territory,
             ...buildEventSpawnPosition({
               posX: item.pos_x,
               posY: item.pos_y,
@@ -2098,7 +2765,29 @@ async function processCheckout(db, orderId, actorUserId, options = {}) {
                 platformServerId, token, missionDir, eventName,
                 pos.x, pos.z, pos.a, pos.y, provisionFileService, groupName ? { group: groupName } : {}
               );
-              const entryId = JSON.stringify({ ...JSON.parse(eventEntryId), companions: pos.companions });
+              const entryPayload = JSON.parse(eventEntryId);
+              if (pos.territory) {
+                // One-time cfgenvironment registration, then the shop-owned
+                // territory zone at the purchased spot, tracked by entry id.
+                const zoneId = generateAreaName(pos.orderItemId + '_territory');
+                await registerCustomTerritoryInEnvironment(
+                  platformServerId, token, missionDir,
+                  { species: pos.territory.species, fileName: pos.territory.file }, provisionFileService
+                );
+                await ensureShopTerritoryZone(
+                  platformServerId, token, missionDir, pos.territory.file,
+                  {
+                    name: zoneId,
+                    color: pos.territory.color,
+                    x: pos.x,
+                    z: pos.z,
+                    r: pos.territory.radius,
+                  },
+                  provisionFileService
+                );
+                entryPayload.territory = { file: pos.territory.file, zone: zoneId };
+              }
+              const entryId = JSON.stringify({ ...entryPayload, companions: pos.companions });
               if (pos.itemType === 'event_rental') {
                 await db.query(
                   'UPDATE shop_order_items SET file_entry_id = $1, restarts_remaining = $2, is_active = TRUE WHERE id = $3',
@@ -2295,6 +2984,7 @@ async function removeExpiredRentals(db, serverId, orderItemIds) {
   const eventsToCheck   = new Set();
   const eventGroupsByEvent = new Map();
   const eventEntryIds   = []; // file_entry_id JSON strings for event spawn positions
+  const territoryZones  = new Map(); // territory file stem → Set of zone entry ids
   const cleanupTargetOwners = new Map();
   const registerCleanupTarget = (method, relativePath, entryId, orderItemId) => {
     const key = JSON.stringify([method, relativePath || null, entryId]);
@@ -2340,6 +3030,16 @@ async function removeExpiredRentals(db, serverId, orderItemIds) {
         } else {
           throw new Error('Event rental companion metadata has an unsupported method');
         }
+      }
+      if (entry.territory !== undefined) {
+        if (!entry.territory ||
+            typeof entry.territory.file !== 'string' || !TERRITORY_FILE_STEM_PATTERN.test(entry.territory.file) ||
+            typeof entry.territory.zone !== 'string' || !isOwnedShopEntryId(entry.territory.zone)) {
+          throw new Error('Event rental territory metadata is invalid');
+        }
+        registerCleanupTarget('territory', entry.territory.file, entry.territory.zone, item.id);
+        if (!territoryZones.has(entry.territory.file)) territoryZones.set(entry.territory.file, new Set());
+        territoryZones.get(entry.territory.file).add(entry.territory.zone);
       }
       eventsToCheck.add(item.event_name);
       eventEntryIds.push(item.file_entry_id);
@@ -2387,6 +3087,7 @@ async function removeExpiredRentals(db, serverId, orderItemIds) {
     eventEntryIds,
     eventsToCheck,
     eventGroupsByEvent,
+    territoryZones,
   });
   let providerMutationId = null;
   let fileService = createFileMutationJournal(platformServerId, token);
@@ -2417,21 +3118,27 @@ async function removeExpiredRentals(db, serverId, orderItemIds) {
     // Remove from cfgEffectArea.json
     if (effectAreaIds.size > 0) {
       const { filePath, raw } = await resolveEffectAreaFilePath(platformServerId, token, missionDir, fileService);
-      if (raw === null || raw === undefined) throw new Error('cfgEffectArea.json not found during cleanup');
-      let root = JSON.parse(raw);
-      root = removeEffectAreaEntries(root, effectAreaIds);
-      const lastSlash = filePath.lastIndexOf('/');
-      await fileService.uploadFileToServer(
-        platformServerId, filePath.slice(0, lastSlash), filePath.slice(lastSlash + 1),
-        JSON.stringify(root, null, 2), token
-      );
-      console.log('✅ Removed ' + effectAreaIds.size + ' expired cfgEffectArea entries');
+      if (raw === null || raw === undefined) {
+        console.log('ℹ️  cfgEffectArea.json not present — expired effect areas already clean, skipping');
+      } else {
+        let root = JSON.parse(raw);
+        root = removeEffectAreaEntries(root, effectAreaIds);
+        const lastSlash = filePath.lastIndexOf('/');
+        await fileService.uploadFileToServer(
+          platformServerId, filePath.slice(0, lastSlash), filePath.slice(lastSlash + 1),
+          JSON.stringify(root, null, 2), token
+        );
+        console.log('✅ Removed ' + effectAreaIds.size + ' expired cfgEffectArea entries');
+      }
     }
 
     // Remove from custom JSON files
     for (const [filePath, entryIds] of Object.entries(customJsonFiles)) {
       const raw = await fileService.downloadFileFromServer(platformServerId, filePath, token);
-      if (raw === null || raw === undefined) throw new Error('Object Spawner file not found during cleanup: ' + filePath);
+      if (raw === null || raw === undefined) {
+        console.log('ℹ️  Object Spawner file not present — already clean, skipping: ' + filePath);
+        continue;
+      }
       const root = JSON.parse(raw);
       const entries = removeObjectSpawnerEntries(root, entryIds);
       const lastSlash = filePath.lastIndexOf('/');
@@ -2470,6 +3177,14 @@ async function removeExpiredRentals(db, serverId, orderItemIds) {
         if (groupName) {
           await removeShopEventGroupDefinition(platformServerId, token, missionDir, groupName, fileService);
         }
+      }
+    }
+
+    // Remove shop-owned territory zones (same journal/reversal path as other
+    // shop entries); the cfgenvironment registration intentionally stays.
+    for (const [stem, zoneIds] of territoryZones) {
+      for (const zoneId of zoneIds) {
+        await removeShopTerritoryZone(platformServerId, token, missionDir, stem, zoneId, fileService);
       }
     }
     if (providerMutationId !== null) {
@@ -2778,6 +3493,7 @@ module.exports = {
   collectShopCheckoutFilePaths,
   collectShopCleanupFilePaths,
   createFileMutationJournal,
+  getTokenForServer,
   assertCheckoutAuthority,
   assertSpawnsecondaryReferencesExist,
   generateAreaName,
@@ -2792,13 +3508,22 @@ module.exports = {
   appendEffectAreaEntries,
   appendCustomJsonEntries,
   resolveEventConfig,
+  eventHasAnimalSpawns,
+  resolveEventTerritoryConfig,
+  assertEventTerritoryProvisioning,
   ensureCfgEconomyCoreShopEntry,
   ensureShopEventDefinition,
   ensureShopEventGroupDefinition,
   removeShopEventGroupDefinition,
+  validateTerritoryZone,
+  ensureShopTerritoryZone,
+  removeShopTerritoryZone,
   removeShopEventDefinition,
   addEventSpawnPosition,
   removeEventSpawnPositions,
+  listEnvironmentSpecies,
+  listEnvironmentSpeciesOnServer,
+  registerCustomTerritoryInEnvironment,
   assignPurchaseEventNames,
   assertPurchaseEventNamesAvailable,
   assertEventRentalPlacementsAvailable,

@@ -1,5 +1,42 @@
 let activityLogs = [];
 
+// The automation endpoints report per-server authorization details on 403
+// (e.g. a saved server was deactivated). api.js's global fetchWithCsrf treats
+// every 403 as insufficient permissions and bounces the user to /dashboard —
+// which made the buttons look broken: an alert, then the page jumped away,
+// and nothing was saved. Post through this page-local helper instead so the
+// user stays on the page and sees which servers caused the failure.
+async function automationPost(url, options = {}) {
+  const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
+  const response = await fetch(url, Object.assign({}, options, {
+    headers: Object.assign({ 'Content-Type': 'application/json' }, options.headers || {}, token ? { 'CSRF-Token': token } : {}),
+    credentials: 'same-origin',
+  }));
+  if (response.status === 401) {
+    window.location.href = '/';
+    throw new Error('Not authenticated');
+  }
+  if (response.status === 403) {
+    let data = null;
+    try { data = await response.clone().json(); } catch (_) {}
+    if (String(data?.error || '').toLowerCase().includes('csrf')) {
+      window.location.reload();
+      throw new Error('CSRF token invalid - page reloading');
+    }
+  }
+  return response;
+}
+
+function describeSyncServers(list) {
+  return list.map(s => `${s.serverId} (${s.detail || s.reason || 'unavailable'})`).join('; ');
+}
+
+function syncServerDetail(data) {
+  return Array.isArray(data.servers) && data.servers.length > 0
+    ? ' — ' + describeSyncServers(data.servers)
+    : '';
+}
+
 // Load automation settings on page load
 loadAutomationSettings();
 loadServers();
@@ -154,7 +191,7 @@ async function toggleAutoLogSync() {
     addActivityLog('Auto log sync disabled', 'warning');
   }
 
-  await updateAutoLogSync();
+  await updateAutoLogSync(true);
 }
 
 async function toggleAutoTracking() {
@@ -170,7 +207,7 @@ async function toggleAutoTracking() {
   await updateAutoTracking();
 }
 
-async function updateAutoLogSync() {
+async function updateAutoLogSync(revertToggleOnFailure = false) {
   const enabled = document.getElementById('autoLogSyncToggle').checked;
   const interval = parseFloat(document.getElementById('syncInterval').value);
   const autoScan = document.getElementById('autoScanAfterSync').checked;
@@ -179,7 +216,7 @@ async function updateAutoLogSync() {
     .map(cb => cb.value);
 
   try {
-    const response = await fetchWithCsrf('/api/automation/log-sync', {
+    const response = await automationPost('/api/automation/log-sync', {
       method: 'POST',
       body: JSON.stringify({
         enabled,
@@ -189,13 +226,25 @@ async function updateAutoLogSync() {
       })
     });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
     if (data.success) {
       console.log('Auto log sync settings updated');
+      if (Array.isArray(data.skippedServers) && data.skippedServers.length > 0) {
+        addActivityLog(`Dropped stale servers from selection: ${describeSyncServers(data.skippedServers)}`, 'warning');
+      }
+    } else {
+      // Save failed (e.g. a selected server can no longer be operated).
+      // Revert the toggle (only when it triggered this save) so the UI
+      // reflects what is actually persisted.
+      if (revertToggleOnFailure) {
+        document.getElementById('autoLogSyncToggle').checked = !enabled;
+        document.getElementById('autoLogSyncSettings').style.display = !enabled ? 'block' : 'none';
+      }
+      addActivityLog('Failed to update auto log sync settings: ' + (data.error || 'Unknown error') + syncServerDetail(data), 'error');
     }
   } catch (err) {
     console.error('Failed to update settings:', err);
-    addActivityLog('Failed to update auto log sync settings', 'error');
+    addActivityLog('Failed to update auto log sync settings: ' + err.message, 'error');
   }
 }
 
@@ -232,20 +281,23 @@ async function runSyncNow() {
   addActivityLog('Manual sync started', 'info');
 
   try {
-    const response = await fetchWithCsrf('/api/automation/sync-now', {
+    const response = await automationPost('/api/automation/sync-now', {
       method: 'POST'
     });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
 
     if (data.success) {
       addActivityLog(`Sync completed: ${data.filesDownloaded || 0} files downloaded`, 'success');
+      if (Array.isArray(data.skippedServers) && data.skippedServers.length > 0) {
+        addActivityLog(`Removed stale servers from saved config: ${describeSyncServers(data.skippedServers)}`, 'warning');
+      }
       addActivityLog('💡 Tip: Refresh the Players page to see updated stats', 'info');
       document.getElementById('syncStatus').textContent = 'Completed';
       document.getElementById('syncStatus').className = 'text-sm text-green-400';
       document.getElementById('lastSync').textContent = new Date().toLocaleString();
     } else {
-      addActivityLog('Sync failed: ' + (data.error || 'Unknown error'), 'error');
+      addActivityLog('Sync failed: ' + (data.error || 'Unknown error') + syncServerDetail(data), 'error');
       document.getElementById('syncStatus').textContent = 'Failed';
       document.getElementById('syncStatus').className = 'text-sm text-red-400';
     }

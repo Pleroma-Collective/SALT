@@ -279,12 +279,14 @@ function testNonCompensatableProviderMutationsFailClosed() {
 
   const controlRoute = source('routes/serverControl.js');
   const controlMutation = controlRoute.slice(controlRoute.indexOf("router.post('/:serverId/:action'"));
-  assert.match(controlMutation, /status\(503\)[\s\S]*PROVIDER_MUTATION_DISABLED/);
+  assert.match(controlMutation, /controlServerLifecycle\(/,
+    'web lifecycle controls must run through the durable provider mutation journal');
   assert.doesNotMatch(controlMutation, /nitradoService\.controlServer\(/,
     'web lifecycle controls must not bypass the canonical provider mutation policy');
 
   const botControl = source('bot/commands/server-control.js');
-  assert.match(botControl, /PROVIDER_MUTATION_DISABLED/);
+  assert.match(botControl, /controlServerLifecycle\(/,
+    'bot lifecycle controls must run through the durable provider mutation journal');
   assert.doesNotMatch(botControl, /await controlServer\(/,
     'bot lifecycle controls must not bypass the canonical provider mutation policy');
 

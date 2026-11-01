@@ -104,4 +104,128 @@ router.get('/:serverId', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/stats/:serverId/death-causes?days=7&bucket=hour|day
+ *
+ * Death-cause distribution over time, from 'player.death_cause' events in the
+ * events table (persisted by the ADM death-cause scanner).
+ */
+router.get('/:serverId/death-causes', async (req, res) => {
+  try {
+    const db = req.app.locals.db;
+    const serverId = req.authorization.server.id;
+    const days = Math.min(90, Math.max(1, parseInt(req.query.days, 10) || 7));
+    const bucket = req.query.bucket === 'hour' ? 'hour' : 'day';
+    const format = bucket === 'hour' ? 'YYYY-MM-DD HH24' : 'YYYY-MM-DD';
+
+    const rows = await db.all(
+      `SELECT (payload->>'cause') AS cause,
+              to_char(date_trunc(?, timestamp), ?) AS bucket,
+              COUNT(*)::int AS n
+       FROM events
+       WHERE server_id = ? AND event_type = 'player.death_cause'
+         AND timestamp >= NOW() - (? || ' days')::interval
+       GROUP BY 1, 2
+       ORDER BY 2, 1`,
+      [bucket, format, serverId, String(days)]
+    );
+
+    const totals = {};
+    for (const row of rows) totals[row.cause] = (totals[row.cause] || 0) + row.n;
+
+    res.json({
+      success: true,
+      days,
+      bucket,
+      total: rows.reduce((sum, r) => sum + r.n, 0),
+      totals,
+      series: rows.map(r => ({ bucket: r.bucket, cause: r.cause, n: r.n })),
+    });
+  } catch (error) {
+    console.error('Failed to load death causes:', error.message);
+    res.status(500).json({ success: false, error: 'Failed to load death causes' });
+  }
+});
+
+/**
+ * GET /api/stats/:serverId/pvp-leaderboard?days=30&limit=20
+ *
+ * PVP leaderboard from 'player.death_cause' events with cause='pvp':
+ * top killers by kill count (top weapon + average distance per killer) and
+ * the server's most-used kill weapons.
+ */
+router.get('/:serverId/pvp-leaderboard', async (req, res) => {
+  try {
+    const db = req.app.locals.db;
+    const serverId = req.authorization.server.id;
+    const days = Math.min(90, Math.max(1, parseInt(req.query.days, 10) || 30));
+    const limit = Math.min(50, Math.max(5, parseInt(req.query.limit, 10) || 20));
+    const where = `server_id = ? AND event_type = 'player.death_cause'
+       AND payload->>'cause' = 'pvp' AND timestamp >= NOW() - (? || ' days')::interval`;
+
+    const killers = await db.all(
+      `SELECT payload->>'killerName' AS killer,
+              COUNT(*)::int AS kills,
+              AVG((payload->>'distance')::float) AS avg_distance
+       FROM events WHERE ${where}
+       GROUP BY 1
+       ORDER BY kills DESC, killer
+       LIMIT ?`,
+      [serverId, String(days), limit]
+    );
+
+    let weaponRows = [];
+    const killerNames = killers.map(k => k.killer).filter(Boolean);
+    if (killerNames.length > 0) {
+      weaponRows = await db.all(
+        `SELECT payload->>'killerName' AS killer, payload->>'weapon' AS weapon, COUNT(*)::int AS n
+         FROM events WHERE ${where} AND payload->>'killerName' = ANY(?)
+         GROUP BY 1, 2`,
+        [serverId, String(days), killerNames]
+      );
+    }
+
+    // Mode weapon per killer (ties broken alphabetically).
+    const weaponsByKiller = new Map();
+    for (const row of weaponRows) {
+      const list = weaponsByKiller.get(row.killer) || [];
+      list.push({ weapon: row.weapon, n: row.n });
+    }
+    const leaderboard = killers.map(k => {
+      let topWeapon = null;
+      for (const w of weaponsByKiller.get(k.killer) || []) {
+        if (w.n > 0 && (!topWeapon || w.n > topWeapon.n || (w.n === topWeapon.n && w.weapon < topWeapon.weapon))) {
+          topWeapon = w;
+        }
+      }
+      return {
+        killer: k.killer,
+        kills: k.kills,
+        avgDistance: k.avg_distance != null ? Math.round(k.avg_distance * 10) / 10 : null,
+        topWeapon: topWeapon ? topWeapon.weapon : null,
+      };
+    });
+
+    const topWeapons = await db.all(
+      `SELECT payload->>'weapon' AS weapon, COUNT(*)::int AS kills
+       FROM events WHERE ${where} AND payload->>'weapon' IS NOT NULL
+       GROUP BY 1
+       ORDER BY kills DESC, weapon
+       LIMIT 10`,
+      [serverId, String(days)]
+    );
+
+    res.json({
+      success: true,
+      days,
+      totalKills: leaderboard.reduce((sum, k) => sum + k.kills, 0),
+      leaderboard,
+      topWeapons,
+    });
+  } catch (error) {
+    console.error('Failed to load PVP leaderboard:', error.message);
+    res.status(500).json({ success: false, error: 'Failed to load PVP leaderboard' });
+  }
+});
+
 module.exports = router;

@@ -97,6 +97,11 @@ function loadTiles(mapName) {
   const advancement = cfg.advancement || cfg.tileSize;
   const physicalSize = cfg.physicalSize || 512;
 
+  // Tiles are decorative (alt="" via Leaflet); the container carries the one
+  // name a screen reader hears — re-set on every map switch.
+  document.getElementById('map').setAttribute('aria-label',
+    cfg.name + ' map, ' + gridSize + '×' + gridSize);
+
   for (let y = 0; y < gridSize; y++) {
     for (let x = 0; x < gridSize; x++) {
       const flippedY = (gridSize - 1) - y;
@@ -158,8 +163,7 @@ function renderStaticGeography(mapName) {
   layers.settlementLabels.clearLayers();
   layers.settlementExtents.clearLayers();
   const staticLayers = DayzMapLayerCatalog.getSettlementLayers(mapName);
-  const cfg = mapConfigs[mapName] || mapConfigs.chernarusplus;
-  const radiusScale = cfg.imageWidth / cfg.worldWidth;
+  const radiusScale = DayzMapCoordinates.pixelsPerWorldUnit(mapName);
   staticLayers.extents.forEach(function(extent) {
     L.circle(gameToLeaflet(extent.position.east, extent.position.north, mapName), {
       radius: extent.radiusMeters * radiusScale,
@@ -186,19 +190,21 @@ function renderStaticGeography(mapName) {
 // ---------------------------------------------------------------------------
 function initMap(mapName) {
   const cfg = mapConfigs[mapName] || mapConfigs.chernarusplus;
-  const size = cfg.size;
 
   map = L.map('map', {
     crs: L.CRS.Simple,
     minZoom: -2,
     maxZoom: 4,
-    center: [size / 2, size / 2],
+    center: [cfg.contentHeight / 2, cfg.contentWidth / 2],
     zoom: -1,
     zoomControl: true,
     attributionControl: false,
   });
 
-  const bounds = L.latLngBounds([[0, 0], [size, size]]);
+  // Viewport follows the CONTENT extent, not the full image: bleed re-slices
+  // (nasdara) carry a clamped edge band past the real canvas. Legacy maps
+  // have contentWidth == size, so this is a no-op for them.
+  const bounds = L.latLngBounds([[0, 0], [cfg.contentWidth, cfg.contentHeight]]);
   map.setMaxBounds(bounds.pad(0.5));
   map.fitBounds(bounds);
 
@@ -678,12 +684,52 @@ async function loadPlayerData(identityId, options = {}) {
 // ---------------------------------------------------------------------------
 function initPanel() {
   document.getElementById('panel-header').addEventListener('click', function() {
+    // Mobile: the panel is a full-screen sheet — tapping the header closes it.
+    // Desktop: the panel is docked — tapping the header collapses its body.
+    if (isMobile()) { setLayersSheetOpen(false); return; }
     const body = document.getElementById('panel-body');
     const icon = document.getElementById('panel-toggle-icon');
     const hidden = body.style.display === 'none';
     body.style.display = hidden ? 'block' : 'none';
     icon.textContent = hidden ? '▼' : '▲';
   });
+}
+
+// ── Mobile layer sheet (mirrors the admin map's full-screen sheet + FAB) ────
+function isMobile() {
+  return window.matchMedia
+    ? window.matchMedia('(max-width: 780px)').matches
+    : window.innerWidth <= 780;
+}
+function setLayersSheetOpen(open) {
+  const panelEl = document.getElementById('player-filter-panel');
+  const fab = document.getElementById('player-map-fab');
+  if (!panelEl) return;
+  panelEl.hidden = !open;
+  if (fab) {
+    // The FAB only drives the mobile sheet; on desktop the panel stays docked.
+    fab.classList.toggle('is-visible', isMobile());
+    fab.setAttribute('aria-expanded', open ? 'true' : 'false');
+    fab.textContent = open ? '✕ Close' : '🔍 Layers';
+  }
+  // A resize tick keeps the Leaflet tile layer + controls correct after the
+  // sheet covers / un-covers the map.
+  if (map) setTimeout(function() { map.invalidateSize(); }, 60);
+}
+function initLayersSheet() {
+  const panelEl = document.getElementById('player-filter-panel');
+  const fab = document.getElementById('player-map-fab');
+  if (!panelEl || !fab) return;
+  // Mobile starts closed (map full-bleed); desktop leaves the panel docked.
+  setLayersSheetOpen(!isMobile());
+  fab.addEventListener('click', function() { setLayersSheetOpen(panelEl.hidden); });
+  document.addEventListener('keydown', function(ev) {
+    if (ev.key === 'Escape' && isMobile() && !panelEl.hidden) setLayersSheetOpen(false);
+  });
+  const mq = window.matchMedia('(max-width: 780px)');
+  const onMqChange = function(e) { setLayersSheetOpen(!e.matches); };
+  if (mq.addEventListener) mq.addEventListener('change', onMqChange);
+  else if (mq.addListener) mq.addListener(onMqChange);
 }
 
 // ---------------------------------------------------------------------------
@@ -828,8 +874,7 @@ function plotFactionMarkers(markers, callerIdentityId, callerRank, mapName) {
 function plotFactionTerritories(territories, mapName) {
   if (!layers.factionTerritories) return;
   layers.factionTerritories.clearLayers();
-  const cfg = mapConfigs[mapName] || mapConfigs.chernarusplus;
-  const radiusScale = cfg.imageWidth / cfg.worldWidth;
+  const radiusScale = DayzMapCoordinates.pixelsPerWorldUnit(mapName);
   let count = 0;
   territories.filter(item => item.status === 'approved' && item.mapName === mapName)
     .forEach(function(territory) {
@@ -1108,23 +1153,56 @@ async function onTerritoryMapClick(event) {
 // ---------------------------------------------------------------------------
 // Bootstrap — runs immediately like map.js
 // ---------------------------------------------------------------------------
-(function init() {
+// Map display names from /api/stats/:serverId/overview (Nitrado displayMap)
+// to this page's map keys.
+const OVERVIEW_MAP_KEYS = {
+  chernarus: 'chernarusplus', chernarusplus: 'chernarusplus',
+  livonia: 'enoch', enoch: 'enoch',
+  sakhal: 'sakhal', namalsk: 'namalsk',
+  nasdara: 'nasdara', takistan: 'takistanplus', takistanplus: 'takistanplus',
+};
+
+// ?mapName= is an explicit override (shared link / manual switch). Otherwise
+// open on the server's currently configured map (live Nitrado snapshot via
+// the server overview endpoint); 'chernarusplus' only as the last resort when
+// the current map cannot be determined (e.g. pure players).
+async function resolveInitialMap(params) {
+  const explicit = params.get('mapName');
+  if (explicit) return explicit;
+  if (currentServerId) {
+    try {
+      const res = await fetch('/api/stats/' + encodeURIComponent(currentServerId) + '/overview', { credentials: 'same-origin' });
+      if (res.ok) {
+        const data = await res.json();
+        const display = String((data && data.server && data.server.map) || '').toLowerCase();
+        const key = OVERVIEW_MAP_KEYS[display];
+        if (key && document.getElementById('map-select').querySelector(`option[value="${key}"]`)) return key;
+      }
+    } catch (err) {
+      console.warn('[player-map] Could not resolve current map:', err.message);
+    }
+  }
+  return 'chernarusplus';
+}
+
+(async function init() {
   // Read URL params
   const params = new URLSearchParams(window.location.search);
   currentIdentityId = params.get('identityId');
   currentServerId = params.get('serverId');
   currentFactionId = params.get('factionId');
   currentFactionGuildId = params.get('guildId');
-  const mapParam = params.get('mapName') || 'chernarusplus';
+  const mapName = await resolveInitialMap(params);
 
   // Kick off Leaflet right away — container is already visible in the DOM
-  initMap(mapParam);
+  initMap(mapName);
 
   // Bind UI
   bindLayerToggles();
   initPanel();
+  initLayersSheet();
 
-  document.getElementById('map-select').value = mapParam;
+  document.getElementById('map-select').value = mapName;
 
   document.getElementById('map-select').addEventListener('change', function() {
     switchMap(this.value);
@@ -1150,6 +1228,26 @@ async function onTerritoryMapClick(event) {
   // Initialise faction layers if factionId was provided in URL
   if (currentFactionId && currentFactionGuildId) {
     document.getElementById('faction-layer-section').style.display = 'block';
-    initFactionLayers(mapParam);
+    initFactionLayers(mapName);
   }
+})();
+
+// ── Keep the Leaflet map in sync with the map container size ───────────────
+// Leaflet does not observe the DOM. When the #map element resizes — device
+// rotation, window resize — the tile grid must be recomputed, otherwise the
+// map shows a blank or misaligned region. This was the "map displays poorly
+// on mobile" bug; no resize handler existed. (P4: map mobile display)
+(function keepMapSizeInSync() {
+  const el = document.getElementById('map');
+  if (!el) return;
+  let timer;
+  const invalidate = () => { if (map) map.invalidateSize(); };
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => {
+      clearTimeout(timer);
+      timer = setTimeout(invalidate, 120);
+    }).observe(el);
+  }
+  window.addEventListener('resize', invalidate);
+  window.addEventListener('orientationchange', invalidate);
 })();

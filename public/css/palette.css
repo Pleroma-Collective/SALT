@@ -1,0 +1,157 @@
+/* ============================================================================
+ * DayZ Dashboard — Command palette (Ctrl/Cmd+K global page search).
+ * Injected on every page by utils/renderWithCsrf.js (applyPageChromes), so it
+ * styles under all 5 base themes + the holiday layer via --dzc-* tokens only
+ * (no hardcoded colors), matching the shell.css discipline.
+ * ==========================================================================*/
+
+/* -- Overlay --------------------------------------------------------------- */
+.dzc-cmdk {
+  position: fixed;
+  inset: 0;
+  z-index: 60; /* above shell sidebar (40) and topbar (30) */
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 12vh 16px 16px;
+  background: rgba(0, 0, 0, 0.5);
+}
+.dzc-cmdk[hidden] { display: none; }
+
+.dzc-cmdk-panel {
+  width: min(640px, 100%);
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--dzc-surface);
+  border: 1px solid var(--dzc-border-strong);
+  border-radius: var(--dzc-radius-lg);
+  box-shadow: var(--dzc-shadow-lg);
+  overflow: hidden;
+}
+
+.dzc-cmdk-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--dzc-space-3) var(--dzc-space-4);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--dzc-border);
+  color: var(--dzc-text);
+  font-family: var(--dzc-font-body);
+  font-size: 1rem;
+  outline: none;
+}
+.dzc-cmdk-input::placeholder { color: var(--dzc-text-faint); }
+
+.dzc-cmdk-list {
+  list-style: none;
+  margin: 0;
+  padding: var(--dzc-space-1);
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+
+.dzc-cmdk-group {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dzc-text-muted);
+  padding: var(--dzc-space-2) var(--dzc-space-2) 2px;
+}
+
+.dzc-cmdk-item {
+  display: flex;
+  align-items: center;
+  gap: var(--dzc-space-3);
+  padding: var(--dzc-space-2);
+  border-radius: var(--dzc-radius-md);
+  cursor: pointer;
+  color: var(--dzc-text);
+  font-size: 0.92rem;
+}
+.dzc-cmdk-item.is-active {
+  background: var(--dzc-accent);
+  color: var(--dzc-accent-contrast);
+  font-weight: 600;
+}
+.dzc-cmdk-item-label { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dzc-cmdk-item-path {
+  font-family: var(--dzc-font-mono);
+  font-size: 0.72rem;
+  color: var(--dzc-text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dzc-cmdk-item.is-active .dzc-cmdk-item-path { color: var(--dzc-accent-contrast); opacity: 0.8; }
+
+.dzc-cmdk-empty {
+  padding: var(--dzc-space-4);
+  color: var(--dzc-text-faint);
+  font-size: 0.9rem;
+  text-align: center;
+  cursor: default;
+}
+
+.dzc-cmdk-hint {
+  display: flex;
+  gap: var(--dzc-space-2);
+  padding: var(--dzc-space-2) var(--dzc-space-4);
+  border-top: 1px solid var(--dzc-border);
+  font-size: 0.72rem;
+  color: var(--dzc-text-faint);
+}
+.dzc-cmdk-hint span {
+  font-family: var(--dzc-font-mono);
+  background: var(--dzc-surface-2);
+  border: 1px solid var(--dzc-border);
+  border-radius: var(--dzc-radius-sm);
+  padding: 0 5px;
+}
+
+/* -- Shell topbar trigger (utils/appShell.js) -------------------------------- */
+.dzc-cmdk-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--dzc-space-2);
+  margin-left: auto; /* sits left of the context pill, which also uses margin-left:auto */
+  max-width: 180px;
+  padding: var(--dzc-space-1) var(--dzc-space-3);
+  background: var(--dzc-surface-2);
+  border: 1px solid var(--dzc-border);
+  border-radius: 999px;
+  color: var(--dzc-text-muted);
+  font-family: var(--dzc-font-body);
+  font-size: 0.82rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.dzc-cmdk-trigger:hover { border-color: var(--dzc-border-strong); color: var(--dzc-text); }
+.dzc-cmdk-trigger:focus-visible { outline: 2px solid var(--dzc-accent); outline-offset: 2px; }
+.dzc-cmdk-trigger svg { width: 14px; height: 14px; flex: 0 0 auto; }
+.dzc-cmdk-trigger .dzc-cmdk-trigger-text { overflow: hidden; text-overflow: ellipsis; }
+.dzc-cmdk-trigger kbd {
+  font-family: var(--dzc-font-mono);
+  font-size: 0.68rem;
+  background: var(--dzc-surface);
+  border: 1px solid var(--dzc-border);
+  border-radius: var(--dzc-radius-sm);
+  padding: 0 4px;
+}
+
+/* On narrow screens the trigger collapses to an icon (text + kbd hidden). */
+@media (max-width: 780px) {
+  .dzc-cmdk-trigger { max-width: 44px; }
+  .dzc-cmdk-trigger .dzc-cmdk-trigger-text,
+  .dzc-cmdk-trigger kbd { display: none; }
+}
+
+/* High-contrast: 2px borders + stronger focus (shell.css precedent). */
+html[data-theme='high-contrast'] .dzc-cmdk-panel,
+html[data-theme='high-contrast'] .dzc-cmdk-trigger { border-width: 2px; }
+html[data-theme='high-contrast'] .dzc-cmdk-trigger:focus-visible {
+  outline: 3px solid var(--dzc-accent);
+  outline-offset: 2px;
+}

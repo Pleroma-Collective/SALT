@@ -30,7 +30,10 @@ check('empty URL → defaults (all sections open, ops layers on, heatmaps off, r
   assert.deepStrictEqual(s.hiddenFilters, []);
   assert.strictEqual(s.radius, M.DEFAULT_RADIUS);
   assert.strictEqual(s.autoRefresh, true);
-  assert.deepStrictEqual([...s.openSections].sort(), [...M.SECTION_KEYS].sort(), 'all sections open by default');
+  assert.deepStrictEqual([...s.openSections].sort(),
+    M.SECTION_KEYS.filter(k => k !== 'spawnfilters').sort(),
+    'all sections open by default except the collapsed spawn filter rail');
+  assert.deepStrictEqual([...s.rail], [], 'rail defaults to nothing on');
   assert.strictEqual(s.panelOpen, true);
 });
 
@@ -53,6 +56,18 @@ check('open param keeps known sections only; closed sections absent from set', (
   const s = M.parse('?open=server,bogus,radius');
   assert.deepStrictEqual([...s.openSections].sort(), ['radius', 'server']);
   assert.ok(!s.openSections.has('layers'));
+  assert.ok(!s.openSections.has('spawnfilters'), 'explicit open list is authoritative');
+});
+
+check('open=spawnfilters un-collapses the rail; buildSearch writes the deviation', () => {
+  const s = M.parse('?open=spawnfilters');
+  assert.ok(s.openSections.has('spawnfilters'));
+  const q = M.buildSearch({
+    server: '', map: '', layers: s.layers, hiddenFilters: s.hiddenFilters,
+    radius: s.radius, autoRefresh: s.autoRefresh, openSections: s.openSections,
+    rail: s.rail, panelOpen: s.panelOpen,
+  });
+  assert.strictEqual(new URLSearchParams(q).get('open'), 'spawnfilters');
 });
 
 check('radius / refresh / panel params', () => {
@@ -68,12 +83,25 @@ check('filters param is a trimmed, non-empty list (invalid escapes stay literal)
   assert.deepStrictEqual(M.parse('?filters=trainLocked,%%bogus%% , ').hiddenFilters, ['trainLocked', '%%bogus%%']);
 });
 
+// ── rail param (P0-C spawn filter rail) ─────────────────────────────────────
+check('rail param keeps valid path forms, drops malformed entries', () => {
+  const s = M.parse('?rail=cat:store:high,tier:3,evt:christmas,tier:9,cat:store,cat:store:x,cat:Store:high,bogus');
+  assert.deepStrictEqual([...s.rail], ['cat:store:high', 'tier:3', 'evt:christmas']);
+});
+
+check('rail accepts unique tier; empty rail value → empty set', () => {
+  assert.ok(M.parse('?rail=tier:unique').rail.has('tier:unique'));
+  assert.ok(!M.parse('?rail=,').rail.size);
+  assert.ok(!M.parse('').rail.size);
+});
+
 // ── buildSearch: defaults omitted ───────────────────────────────────────────
 check('default state serializes to an empty query', () => {
   const s = M.parse('');
   assert.strictEqual(M.buildSearch({
     server: '', map: '', layers: s.layers, hiddenFilters: s.hiddenFilters,
-    radius: s.radius, autoRefresh: s.autoRefresh, openSections: s.openSections, panelOpen: s.panelOpen,
+    radius: s.radius, autoRefresh: s.autoRefresh, openSections: s.openSections,
+    rail: s.rail, panelOpen: s.panelOpen,
   }), '');
 });
 
@@ -86,6 +114,7 @@ check('non-default state serializes every deviation', () => {
     radius: 1200,
     autoRefresh: false,
     openSections: new Set(['server']),
+    rail: new Set(['tier:3', 'cat:store:high']),
     panelOpen: false,
   });
   const p = new URLSearchParams(q);
@@ -96,6 +125,7 @@ check('non-default state serializes every deviation', () => {
   assert.strictEqual(p.get('radius'), '1200');
   assert.strictEqual(p.get('refresh'), '0');
   assert.strictEqual(p.get('open'), 'server');
+  assert.strictEqual(p.get('rail'), 'tier:3,cat:store:high', 'rail in insertion order');
   assert.strictEqual(p.get('panel'), '0');
 });
 
@@ -103,14 +133,16 @@ check('buildSearch omits params that equal their defaults', () => {
   const s = M.parse('?radius=500&refresh=1&panel=1');
   const q = M.buildSearch({
     server: '', map: '', layers: s.layers, hiddenFilters: [],
-    radius: 500, autoRefresh: true, openSections: s.openSections, panelOpen: true,
+    radius: 500, autoRefresh: true, openSections: s.openSections,
+    rail: s.rail, panelOpen: true,
   });
   const p = new URLSearchParams(q);
   assert.strictEqual(p.get('radius'), null);
   assert.strictEqual(p.get('refresh'), null);
   assert.strictEqual(p.get('panel'), null);
-  assert.strictEqual(p.get('open'), null);
+  assert.strictEqual(p.get('open'), null, 'default-open sections (rail collapsed) must be omitted');
   assert.strictEqual(p.get('layers'), null, 'default layer set must be omitted');
+  assert.strictEqual(p.get('rail'), null, 'empty rail must be omitted');
 });
 
 // ── round-trip ──────────────────────────────────────────────────────────────
@@ -119,6 +151,8 @@ check('parse(buildSearch(parse(x))) is stable (round-trip)', () => {
     '?server=abc&map=sakhal&layers=roster,loot&filters=trainLocked&radius=1500&refresh=0&open=server,layers&panel=0',
     '?layers=settlement-radii',
     '?open=health&radius=400',
+    '?rail=cat:store:high,tier:3,evt:christmas&open=spawnfilters',
+    '?rail=cat:residential:med&rail=bogus',
     '',
     '?server=x&map=namalsk',
   ];
@@ -127,7 +161,8 @@ check('parse(buildSearch(parse(x))) is stable (round-trip)', () => {
     const twice = M.parse('?' + M.buildSearch({
       server: once.server, map: once.map, layers: once.layers,
       hiddenFilters: once.hiddenFilters, radius: once.radius,
-      autoRefresh: once.autoRefresh, openSections: once.openSections, panelOpen: once.panelOpen,
+      autoRefresh: once.autoRefresh, openSections: once.openSections,
+      rail: once.rail, panelOpen: once.panelOpen,
     }));
     assert.strictEqual(twice.server, once.server);
     assert.strictEqual(twice.map, once.map);
@@ -136,6 +171,7 @@ check('parse(buildSearch(parse(x))) is stable (round-trip)', () => {
     assert.strictEqual(twice.radius, once.radius);
     assert.strictEqual(twice.autoRefresh, once.autoRefresh);
     assert.deepStrictEqual([...twice.openSections].sort(), [...once.openSections].sort());
+    assert.deepStrictEqual([...twice.rail].sort(), [...once.rail].sort());
     assert.strictEqual(twice.panelOpen, once.panelOpen);
   }
 });

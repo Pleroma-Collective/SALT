@@ -38,6 +38,7 @@ const missionFileService = require('../services/missionFileService');
 const economyOverrideService = require('../services/economyOverrideService');
 const { createProviderSettingFileService } = require('../services/providerSettingMutationService');
 const { createMissionInitFileService } = require('../services/missionInitFileService');
+const { createServerLifecycleFileService } = require('../services/serverLifecycleMutationService');
 const { acquireProviderMutationLock } = require('../services/shopFileService');
 const { reconcileProviderMutation } = require('../services/providerMutationRecoveryService');
 
@@ -559,6 +560,7 @@ router.post('/recovery/:serverId/:operationId/restore', requireAuth, ensureServe
       fileServiceResolver: ({ operation }) => {
         if (operation.workflow === 'provider_settings') return createProviderSettingFileService();
         if (operation.workflow === 'mission_init') return createMissionInitFileService();
+        if (operation.workflow === 'server_lifecycle') return createServerLifecycleFileService();
         return missionFileService;
       },
       directoryService: economyOverrideService,

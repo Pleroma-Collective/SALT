@@ -6,12 +6,24 @@
   <title>Player Map - DayZ Dashboard</title>
   <link rel="stylesheet" href="/css/theme.css">
   <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="/css/components.css">
   <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
   <script src="/vendor/leaflet/leaflet.js"></script>
   <script src="/vendor/leaflet/leaflet-heat.js"></script>
   <style>
+    html, body { height: 100%; }
+    body {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+    }
+    .map-page-header { flex: 0 0 auto; }
+    .map-page-body { flex: 1 1 auto; min-height: 0; display: flex; }
+    .map-page-body > .relative { flex: 1 1 auto; min-height: 0; width: 100%; }
     #map {
-      height: calc(100vh - 120px);
+      height: 100%;
       width: 100%;
       background: #2d3748;
     }
@@ -129,13 +141,51 @@
       z-index: 50;
       border-radius: 0.5rem;
     }
+
+    /* Floating "Layers" button — opens/closes the full-screen sheet on mobile. */
+    .map-fab {
+      position: absolute;
+      bottom: 16px; right: 16px;
+      z-index: 46;
+      display: none;
+      align-items: center;
+      gap: 6px;
+      padding: 11px 16px;
+      min-height: 44px;
+      border-radius: 10px;
+      border: 1px solid #4b5563;
+      background: rgba(31, 41, 55, 0.97);
+      color: #fff;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    .map-fab.is-visible { display: inline-flex; }
+    .map-fab:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
+
+    /* Mobile: the layer panel becomes a full-screen sheet (hidden by default,
+       opened via the FAB) so it no longer floats over the map's controls. */
+    @media (max-width: 780px) {
+      .filter-panel {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        min-width: 0;
+        border-radius: 0;
+        z-index: 45;
+        overflow-y: auto;
+      }
+      .filter-panel[hidden] { display: none; }
+      .filter-header { border-radius: 0; }
+    }
   </style>
   <script src="/js/instance-config.js" defer></script>
 </head>
 <body class="bg-gray-900 text-white">
 
   <!-- Header -->
-  <div class="bg-gray-800 p-4 shadow-lg">
+  <div class="bg-gray-800 p-4 shadow-lg map-page-header">
     <div class="container mx-auto flex justify-between items-center flex-wrap gap-4">
       <div class="flex-1">
         <h1 class="text-2xl font-bold">🗺️ Player Map</h1>
@@ -148,7 +198,7 @@
         </div>
       </div>
       <div class="flex gap-3 items-center flex-wrap">
-        <select id="map-select" class="bg-gray-700 px-4 py-2 rounded">
+        <select id="map-select" aria-label="Map" class="bg-gray-700 px-4 py-2 rounded">
           <option value="chernarusplus">Chernarus+</option>
           <option value="enoch">Livonia</option>
           <option value="sakhal">Sakhal</option>
@@ -163,13 +213,13 @@
   </div>
 
   <!-- Map area -->
-  <div class="container mx-auto p-4">
+  <div class="container mx-auto p-4 map-page-body">
     <div class="relative">
 
-      <div id="map" class="rounded-lg shadow-lg"></div>
+      <div id="map" class="rounded-lg shadow-lg" role="img" aria-label="DayZ map"></div>
 
       <!-- Layer toggle panel (sits over the map like the admin map's filter panel) -->
-      <div class="filter-panel">
+      <div class="filter-panel" id="player-filter-panel" tabindex="-1">
         <div class="filter-header" id="panel-header">
           <span class="font-bold text-sm">🔍 Layers</span>
           <span id="panel-toggle-icon">▼</span>
@@ -297,15 +347,18 @@
         </div>
       </div>
 
+      <!-- Floating "Layers" button — opens/closes the full-screen sheet on mobile -->
+      <button id="player-map-fab" class="map-fab" type="button" aria-expanded="false" aria-controls="player-filter-panel" title="Show layers">🔍 Layers</button>
+
       <!-- Faction marker placement form — hidden by default, shown in placement mode -->
       <div id="faction-marker-form" style="display:none; position:absolute; bottom:16px; left:50%; transform:translateX(-50%); z-index:1000; background:#1f2937; border:1px solid #374151; border-radius:8px; padding:16px; min-width:280px; max-width:360px;">
         <p class="text-sm font-bold mb-3">📍 Click the map to place a marker</p>
         <div id="faction-marker-inputs" style="display:none;">
-          <input id="marker-title" type="text" placeholder="Title (e.g. Base Camp)" maxlength="60"
+          <input id="marker-title" aria-label="Marker title" type="text" placeholder="Title (e.g. Base Camp)" maxlength="60"
             class="w-full bg-gray-700 rounded px-2 py-1.5 text-sm text-white mb-2">
-          <textarea id="marker-note" placeholder="Note (optional)" maxlength="300" rows="2"
+          <textarea id="marker-note" aria-label="Marker note" placeholder="Note (optional)" maxlength="300" rows="2"
             class="w-full bg-gray-700 rounded px-2 py-1.5 text-sm text-white mb-2"></textarea>
-          <input id="marker-icon" type="text" placeholder="Icon emoji (e.g. 🏠)" maxlength="4"
+          <input id="marker-icon" aria-label="Marker icon emoji" type="text" placeholder="Icon emoji (e.g. 🏠)" maxlength="4"
             class="w-full bg-gray-700 rounded px-2 py-1.5 text-sm text-white mb-3" value="📍">
           <div class="flex gap-2">
             <button id="marker-save-btn" class="flex-1 bg-yellow-700 hover:bg-yellow-600 px-3 py-1.5 rounded text-sm">Save</button>

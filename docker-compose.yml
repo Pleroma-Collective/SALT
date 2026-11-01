@@ -64,6 +64,8 @@ services:
       - POSTGRES_HOST=postgres
     volumes:
       - ./downloads:/app/downloads
+      # Map data (settlements.json) read by the /faction-war claim engine.
+      - ./data:/app/data
     restart: unless-stopped
     logging: *bounded-json-logging
     depends_on:

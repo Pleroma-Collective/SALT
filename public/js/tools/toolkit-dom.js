@@ -1,6 +1,6 @@
 /* global DOMParser, FileReader, document */
 /*
- * DayZ Toolkit — browser DOM layer.
+ * DayZ Toolkit — browser DOM layer (card t_0743c982).
  *
  * Everything here runs in the user's browser. No fetch, no workers, no
  * eval. User data reaches the DOM only through textContent / DOM
@@ -59,33 +59,81 @@
     };
   }
 
-  /* ------------------------------------------------------------------ *
+  /* ------------------------------------------------------------------ *\
    * File reading (size-capped)                                          *
    * ------------------------------------------------------------------ */
-  function readAsText(file) {
+  function readAsText(file, onProgress) {
     return new Promise(function (resolve, reject) {
       if (file.size > core.MAX_FILE_BYTES) {
         reject(new Error(file.name + ' is ' + (file.size / 1048576).toFixed(1) + ' MiB — exceeds the ' + (core.MAX_FILE_BYTES / 1048576) + ' MiB per-file limit'));
         return;
       }
       var reader = new FileReader();
+      reader.onprogress = function (e) {
+        if (onProgress && e.lengthComputable) onProgress(e.loaded, e.total);
+      };
       reader.onload = function () { resolve(String(reader.result)); };
       reader.onerror = function () { reject(reader.error || new Error('Failed to read ' + file.name)); };
       reader.readAsText(file, 'utf-8');
     });
   }
 
-  function readAsArrayBuffer(file) {
+  function readAsArrayBuffer(file, onProgress) {
     return new Promise(function (resolve, reject) {
       if (file.size > 100 * 1024 * 1024) {
         reject(new Error(file.name + ' exceeds the 100 MiB archive limit'));
         return;
       }
       var reader = new FileReader();
+      reader.onprogress = function (e) {
+        if (onProgress && e.lengthComputable) onProgress(e.loaded, e.total);
+      };
       reader.onload = function () { resolve(reader.result); };
       reader.onerror = function () { reject(reader.error || new Error('Failed to read ' + file.name)); };
       reader.readAsArrayBuffer(file);
     });
+  }
+
+  /* ------------------------------------------------------------------ *\
+   * Progress indicator (shared by every tool that processes files)      *
+   * ------------------------------------------------------------------ */
+  /** makeProgress() -> { node, show(text, pct), hide() }.
+   *  pct in 0..100 fills the bar; null/omitted shows the indeterminate
+   *  slide (work whose duration is unknown). */
+  function makeProgress() {
+    var wrap = el('div', 'tk-progress');
+    var label = el('span', 'tk-progress-label', '');
+    var track = el('div', 'tk-progress-track');
+    var fill = el('div', 'tk-progress-fill');
+    track.appendChild(fill);
+    wrap.appendChild(label);
+    wrap.appendChild(track);
+    wrap.style.display = 'none';
+    function show(text, pct) {
+      wrap.style.display = '';
+      label.textContent = text || '';
+      if (typeof pct === 'number') {
+        track.classList.remove('tk-progress-busy');
+        fill.style.width = Math.max(0, Math.min(100, pct)) + '%';
+      } else {
+        track.classList.add('tk-progress-busy');
+        fill.style.width = '';
+      }
+    }
+    function hide() {
+      wrap.style.display = 'none';
+      label.textContent = '';
+      track.classList.remove('tk-progress-busy');
+      fill.style.width = '0%';
+    }
+    return { node: wrap, show: show, hide: hide };
+  }
+
+  /** Mount a progress bar into `mount` and return its controls. */
+  function mountProgress(mount) {
+    var p = makeProgress();
+    mount.appendChild(p.node);
+    return p;
   }
 
   /* ------------------------------------------------------------------ *
@@ -99,9 +147,22 @@
   }
 
   var SEVERITY_LABEL = { error: 'Error', warning: 'Warning', info: 'Info' };
+  var MAX_VISIBLE_FINDINGS = 8;
 
-  /** Render one report (from core.validateXml/validateJson/analyzeEvents/...)
-   *  into a <section> card appended to `container`. */
+  function findingLi(f) {
+    var li = el('li', 'tk-finding tk-finding-' + (f.severity || 'info'));
+    var where = '';
+    if (f.line) where += 'line ' + f.line + (f.column ? ':' + f.column : '');
+    if (f.element) where += (where ? ' ' : '') + '<' + f.element + '>';
+    var code = f.code ? '[' + f.code + ']' : '';
+    li.appendChild(el('strong', 'tk-sev', SEVERITY_LABEL[f.severity] || 'Info'));
+    li.appendChild(el('span', 'tk-msg', ' ' + (where ? where + ' — ' : '') + f.message + ' ' + code));
+    return li;
+  }
+
+  /** Render one report (from core.validateXml/validateJson/analyzeEvents/...
+   *  into a <section> card appended to `container`. Findings beyond
+   *  MAX_VISIBLE_FINDINGS collapse into a native <details>. */
   function renderReport(container, report) {
     var status = report.summary ? report.summary.status : 'invalid';
     var card = el('section', 'tk-card tk-' + status);
@@ -113,23 +174,62 @@
     }
     card.appendChild(head);
 
-    var list = el('ul', 'tk-findings');
+    var all = [];
     var order = ['errors', 'warnings', 'info'];
     order.forEach(function (kind) {
-      (report[kind] || []).forEach(function (f) {
-        var li = el('li', 'tk-finding tk-finding-' + (f.severity || 'info'));
-        var where = '';
-        if (f.line) where += 'line ' + f.line + (f.column ? ':' + f.column : '');
-        if (f.element) where += (where ? ' ' : '') + '<' + f.element + '>';
-        var code = f.code ? '[' + f.code + ']' : '';
-        li.appendChild(el('strong', 'tk-sev', SEVERITY_LABEL[f.severity] || 'Info'));
-        li.appendChild(el('span', 'tk-msg', ' ' + (where ? where + ' — ' : '') + f.message + ' ' + code));
-        list.appendChild(li);
-      });
+      (report[kind] || []).forEach(function (f) { all.push(f); });
     });
-    if (!list.childElementCount) list.appendChild(el('li', 'tk-finding', 'No findings.'));
+    var visible = all.slice(0, MAX_VISIBLE_FINDINGS);
+    var rest = all.slice(MAX_VISIBLE_FINDINGS);
+    var list = el('ul', 'tk-findings');
+    visible.forEach(function (f) { list.appendChild(findingLi(f)); });
+    if (!all.length) list.appendChild(el('li', 'tk-finding', 'No findings.'));
     card.appendChild(list);
+    if (rest.length) {
+      var more = el('details', 'tk-more');
+      more.appendChild(el('summary', 'tk-more-summary', 'Show ' + rest.length + ' more finding' + (rest.length > 1 ? 's' : '') + '…'));
+      var ul = el('ul', 'tk-findings tk-findings-rest');
+      rest.forEach(function (f) { ul.appendChild(findingLi(f)); });
+      more.appendChild(ul);
+      card.appendChild(more);
+    }
     container.appendChild(card);
+    return card;
+  }
+
+  /** Pass/fail banner shown at the TOP of the results area.
+   *  counts: { total?, ok?, errors?, warnings?, note? } */
+  function renderResultSummary(container, counts) {
+    var errors = counts.errors || 0;
+    var warnings = counts.warnings || 0;
+    var failed = errors > 0;
+    var banner = el('div', 'tk-banner tk-banner-' + (failed ? 'fail' : 'pass'));
+    var bits = [];
+    if (typeof counts.total === 'number') {
+      var ok = counts.ok != null ? counts.ok : counts.total - (failed ? 1 : 0);
+      bits.push(ok + '/' + counts.total + ' ' + (failed ? 'failed' : 'passed'));
+    }
+    if (errors) bits.push(errors + ' error' + (errors > 1 ? 's' : ''));
+    if (warnings) bits.push(warnings + ' warning' + (warnings > 1 ? 's' : ''));
+    if (!bits.length) bits.push('no issues found');
+    if (counts.note) bits.push(counts.note);
+    banner.appendChild(el('span', 'tk-banner-status', failed ? 'FAIL' : 'PASS'));
+    banner.appendChild(el('span', 'tk-banner-text', bits.join(' · ')));
+    container.appendChild(banner);
+    return banner;
+  }
+
+  /** Fatal error card (page setup failures, e.g. missing vendor module). */
+  function mountError(mount, title, detail) {
+    var card = el('section', 'tk-card tk-invalid');
+    var head = el('div', 'tk-card-head');
+    head.appendChild(el('span', 'tk-status tk-status-invalid', 'ERROR'));
+    head.appendChild(el('h3', 'tk-card-title', title || 'This tool failed to load'));
+    card.appendChild(head);
+    var list = el('ul', 'tk-findings');
+    list.appendChild(el('li', 'tk-finding tk-finding-error', detail || 'Reload the page; if it persists, the deployment is missing files.'));
+    card.appendChild(list);
+    mount.appendChild(card);
     return card;
   }
 
@@ -151,8 +251,14 @@
     // controls) and results containers on `mount` — never clear it.
     var box = el('div', 'tk-sourcebox');
     var drop = el('div', 'tk-dropzone');
-    drop.appendChild(el('p', '', 'Drop files here' + (options.allowPaste ? ', or paste content below' : '')));
-    drop.appendChild(el('p', 'tk-drophint', 'Processed entirely in your browser — nothing is uploaded'));
+    drop.appendChild(el('p', 'tk-dropzone-title',
+      options.title || ('Drop files here' + (options.allowPaste ? ', or paste content below' : ''))));
+    if (options.subtitle) {
+      drop.appendChild(el('p', 'tk-drophint', options.subtitle));
+    } else {
+      drop.appendChild(el('p', 'tk-drophint', 'Processed entirely in your browser — nothing is uploaded'));
+    }
+    var progress = makeProgress();
 
     var input = document.createElement('input');
     input.type = 'file';
@@ -168,6 +274,7 @@
     actions.appendChild(pickBtn);
     box.appendChild(actions);
     box.appendChild(drop);
+    box.appendChild(progress.node);
 
     var pending = [];
     function refresh() {
@@ -180,6 +287,7 @@
       var errors = [];
       var binary = options.binary === true;
       var cap = binary ? (options.maxBytes || 1024 * 1024 * 1024) : core.MAX_SCAN_BYTES;
+      var many = fileList.length > 1;
       for (var i = 0; i < fileList.length; i++) {
         var f = fileList[i];
         if (f.size > cap) {
@@ -190,13 +298,22 @@
           if (binary) {
             items.push({ name: f.name, file: f });
           } else {
-            items.push({ name: f.name, text: await readAsText(f), file: f });
+            var label = 'Reading ' + f.name + (many ? ' (' + (i + 1) + ' of ' + fileList.length + ')' : '');
+            progress.show(label, null);
+            items.push({
+              name: f.name,
+              text: await readAsText(f, function (loaded, total) {
+                progress.show(label, total ? (loaded / total) * 100 : null);
+              }),
+              file: f
+            });
           }
           pending.push(f.name);
         } catch (err) {
           errors.push(err.message);
         }
       }
+      progress.hide();
       errors.forEach(function (msg) {
         box.appendChild(el('p', 'tk-err', msg));
       });
@@ -223,12 +340,22 @@
         ingestFileList(e.dataTransfer.files);
       }
     });
+    /* Keyboard/click parity (a11y card t_6cca8223): the dropzone is a real
+       control — focusable, and Enter/Space/click open the file picker. The
+       global :focus-visible ring in components.css covers the focus state. */
+    drop.setAttribute('tabindex', '0');
+    drop.setAttribute('role', 'button');
+    drop.setAttribute('aria-label', options.title || 'Drop files here');
+    drop.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); }
+    });
+    drop.addEventListener('click', function () { input.click(); });
 
     var pasteArea = null;
     if (options.allowPaste) {
       pasteArea = document.createElement('textarea');
       pasteArea.className = 'tk-paste';
-      pasteArea.placeholder = 'Paste XML/JSON content here (single document)…';
+      pasteArea.placeholder = options.pastePlaceholder || 'Paste content here (single document)…';
       pasteArea.spellcheck = false;
       var pasteBtn = el('button', 'tk-btn', 'Validate pasted content');
       pasteBtn.type = 'button';
@@ -299,8 +426,11 @@
     readAsArrayBuffer: readAsArrayBuffer,
     el: el,
     renderReport: renderReport,
+    renderResultSummary: renderResultSummary,
     renderSummaryLine: renderSummaryLine,
     mountSourceBox: mountSourceBox,
+    mountProgress: mountProgress,
+    mountError: mountError,
     downloadText: downloadText,
     makeDownloadButton: makeDownloadButton,
     mountChrome: mountChrome

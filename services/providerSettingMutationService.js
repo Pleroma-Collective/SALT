@@ -264,5 +264,6 @@ module.exports = {
   createProviderSettingFileService,
   mutateProviderSettings,
   parseSettingResourcePath,
+  resolveProviderContext,
   settingResourcePath,
 };

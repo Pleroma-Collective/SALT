@@ -3,6 +3,8 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const { ensureTestEncryptionKey } = require('./lib/test-env');
+ensureTestEncryptionKey();
 const { encryptToken } = require('../utils/encryption');
 
 const root = path.join(__dirname, '..');
@@ -21,6 +23,182 @@ function handlerFor(router, routePath, method) {
   const layer = router.stack.find(entry => entry.route?.path === routePath && entry.route.methods[method]);
   assert.ok(layer, `${method.toUpperCase()} ${routePath} route must exist`);
   return layer.route.stack.at(-1).handle;
+}
+
+// The automation route captures performLogSync / scanLogsForServer bindings at
+// module load, so the Nitrado download + log scan pipeline must be stubbed
+// BEFORE routes/automation is first required. The stubs only affect the
+// /sync-now happy path; every other test in this file returns before them.
+const logSyncService = require('../services/logSyncService');
+const logScanService = require('../services/logScanService');
+const syncNowInvocations = [];
+logSyncService.performLogSync = async (db, userId, token, serverIds) => {
+  syncNowInvocations.push({ userId, token, serverIds });
+  return {
+    totalFilesDownloaded: 1,
+    totalFilesUpdated: 1,
+    totalFilesSkipped: 0,
+    errors: [],
+    blockingErrors: [],
+    failedServerIds: [],
+    parseBlockedServerIds: [],
+    rptBlockedServerIds: [],
+    restartEvidence: {},
+  };
+};
+logScanService.scanLogsForServer = async () => ({ onlineCachePublished: false });
+
+function activeServerRow(id) {
+  return {
+    server_status: 'active',
+    guild_status: 'approved',
+    token_id: 1,
+    nitrado_user_id: 'nitrado-user',
+    guild_role: 'owner',
+  };
+}
+
+async function testDiagnoseSyncServerAccessClassifiesEveryFailureMode() {
+  const { diagnoseSyncServerAccess } = require('../services/logSyncService');
+  const rows = {
+    '101': activeServerRow(),
+    '102': { ...activeServerRow(), server_status: 'inactive' },
+    '103': { ...activeServerRow(), guild_status: 'disabled' },
+    '104': { ...activeServerRow(), token_id: null, nitrado_user_id: null },
+    '105': { ...activeServerRow(), guild_role: 'member' },
+    '106': { ...activeServerRow(), guild_role: 'member', sra_admin: true },
+  };
+  const db = {
+    query: async (_sql, params) => {
+      const id = String(params[2]);
+      if (id === '108') return [rows['101'], rows['101']];
+      return rows[id] ? [rows[id]] : [];
+    },
+  };
+
+  const result = await diagnoseSyncServerAccess(db, 900, ['101', '102', '103', '104', '105', '106', '107', '108']);
+  const byId = new Map(result.map(d => [d.serverId, d.reason]));
+
+  assert.strictEqual(byId.get('101'), 'operational');
+  assert.strictEqual(byId.get('102'), 'inactive');
+  assert.strictEqual(byId.get('103'), 'guild_disabled');
+  assert.strictEqual(byId.get('104'), 'no_token');
+  assert.strictEqual(byId.get('105'), 'unauthorized');
+  assert.strictEqual(byId.get('106'), 'operational', 'an assigned server admin must be operational');
+  assert.strictEqual(byId.get('107'), 'unknown');
+  assert.strictEqual(byId.get('108'), 'ambiguous');
+}
+
+async function testLogSyncDropsStaleInactiveServersButSavesOperationalOnes() {
+  const router = require('../routes/automation');
+  const handler = handlerFor(router, '/log-sync', 'post');
+  let savedSettings;
+  const tokenHash = encryptToken('account-a');
+  const req = {
+    user: { id: 507, is_admin: false },
+    body: { enabled: true, interval: 15, autoScan: true, servers: ['900', '800'] },
+    app: { locals: { db: {
+      get: async (sql, params) => {
+        if (sql.includes('AS server_status')) {
+          return String(params[2]) === '900'
+            ? { ...activeServerRow(), server_status: 'inactive' }
+            : activeServerRow();
+        }
+        return String(params[1]) === '800'
+          ? { id: 41, platform_server_id: 800, discord_guild_id: 'guild-800', token_hash: tokenHash }
+          : null;
+      },
+      run: async (_sql, params) => { savedSettings = JSON.parse(params[1]); },
+    } } },
+  };
+  const res = responseRecorder();
+
+  await handler(req, res);
+
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.body.success, true);
+  assert.deepStrictEqual(res.body.skippedServers, [
+    { serverId: '900', reason: 'inactive', detail: 'server is inactive' },
+  ]);
+  assert.deepStrictEqual(savedSettings.servers, ['800'], 'only the operable server may be persisted');
+}
+
+async function testLogSyncReportsBlockingGuildDisabledServers() {
+  const router = require('../routes/automation');
+  const handler = handlerFor(router, '/log-sync', 'post');
+  let writes = 0;
+  const req = {
+    user: { id: 509, is_admin: false },
+    body: { enabled: true, interval: 15, autoScan: true, servers: ['900'] },
+    app: { locals: { db: {
+      get: async (sql, params) => {
+        if (sql.includes('AS server_status')) {
+          return { ...activeServerRow(), guild_status: 'disabled' };
+        }
+        return null;
+      },
+      run: async () => { writes += 1; },
+    } } },
+  };
+  const res = responseRecorder();
+
+  await handler(req, res);
+
+  assert.strictEqual(res.statusCode, 403);
+  assert.strictEqual(res.body.success, false);
+  assert.deepStrictEqual(res.body.servers, [
+    { serverId: '900', reason: 'guild_disabled', detail: 'guild is disabled' },
+  ]);
+  assert.strictEqual(writes, 0, 'a disabled-guild server must never be persisted');
+}
+
+async function testSyncNowDropsStaleServersHealsConfigAndSyncsOperationalOnes() {
+  const router = require('../routes/automation');
+  const handler = handlerFor(router, '/sync-now', 'post');
+  const tokenHash = encryptToken('account-a');
+  const settingsUpdates = [];
+  const req = {
+    user: { id: 508, is_admin: false },
+    app: { locals: { db: {
+      get: async (sql, params) => {
+        if (sql.includes('automation_settings')) {
+          return { auto_log_sync: JSON.stringify({
+            enabled: true,
+            interval: 15,
+            autoScan: true,
+            servers: ['900', '800'],
+            lastRun: null,
+          }) };
+        }
+        if (sql.includes('clock_timestamp')) return { observed_at: new Date().toISOString() };
+        if (sql.includes('AS server_status')) {
+          return String(params[2]) === '900'
+            ? { ...activeServerRow(), server_status: 'inactive' }
+            : activeServerRow();
+        }
+        return String((params && params[1]) || '') === '800'
+          ? { id: 41, platform_server_id: 800, discord_guild_id: 'guild-800', token_hash: tokenHash }
+          : null;
+      },
+      run: async (sql, params) => {
+        if (sql.includes('automation_settings')) settingsUpdates.push(JSON.parse(params[0]));
+      },
+    } } },
+  };
+  const res = responseRecorder();
+
+  await handler(req, res);
+
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.body.success, true);
+  assert.deepStrictEqual(res.body.skippedServers, [
+    { serverId: '900', reason: 'inactive', detail: 'server is inactive' },
+  ]);
+  assert.ok(settingsUpdates.length >= 1, 'the healed config must be persisted');
+  assert.deepStrictEqual(settingsUpdates[0].servers, ['800'], 'stale servers are removed from the saved config');
+  assert.strictEqual(syncNowInvocations.length, 1);
+  assert.deepStrictEqual(syncNowInvocations[0].serverIds, ['800'], 'only operable servers may be synced');
+  assert.strictEqual(syncNowInvocations[0].token, 'account-a');
 }
 
 async function testAutomationRejectsCrossTenantServerBeforeSaving() {
@@ -247,6 +425,10 @@ async function testAssignedAdminCanReachLogAndAutomationSurfaces() {
 }
 
 async function main() {
+  await testDiagnoseSyncServerAccessClassifiesEveryFailureMode();
+  await testLogSyncDropsStaleInactiveServersButSavesOperationalOnes();
+  await testLogSyncReportsBlockingGuildDisabledServers();
+  await testSyncNowDropsStaleServersHealsConfigAndSyncsOperationalOnes();
   await testAutomationRejectsCrossTenantServerBeforeSaving();
   await testAutomationPersistsOnlyCanonicalAuthorizedServerIds();
   await testAutomationRejectsMixedProviderTokensBeforeSaving();

@@ -2,7 +2,7 @@
 'use strict';
 
 /*
- * Client-side DayZ Toolkit tests.
+ * Client-side DayZ Toolkit tests (card t_0743c982).
  *
  * Exercises public/js/tools/toolkit-core.js (the browser validation engine)
  * in Node via its UMD export, with an xml2js-backed parser adapter that
@@ -418,7 +418,7 @@ toolkitJs.forEach((file) => {
   forbidden.forEach(({ re, why }) => {
     assert.ok(!re.test(source), `${path.basename(file)} contains forbidden pattern: ${why}`);
   });
-  assert.ok(!source.includes('http://') && !/["'\`]https:\/\/(?!saltskrew)/.test(source.replace(/\/\*[\s\S]*?\*\//g, ' ')),
+  assert.ok(!source.includes('http://') && !/["'`]https:\/\/(?!saltskrew)/.test(source.replace(/\/\*[\s\S]*?\*\//g, ' ')),
     `${path.basename(file)} references an external host`);
 });
 // No inline scripts in toolkit pages.
@@ -439,11 +439,20 @@ pass('security contract: no eval/network/innerHTML/inline scripts');
 
 // 25. routes registered (source contract)
 const routesSource = fs.readFileSync(path.join(ROOT, 'src', 'app', 'registerRoutes.js'), 'utf8');
+// /tools/loot-probability is admin-gated (spawn rates are private; public
+// surfaces show only what can spawn). Every other toolkit route must stay
+// public — no account wall on public pages.
 ['/tools', '/tools/xml-validator', '/tools/json-validator', '/tools/mission-validator', '/tools/duplicate-checker', '/tools/event-conflicts'].forEach((route) => {
   assert.ok(routesSource.includes(`app.get('${route}'`), `route ${route} not registered`);
   const idx = routesSource.indexOf(`app.get('${route}'`);
   assert.ok(!routesSource.slice(idx, idx + 220).includes('ensureAuthenticated'), `${route} must be public (no auth)`);
+  assert.ok(!routesSource.slice(idx, idx + 220).includes('ensureAdmin'), `${route} must be public (no admin gate)`);
 });
-pass('all /tools routes registered and public');
+{
+  const idx = routesSource.indexOf(`app.get('/tools/loot-probability'`);
+  assert.ok(idx !== -1, 'route /tools/loot-probability not registered');
+  assert.ok(routesSource.slice(idx, idx + 220).includes('ensureAdmin'), '/tools/loot-probability must be admin-gated');
+}
+pass('all /tools routes registered; loot-probability admin-gated, rest public');
 
 console.log(`\n✅ toolkit-client suite passed`);

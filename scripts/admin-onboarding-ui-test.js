@@ -24,6 +24,9 @@ function harness(file, overrides = {}) {
     setTimeout, clearTimeout, encodeURIComponent,
     ...overrides,
   });
+  // Page JS calls window.DzcOverlayFocus.open/close — load the shared overlay
+  // helper first (its open() no-ops on harness elements lacking .contains).
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'public/js', 'overlay-a11y.js'), 'utf8'), context);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'public/js', file), 'utf8'), context);
   return { context, element };
 }

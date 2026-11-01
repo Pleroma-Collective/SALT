@@ -6,6 +6,7 @@
   <title>Server List Management - DayZ Dashboard</title>
   <link rel="stylesheet" href="/css/theme.css">
   <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="/css/components.css">
   <script src="/js/instance-config.js" defer></script>
 </head>
 <body>
@@ -18,7 +19,7 @@
 
     <!-- Server Selector -->
     <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-6 border border-gray-700">
-      <label class="block mb-2 font-semibold">Select Server:</label>
+      <label class="block mb-2 font-semibold" for="serverSelect">Select Server:</label>
       <select id="serverSelect" class="bg-gray-700 p-3 rounded w-full md:w-96 focus:ring-2 focus:ring-blue-500 outline-none">
         <option value="">Loading servers...</option>
       </select>
@@ -28,6 +29,9 @@
 
     <!-- List Management Tabs -->
     <div id="listSection" class="hidden">
+      <!-- Data freshness ("Last updated" + Refresh) -->
+      <div id="lists-freshness" class="flex items-center gap-2 mb-4"></div>
+
       <!-- Tab buttons -->
       <div class="flex gap-2 mb-4">
         <button id="tab-whitelist" class="px-4 py-2 rounded font-semibold bg-green-600 hover:bg-green-700">✅ Whitelist</button>
@@ -39,7 +43,7 @@
       <div id="panel-whitelist" class="bg-gray-800 p-6 rounded-lg shadow-lg border border-gray-700">
         <h2 class="text-xl font-semibold mb-4 text-green-400">✅ Whitelist</h2>
         <div class="flex gap-2 mb-4">
-          <input id="add-whitelist" type="text" placeholder="Enter gamertag..." class="bg-gray-700 px-4 py-2 rounded border border-gray-600 focus:ring-2 focus:ring-green-500 outline-none flex-1">
+          <input id="add-whitelist" aria-label="Gamertag to add to whitelist" type="text" placeholder="Enter gamertag..." class="bg-gray-700 px-4 py-2 rounded border border-gray-600 focus:ring-2 focus:ring-green-500 outline-none flex-1">
           <button class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded font-semibold">Add</button>
         </div>
         <div id="list-whitelist" class="space-y-2">
@@ -51,7 +55,7 @@
       <div id="panel-blacklist" class="hidden bg-gray-800 p-6 rounded-lg shadow-lg border border-gray-700">
         <h2 class="text-xl font-semibold mb-4 text-red-400">🚫 Blacklist</h2>
         <div class="flex gap-2 mb-4">
-          <input id="add-blacklist" type="text" placeholder="Enter gamertag..." class="bg-gray-700 px-4 py-2 rounded border border-gray-600 focus:ring-2 focus:ring-red-500 outline-none flex-1">
+          <input id="add-blacklist" aria-label="Gamertag to add to blacklist" type="text" placeholder="Enter gamertag..." class="bg-gray-700 px-4 py-2 rounded border border-gray-600 focus:ring-2 focus:ring-red-500 outline-none flex-1">
           <button class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded font-semibold">Add</button>
         </div>
         <div id="list-blacklist" class="space-y-2">
@@ -63,7 +67,7 @@
       <div id="panel-prioritylist" class="hidden bg-gray-800 p-6 rounded-lg shadow-lg border border-gray-700">
         <h2 class="text-xl font-semibold mb-4 text-yellow-400">⭐ Priority List</h2>
         <div class="flex gap-2 mb-4">
-          <input id="add-prioritylist" type="text" placeholder="Enter gamertag..." class="bg-gray-700 px-4 py-2 rounded border border-gray-600 focus:ring-2 focus:ring-yellow-500 outline-none flex-1">
+          <input id="add-prioritylist" aria-label="Gamertag to add to priority list" type="text" placeholder="Enter gamertag..." class="bg-gray-700 px-4 py-2 rounded border border-gray-600 focus:ring-2 focus:ring-yellow-500 outline-none flex-1">
           <button class="bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded font-semibold">Add</button>
         </div>
         <div id="list-prioritylist" class="space-y-2">
@@ -75,6 +79,7 @@
 
   <script src="/js/api.js"></script>
   <script src="/js/csrf-helper.js"></script>
+  <script src="/js/data-freshness.js"></script>
   <script src="/js/server-lists.js"></script>
 </body>
 </html>

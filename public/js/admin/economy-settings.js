@@ -9,6 +9,7 @@ let configurationGeneration = 0;
 let statsRequestGeneration = 0;
 let bountySettingsVersion = null;
 let economySettingsVersion = null;
+let dfh = null; // DataFreshness handle for the stats section
 
 // ── Default configuration ──────────────────────────────────────────────────
 function getDefaultConfig() {
@@ -139,12 +140,15 @@ async function loadStats(serverId, generation = configurationGeneration) {
   if (isCurrent()) statsSection.setAttribute('aria-busy', 'true');
   try {
     const res = await fetch(`/api/economy/admin/${requestedServerId}/stats`, { credentials: 'same-origin' });
-    if (!isCurrent()) return;
-    if (!res.ok) return;
+    if (!isCurrent()) return { ok: true };
+    if (!res.ok) {
+      if (dfh) dfh.markError(`Failed to load stats (HTTP ${res.status})`);
+      return { ok: false, message: `Failed to load stats (HTTP ${res.status})` };
+    }
     const data = await res.json();
-    if (!isCurrent()) return;
+    if (!isCurrent()) return { ok: true };
 
-    if (data.enabled === false) return;
+    if (data.enabled === false) return { ok: true };
 
     const stats = data.stats || {};
     const symbol = document.getElementById('currencySymbol').value || '$';
@@ -161,9 +165,13 @@ async function loadStats(serverId, generation = configurationGeneration) {
       formatNumber(stats.recentTransactionCount24h || 0);
 
     statsSection.classList.remove('hidden');
+    if (dfh) dfh.markSuccess();
+    return { ok: true };
   } catch (err) {
-    if (!isCurrent()) return;
+    if (!isCurrent()) return { ok: true };
     console.error('Error loading stats:', err);
+    if (dfh) dfh.markError('Failed to load stats');
+    return { ok: false, message: err.message || 'Failed to load stats' };
   } finally {
     if (isCurrent()) statsSection.setAttribute('aria-busy', 'false');
   }
@@ -488,12 +496,22 @@ function hideAlerts() {
 document.addEventListener('DOMContentLoaded', async () => {
   await loadGuilds();
 
+  // Freshness indicator + Refresh for the stats section.
+  if (window.DataFreshness) {
+    dfh = DataFreshness.mount('economyStatsFreshness', async () => {
+      if (!currentServerId) throw new Error('No server selected');
+      const r = await loadStats(currentServerId);
+      if (r && r.ok === false) throw new Error(r.message);
+    }, { auto: false });
+  }
+
   document.getElementById('guildSelect').addEventListener('change', async (e) => {
     currentServerId = e.target.value || null;
     loadedServerId = null;
     bountySettingsVersion = null;
     const generation = ++configurationGeneration;
     ++statsRequestGeneration;
+    if (dfh) dfh.reset();
     document.getElementById('statsSection').setAttribute('aria-busy', 'false');
     document.getElementById('saveBtn').disabled = true;
     document.getElementById('saveBtn').textContent = '💾 Save Configuration';

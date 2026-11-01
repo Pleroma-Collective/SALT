@@ -10,9 +10,10 @@ const isDevelopment = process.env.NODE_ENV !== 'production';
  * is re-read on every request so changes are picked up immediately.
  *
  * Also injects the resolved theme (B1.2) when the theme middleware set
- * `req.theme`: a `data-theme` attribute on <html>, an inline no-flash script
- * that applies the user's persisted theme before first paint, and (when
- * present) a `<style data-theme-override>` block carrying the holiday/accent
+ * `req.theme`: a `data-theme` attribute on <html>, a no-flash preflight
+ * script (/js/theme-preflight.js — external, because the site CSP blocks
+ * inline scripts) that applies the user's persisted theme before first
+ * paint, and (when present) a `<style data-theme-override>` block carrying the holiday/accent
  * token values. The override is emitted AFTER the page's own <link> tags so
  * it wins the cascade for the tokens it redeclares.
  *
@@ -37,8 +38,8 @@ function renderWithCsrf(filePath, req, res) {
 
 /**
  * Apply the shared per-request page "chromes" to an already-fully-assembled
- * HTML document: the `data-theme` attribute on <html>, the no-flash theme
- * script + floating theme toggle, the (optional) holiday/accent override
+ * HTML document: the `data-theme` attribute on <html>, the no-flash
+ * preflight script + floating theme toggle, the (optional) holiday/accent override
  * <style> block, and the CSRF <meta> token. This is the same injection
  * `renderWithCsrf` performs; it is exported so the route-aware app shell
  * (utils/appShell.js) can build a composed document and hand it back through
@@ -63,11 +64,21 @@ function applyPageChromes(html, req) {
   const baseTheme = req.theme && themeService.normalizeThemeName(req.theme.baseTheme)
     ? themeService.normalizeThemeName(req.theme.baseTheme)
     : themeService.DEFAULT_BASE_THEME;
-  const themeAttr = `<html data-theme="${baseTheme}"`;
+
+  // Command palette access flags (client-side page index — no round-trip).
+  // Mirrors middleware/auth.js ensureAdmin + the ensureAuthenticated gate.
+  const authed = typeof req.isAuthenticated === 'function' && req.isAuthenticated();
+  const admin = !!(authed && req.user && (req.user.is_admin ||
+    req.user.platform_role === 'dashboard_admin' ||
+    req.user.platform_role === 'dashboard_owner'));
+  const themeAttr = `<html data-theme="${baseTheme}" data-cmdk-auth="${authed ? '1' : '0'}" data-cmdk-admin="${admin ? '1' : '0'}"`;
 
   const headInjection = `  <meta name="csrf-token" content="${escapedToken}">
-  <script>/* Theme (card 2/9): apply persisted preference before first paint (no flash). */(function(){try{var b=["livonia","chernarus","sakhal","nasadra","high-contrast"];var a={dark:"livonia",light:"sakhal"};var s=localStorage.getItem("dayz-theme");if(s){s=a[s]||s;if(b.indexOf(s)>-1)document.documentElement.setAttribute("data-theme",s);}}catch(e){}})();</script>
+  <script src="/js/theme-preflight.js"></script>
+  <script src="/js/overlay-a11y.js"></script>
   <script defer src="/js/theme-toggle.js"></script>
+  <link rel="stylesheet" href="/css/palette.css">
+  <script defer src="/js/command-palette.js"></script>
 ${overrideCss ? `  <style data-theme-override>\n${overrideCss}\n  </style>` : ''}
 `;
 

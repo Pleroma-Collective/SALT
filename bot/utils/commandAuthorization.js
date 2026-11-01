@@ -40,6 +40,7 @@ const COMMAND_CLASSES = Object.freeze({
   'wipe-info:clear': 'server_manage',
   'server-status': 'public_server',
   'radar-audit': 'server_manage',
+  'faction-war': 'server_manage',
   'github': 'server_manage',
   'mission-init': 'server_manage',
   // Phase 1: general utility commands (no server scope).

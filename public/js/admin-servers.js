@@ -116,10 +116,12 @@ function displayServers() {
     deleteServerId = button.dataset.serverId;
     document.getElementById('deleteServerName').textContent = button.dataset.serverName;
     document.getElementById('deleteModal').classList.remove('hidden');
+    window.DzcOverlayFocus.open(document.getElementById('deleteModal'), { onClose: closeDeleteModal });
   }));
 }
 
 function closeDeleteModal() {
+  window.DzcOverlayFocus.close(document.getElementById('deleteModal'));
   deleteServerId = null;
   document.getElementById('deleteModal').classList.add('hidden');
 }

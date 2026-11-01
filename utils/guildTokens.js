@@ -1,6 +1,28 @@
 const { decryptToken } = require('./encryption');
 
 /**
+ * Decrypt a stored token hash, degrading gracefully on failure.
+ *
+ * A stored token that was encrypted with a different key (e.g. after an
+ * ENCRYPTION_KEY rotation, or seeded/fake test data) makes `decryptToken`
+ * throw an uncaught "bad decrypt" that would otherwise crash the entire
+ * process. Returning null lets every caller treat it as "no usable token"
+ * and respond with a per-request error instead of a hard crash.
+ */
+function safeDecryptToken(tokenHash, context) {
+  try {
+    return decryptToken(tokenHash);
+  } catch (err) {
+    console.error(
+      '❌ [TOKEN-LOOKUP] Failed to decrypt token' +
+        (context ? ` (${context})` : '') +
+        `: ${err.message}`
+    );
+    return null;
+  }
+}
+
+/**
  * Get decrypted Nitrado token for a guild by Discord guild ID.
  * @param {object} db - Database adapter instance
  * @param {string} discordGuildId - Discord guild ID
@@ -19,7 +41,7 @@ async function getGuildToken(db, discordGuildId) {
     LIMIT 1
   `, [discordGuildId]);
   if (!row || !row.token_hash) return null;
-  return decryptToken(row.token_hash);
+  return safeDecryptToken(row.token_hash, `discord guild ${discordGuildId}`);
 }
 
 /**
@@ -53,8 +75,8 @@ async function getGuildTokenForServer(db, platformServerId) {
   }
 
   console.log('✅ [TOKEN-LOOKUP] Token found for guild:', row.guild_name, '(ID:', row.guild_id, ')');
-  const decrypted = decryptToken(row.token_hash);
-  console.log('✅ [TOKEN-LOOKUP] Token decrypted successfully');
+  const decrypted = safeDecryptToken(row.token_hash, `platform server ${platformServerId}`);
+  if (decrypted) console.log('✅ [TOKEN-LOOKUP] Token decrypted successfully');
   return decrypted;
 }
 
@@ -74,7 +96,46 @@ async function getGuildTokenForExactServer(db, serverId, guildId) {
     LIMIT 1
   `, [serverId, guildId]);
   if (!row?.token_hash) return null;
-  return decryptToken(row.token_hash);
+  return safeDecryptToken(row.token_hash, `server id ${serverId}`);
 }
 
-module.exports = { getGuildToken, getGuildTokenForServer, getGuildTokenForExactServer };
+/**
+ * Startup self-check: attempt to decrypt every stored guild token with the
+ * current ENCRYPTION_KEY. A token encrypted under a different key (key
+ * rotation, stale seed data) would otherwise fail silently at first API use.
+ *
+ * Logs a loud warning listing the affected guild ids (never token values)
+ * and returns those failing guild ids. Guild ids come from
+ * discord_guild_id, with `guild#<id>` as fallback when it is missing.
+ *
+ * @param {object} db - Database adapter instance
+ * @returns {Promise<string[]>} guild ids with undecryptable tokens (empty if all OK)
+ */
+async function verifyAllTokens(db) {
+  const rows = await db.all(`
+    SELECT gt.token_hash, g.discord_guild_id, g.id
+    FROM guild_tokens gt
+    JOIN guilds g ON g.id = gt.guild_id
+  `);
+  const failing = new Set();
+  for (const row of rows) {
+    if (!row.token_hash) continue;
+    try {
+      decryptToken(row.token_hash);
+    } catch (err) {
+      failing.add(row.discord_guild_id || `guild#${row.id}`);
+    }
+  }
+  const failingIds = [...failing];
+  if (failingIds.length) {
+    console.warn(
+      `⚠️  [TOKEN-VERIFY] ${failingIds.length} of ${rows.length} stored guild token(s) cannot be decrypted ` +
+      `with the current ENCRYPTION_KEY (key mismatch?) — affected guilds: ${failingIds.join(', ')}`
+    );
+  } else {
+    console.log(`✅ [TOKEN-VERIFY] ${rows.length} stored guild token(s) all decrypt OK`);
+  }
+  return failingIds;
+}
+
+module.exports = { getGuildToken, getGuildTokenForServer, getGuildTokenForExactServer, verifyAllTokens };

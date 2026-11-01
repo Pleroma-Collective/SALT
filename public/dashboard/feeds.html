@@ -6,6 +6,7 @@
   <title>Discord Feeds - DayZ Dashboard</title>
   <link rel="stylesheet" href="/css/theme.css">
   <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="/css/components.css">
   <style>
     .feed-card {
       transition: all 0.3s ease;
@@ -71,7 +72,7 @@
 </head>
 <body class="bg-gray-900 text-white">
 
-  <h1 class="text-2xl font-bold p-4">🔔 Discord Feeds</h1>
+  <h1 class="text-4xl font-bold p-4">🔔 Discord Feeds</h1>
 
   <div class="container mx-auto p-6 max-w-6xl">
 
@@ -79,10 +80,10 @@
     <!-- Guild Selector -->
     <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-6">
       <h2 class="text-xl font-bold mb-4">📋 Select Guild</h2>
-      <select id="guildSelect" class="w-full bg-gray-700 p-3 rounded focus:ring-2 focus:ring-blue-500 outline-none">
+      <select id="guildSelect" aria-label="Select guild" class="w-full bg-gray-700 p-3 rounded focus:ring-2 focus:ring-blue-500 outline-none">
         <option value="">-- Select a Guild --</option>
       </select>
-      <select id="serverSelect" class="w-full bg-gray-700 p-3 mt-3 rounded focus:ring-2 focus:ring-blue-500 outline-none" disabled>
+      <select id="serverSelect" aria-label="Select server" class="w-full bg-gray-700 p-3 mt-3 rounded focus:ring-2 focus:ring-blue-500 outline-none" disabled>
         <option value="">-- Select a DayZ Server --</option>
       </select>
     </div>
@@ -109,7 +110,7 @@
             <p class="text-gray-400 text-sm">Announce player kills, zombie kills, and animal kills</p>
           </div>
           <label class="toggle-switch">
-            <input type="checkbox" id="killFeedEnabled" data-feed-type="kill_feed">
+            <input type="checkbox" id="killFeedEnabled" aria-label="Enable kill feed" data-feed-type="kill_feed">
             <span class="slider"></span>
           </label>
         </div>
@@ -117,7 +118,7 @@
         <div id="killFeedSettings" style="display: none;">
           <!-- Channel Selection -->
           <div class="mb-4">
-            <label class="block text-sm text-gray-400 mb-2">Discord Channel</label>
+            <label class="block text-sm text-gray-400 mb-2" for="killFeedChannel">Discord Channel</label>
             <select id="killFeedChannel" class="w-full bg-gray-700 p-3 rounded focus:ring-2 focus:ring-blue-500 outline-none">
               <option value="">-- Select Channel --</option>
             </select>
@@ -126,7 +127,7 @@
 
           <!-- Webhook URL (Optional) -->
           <div class="mb-4">
-            <label class="block text-sm text-gray-400 mb-2">Webhook URL (Optional)</label>
+            <label class="block text-sm text-gray-400 mb-2" for="killFeedWebhook">Webhook URL (Optional)</label>
             <input type="text" id="killFeedWebhook"
                    placeholder="https://discord.com/api/webhooks/..."
                    class="w-full bg-gray-700 p-3 rounded focus:ring-2 focus:ring-blue-500 outline-none">
@@ -163,7 +164,7 @@
 
           <!-- Minimum Distance Filter -->
           <div class="mb-4">
-            <label class="block text-sm text-gray-400 mb-2">Minimum Kill Distance (meters)</label>
+            <label class="block text-sm text-gray-400 mb-2" for="killFeedMinDistance">Minimum Kill Distance (meters)</label>
             <input type="number" id="killFeedMinDistance" value="0" min="0" max="1000"
                    class="w-full bg-gray-700 p-3 rounded focus:ring-2 focus:ring-blue-500 outline-none">
             <p class="text-xs text-gray-500 mt-1">Only show kills beyond this distance (0 = all kills)</p>
@@ -171,7 +172,7 @@
 
           <!-- Template Editor -->
           <div class="mb-4">
-            <label class="block text-sm text-gray-400 mb-2">Message Template - Player Kills</label>
+            <label class="block text-sm text-gray-400 mb-2" for="killFeedTemplatePlayer">Message Template - Player Kills</label>
             <textarea id="killFeedTemplatePlayer" rows="3"
                       class="w-full bg-gray-700 p-3 rounded focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm"
                       placeholder="☠️ **{killer}** killed **{victim}** with {weapon} ({distance}m)">☠️ **{killer}** killed **{victim}** with {weapon} ({distance}m)</textarea>
@@ -187,14 +188,14 @@
           </div>
 
           <div class="mb-4">
-            <label class="block text-sm text-gray-400 mb-2">Message Template - Zombie Kills</label>
+            <label class="block text-sm text-gray-400 mb-2" for="killFeedTemplateZombie">Message Template - Zombie Kills</label>
             <textarea id="killFeedTemplateZombie" rows="2"
                       class="w-full bg-gray-700 p-3 rounded focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm"
                       placeholder="🧟 **{player}** killed a zombie with {weapon}">🧟 **{player}** killed a zombie with {weapon}</textarea>
           </div>
 
           <div class="mb-4">
-            <label class="block text-sm text-gray-400 mb-2">Message Template - Animal Kills</label>
+            <label class="block text-sm text-gray-400 mb-2" for="killFeedTemplateAnimal">Message Template - Animal Kills</label>
             <textarea id="killFeedTemplateAnimal" rows="2"
                       class="w-full bg-gray-700 p-3 rounded focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm"
                       placeholder="🦌 **{player}** killed a {animal} with {weapon}">🦌 **{player}** killed a {animal} with {weapon}</textarea>
@@ -207,7 +208,7 @@
               <span>Use Discord Embed (Rich Formatting)</span>
             </label>
             <div id="killFeedEmbedSettings" style="display: none;">
-              <label class="block text-sm text-gray-400 mb-2">Embed Color</label>
+              <label class="block text-sm text-gray-400 mb-2" for="killFeedEmbedColor">Embed Color</label>
               <input type="color" id="killFeedEmbedColor" value="#ff0000"
                      class="w-24 h-10 bg-gray-700 rounded cursor-pointer">
             </div>
@@ -221,6 +222,47 @@
             <button id="testKillFeed" class="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded font-semibold">
               🧪 Send Test Message
             </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dynamic Events Feed -->
+      <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-6 feed-card" style="border-left: 3px solid #10b981;">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-2xl font-bold">📦 Dynamic Events Feed</h3>
+            <p class="text-gray-400 text-sm">Announce Central Economy dynamic events (containers, wrecks, convoys) as they spawn, with a map link</p>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="deFeedEnabled" aria-label="Enable dynamic events feed" data-feed-type="dynamic_events">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div id="deFeedSettings" style="display: none;">
+          <div class="mb-4">
+            <label class="block text-sm text-gray-400 mb-2" for="deFeedChannel">Discord Channel</label>
+            <select id="deFeedChannel" class="w-full bg-gray-700 p-3 rounded focus:ring-2 focus:ring-green-500 outline-none">
+              <option value="">-- Select Channel --</option>
+            </select>
+          </div>
+          <div class="mb-4">
+            <label class="block text-sm text-gray-400 mb-2" for="deFeedWebhook">Webhook URL (Optional)</label>
+            <input type="text" id="deFeedWebhook" placeholder="https://discord.com/api/webhooks/..." class="w-full bg-gray-700 p-3 rounded focus:ring-2 focus:ring-green-500 outline-none">
+          </div>
+          <div class="mb-4">
+            <label class="block text-sm text-gray-400 mb-2">Event Types (uncheck to hide)</label>
+            <div id="deFeedTypeToggles" class="grid grid-cols-1 md:grid-cols-2 gap-2"></div>
+            <p class="text-xs text-gray-500 mt-1">On by default. New event types are announced unless unchecked.</p>
+          </div>
+          <div class="mb-4">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" id="deFeedIncludeMapLink" checked class="w-4 h-4">
+              <span class="text-sm text-gray-300">Include map link in announcements</span>
+            </label>
+          </div>
+          <div class="flex gap-3">
+            <button id="saveDeFeed" class="bg-green-600 hover:bg-green-700 px-6 py-2 rounded font-semibold">💾 Save Configuration</button>
           </div>
         </div>
       </div>
@@ -255,7 +297,7 @@
             <p class="text-gray-400 text-sm">Announce kills between players in different factions</p>
           </div>
           <label class="toggle-switch">
-            <input type="checkbox" id="factionFeedEnabled" data-feed-type="faction_feed">
+            <input type="checkbox" id="factionFeedEnabled" aria-label="Enable faction feed" data-feed-type="faction_feed">
             <span class="slider"></span>
           </label>
         </div>
@@ -263,7 +305,7 @@
         <div id="factionFeedSettings" style="display: none;">
           <!-- Channel Selection -->
           <div class="mb-4">
-            <label class="block text-sm text-gray-400 mb-2">Discord Channel</label>
+            <label class="block text-sm text-gray-400 mb-2" for="factionFeedChannel">Discord Channel</label>
             <select id="factionFeedChannel" class="w-full bg-gray-700 p-3 rounded focus:ring-2 focus:ring-yellow-500 outline-none">
               <option value="">-- Select Channel --</option>
             </select>
@@ -272,7 +314,7 @@
 
           <!-- Webhook URL (Optional) -->
           <div class="mb-4">
-            <label class="block text-sm text-gray-400 mb-2">Webhook URL (Optional)</label>
+            <label class="block text-sm text-gray-400 mb-2" for="factionFeedWebhook">Webhook URL (Optional)</label>
             <input type="text" id="factionFeedWebhook"
                    placeholder="https://discord.com/api/webhooks/..."
                    class="w-full bg-gray-700 p-3 rounded focus:ring-2 focus:ring-yellow-500 outline-none">
@@ -281,7 +323,7 @@
 
           <!-- Template Editor -->
           <div class="mb-4">
-            <label class="block text-sm text-gray-400 mb-2">Message Template</label>
+            <label class="block text-sm text-gray-400 mb-2" for="factionFeedTemplate">Message Template</label>
             <textarea id="factionFeedTemplate" rows="3"
                       class="w-full bg-gray-700 p-3 rounded focus:ring-2 focus:ring-yellow-500 outline-none font-mono text-sm"
                       placeholder="⚔️ **[{killerFaction}]** {killer} eliminated **[{victimFaction}]** {victim} with {weapon}">⚔️ **[{killerFaction}]** {killer} eliminated **[{victimFaction}]** {victim} with {weapon}</textarea>
@@ -305,7 +347,7 @@
               <span>Use Discord Embed (Rich Formatting)</span>
             </label>
             <div id="factionFeedEmbedSettings" style="display: none;">
-              <label class="block text-sm text-gray-400 mb-2">Embed Color</label>
+              <label class="block text-sm text-gray-400 mb-2" for="factionFeedEmbedColor">Embed Color</label>
               <input type="color" id="factionFeedEmbedColor" value="#ffa500"
                      class="w-24 h-10 bg-gray-700 rounded cursor-pointer">
             </div>

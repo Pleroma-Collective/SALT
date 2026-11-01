@@ -12,8 +12,17 @@ function escapeHtml(text) {
 console.log('Server ID from URL:', serverId);
 
 if (!serverId || serverId === 'null') {
-    alert('No server ID provided. Please go back to the dashboard and click "Edit Mission Files" on a specific server.');
-    window.location.href = '/';
+    // No server in the URL: explicit panel instead of a silent redirect to the splash.
+    // Static markup only — no user input is interpolated.
+    const layout = document.querySelector('.editor-layout');
+    if (layout) {
+        layout.innerHTML =
+            '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;text-align:center;">'
+            + '<p style="font-size:18px;font-weight:600;color:#333;margin:0 0 10px;">No server selected</p>'
+            + '<p style="color:#555;margin:0 0 20px;">This editor opens per server. Go to the dashboard and click "Edit Mission Files" on a specific server.</p>'
+            + '<a href="/dashboard" class="back-button" style="text-decoration:none;">← Back to Dashboard</a>'
+            + '</div>';
+    }
     throw new Error('No server ID'); // Stop execution
 }
 
@@ -213,6 +222,7 @@ async function selectFile(fileName, clickedElement) {
     fileLoaded = false;
     editorContextVersion++;
     conflictServerHash = null;
+    if (window.DzcOverlayFocus) window.DzcOverlayFocus.close(document.getElementById('conflictModal'));
     document.getElementById('conflictModal').classList.remove('active');
     editor.value = '';
     currentDocumentType = undefined;
@@ -380,6 +390,9 @@ saveBtn.addEventListener('click', async () => {
         if (conflictData.hasConflict) {
             conflictServerHash = conflictData.currentHash;
             document.getElementById('conflictModal').classList.add('active');
+            if (window.DzcOverlayFocus) window.DzcOverlayFocus.open(document.getElementById('conflictModal'), {
+                onClose: function () { resolveConflict('cancel'); }
+            });
             return;
         }
 
@@ -543,6 +556,7 @@ document.getElementById('fileTree').addEventListener('click', (e) => {
 
 // Conflict resolution
 async function resolveConflict(action) {
+    if (window.DzcOverlayFocus) window.DzcOverlayFocus.close(document.getElementById('conflictModal'));
     document.getElementById('conflictModal').classList.remove('active');
 
     if (!fileLoaded || fileOperationPending) return;
@@ -610,6 +624,62 @@ window.addEventListener('unload', () => {
     }
 });
 
+// ── Dynamic messages (MVP of the day + admin server-update message) ──
+const dmMvpLine = document.getElementById('dmMvpLine');
+const dmUpdateMessage = document.getElementById('dmUpdateMessage');
+const dmUpdateRepeat = document.getElementById('dmUpdateRepeat');
+const dmMvpEnabled = document.getElementById('dmMvpEnabled');
+const dmDeployBtn = document.getElementById('dmDeployBtn');
+const dmStatus = document.getElementById('dmStatus');
+
+async function loadDynamicMessages() {
+    try {
+        const response = await fetch(`/api/dynamic-messages/${encodeURIComponent(serverId)}`);
+        const data = await response.json();
+        if (!data.success) {
+            dmMvpLine.textContent = `⚠️ ${data.error || 'Dynamic messages unavailable'}`;
+            return;
+        }
+        dmMvpLine.textContent = data.mvpLine
+            ? `🏆 ${data.mvpLine}`
+            : 'No PVP kills in the last 24h — the MVP block will be omitted until kill data arrives.';
+        dmUpdateMessage.value = data.config?.updateMessage || '';
+        dmUpdateRepeat.value = data.config?.updateRepeatMinutes || 15;
+        dmMvpEnabled.checked = data.config?.mvpEnabled !== false;
+    } catch (error) {
+        dmMvpLine.textContent = `⚠️ ${escapeHtml(error.message || 'Failed to load dynamic messages')}`;
+    }
+}
+
+dmDeployBtn.addEventListener('click', async () => {
+    dmDeployBtn.disabled = true;
+    dmStatus.textContent = 'Generating and deploying…';
+    try {
+        const response = await fetchWithCsrf(`/api/dynamic-messages/${encodeURIComponent(serverId)}/deploy`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                updateMessage: dmUpdateMessage.value,
+                updateRepeatMinutes: Number(dmUpdateRepeat.value) || 15,
+                mvpEnabled: dmMvpEnabled.checked,
+            }),
+        });
+        const data = await response.json();
+        if (data.success) {
+            dmStatus.textContent = data.unchanged
+                ? '✅ Up to date — nothing changed on the server.'
+                : `✅ Deployed to ${data.messagesPath}${data.mvpLine ? ` · ${data.mvpLine}` : ''}`;
+        } else {
+            dmStatus.textContent = `❌ ${data.error || 'Deploy failed'}`;
+        }
+    } catch (error) {
+        dmStatus.textContent = `❌ ${escapeHtml(error.message || 'Deploy failed')}`;
+    } finally {
+        dmDeployBtn.disabled = false;
+    }
+});
+
 // Initialize
 updateEditorControls();
 loadFileList();
+loadDynamicMessages();

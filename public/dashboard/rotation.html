@@ -6,6 +6,7 @@
   <title>Rotation Manager - DayZ Dashboard</title>
   <link rel="stylesheet" href="/css/theme.css">
   <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="/css/components.css">
   <script src="/js/instance-config.js" defer></script>
 </head>
 <body class="bg-gray-900 text-white">
@@ -18,7 +19,7 @@
 
     <!-- Server Selector -->
     <div class="bg-gray-800 p-4 rounded-lg mb-6 border border-gray-700">
-      <label class="block mb-2 font-semibold">Select Server</label>
+      <label class="block mb-2 font-semibold" for="serverSelect">Select Server</label>
       <select id="serverSelect" class="bg-gray-700 p-2 rounded w-full max-w-sm">
         <option value="">Loading servers…</option>
       </select>
@@ -97,21 +98,21 @@
 
       <div class="space-y-4">
         <div>
-          <label class="block text-sm font-medium mb-1">Name *</label>
+          <label class="block text-sm font-medium mb-1" for="sName">Name *</label>
           <input id="sName" type="text" placeholder="e.g. Christmas Types" class="w-full bg-gray-700 p-2 rounded">
         </div>
         <div>
-          <label class="block text-sm font-medium mb-1">Description</label>
+          <label class="block text-sm font-medium mb-1" for="sDesc">Description</label>
           <input id="sDesc" type="text" placeholder="Optional description" class="w-full bg-gray-700 p-2 rounded">
         </div>
         <div>
-          <label class="block text-sm font-medium mb-1">Tags (comma-separated)</label>
+          <label class="block text-sm font-medium mb-1" for="sTags">Tags (comma-separated)</label>
           <input id="sTags" type="text" placeholder="e.g. holiday, christmas, loot" class="w-full bg-gray-700 p-2 rounded">
         </div>
 
         <!-- Pattern selector -->
         <div>
-          <label class="block text-sm font-medium mb-1">Pattern *</label>
+          <label class="block text-sm font-medium mb-1" for="sPattern">Pattern *</label>
           <select id="sPattern" class="w-full bg-gray-700 p-2 rounded">
             <option value="ce_folder">ce/ Folder (types, events, spawnabletypes…)</option>
             <option value="cfggameplay_array">cfgGameplay.json Array (gear presets, object spawners, restricted areas)</option>
@@ -124,7 +125,7 @@
         <!-- ce_folder fields -->
         <div id="fields-ce_folder" class="pattern-fields space-y-2">
           <div>
-            <label class="block text-sm font-medium mb-1">CE Type *</label>
+            <label class="block text-sm font-medium mb-1" for="sCeType">CE Type *</label>
             <select id="sCeType" class="w-full bg-gray-700 p-2 rounded">
               <option value="types">types</option>
               <option value="spawnabletypes">spawnabletypes</option>
@@ -139,7 +140,7 @@
         <!-- cfggameplay_array fields -->
         <div id="fields-cfggameplay_array" class="pattern-fields space-y-2 hidden">
           <div>
-            <label class="block text-sm font-medium mb-1">cfgGameplay.json Array *</label>
+            <label class="block text-sm font-medium mb-1" for="sGameplayArray">cfgGameplay.json Array *</label>
             <select id="sGameplayArray" class="w-full bg-gray-700 p-2 rounded">
               <option value="spawnGearPresetFiles">spawnGearPresetFiles</option>
               <option value="objectSpawnersArr">objectSpawnersArr</option>
@@ -147,7 +148,7 @@
             </select>
           </div>
           <div>
-            <label class="block text-sm font-medium mb-1">Deploy Path on Server *
+            <label class="block text-sm font-medium mb-1" for="sDeployPath">Deploy Path on Server *
               <span class="text-gray-400 font-normal">(path relative to mission folder, e.g. custom/myspawner.json)</span>
             </label>
             <input id="sDeployPath" type="text" placeholder="custom/myspawner.json" class="w-full bg-gray-700 p-2 rounded">
@@ -157,7 +158,7 @@
         <!-- location_bundle fields -->
         <div id="fields-location_bundle" class="pattern-fields space-y-2 hidden">
           <div>
-            <label class="block text-sm font-medium mb-1">Object Spawner Deploy Path *
+            <label class="block text-sm font-medium mb-1" for="sBundleDeployPath">Object Spawner Deploy Path *
               <span class="text-gray-400 font-normal">(relative to mission folder)</span>
             </label>
             <input id="sBundleDeployPath" type="text" placeholder="custom/spawners/mybase.json" class="w-full bg-gray-700 p-2 rounded">
@@ -167,7 +168,7 @@
         <!-- xml_patch fields -->
         <div id="fields-xml_patch" class="pattern-fields space-y-2 hidden">
           <div>
-            <label class="block text-sm font-medium mb-1">Target File *
+            <label class="block text-sm font-medium mb-1" for="sTargetFile">Target File *
               <span class="text-gray-400 font-normal">(relative to mission folder)</span>
             </label>
             <input id="sTargetFile" type="text" placeholder="mapgrouppos.xml" class="w-full bg-gray-700 p-2 rounded">
@@ -177,7 +178,7 @@
         <!-- file_swap fields -->
         <div id="fields-file_swap" class="pattern-fields space-y-2 hidden">
           <div>
-            <label class="block text-sm font-medium mb-1">Full Server Path *
+            <label class="block text-sm font-medium mb-1" for="sTargetPath">Full Server Path *
               <span class="text-gray-400 font-normal">(absolute Nitrado path, e.g. /noftp/dayzxb/mpmissions/xxx/cfgWeather.xml)</span>
             </label>
             <input id="sTargetPath" type="text" placeholder="/noftp/dayzxb/mpmissions/xxx/cfgWeather.xml" class="w-full bg-gray-700 p-2 rounded">
@@ -186,7 +187,7 @@
 
         <!-- Main content -->
         <div>
-          <label class="block text-sm font-medium mb-1" id="contentLabel">Content * (XML)</label>
+          <label class="block text-sm font-medium mb-1" id="contentLabel" for="sContent">Content * (XML)</label>
           <textarea id="sContent" rows="8" placeholder="Paste your XML or JSON snippet here…"
             class="w-full bg-gray-700 p-2 rounded font-mono text-sm"></textarea>
         </div>
@@ -194,19 +195,19 @@
         <!-- location_bundle extra content fields -->
         <div id="bundle-extra-fields" class="space-y-4 hidden">
           <div>
-            <label class="block text-sm font-medium mb-1">mapgrouppos.xml Block
+            <label class="block text-sm font-medium mb-1" for="sMapgrouppos">mapgrouppos.xml Block
               <span class="text-gray-400 font-normal">(the &lt;group&gt; entries to inject)</span>
             </label>
             <textarea id="sMapgrouppos" rows="6" placeholder="&lt;group name=&quot;myBase&quot; pos=&quot;…&quot; /&gt;"
               class="w-full bg-gray-700 p-2 rounded font-mono text-sm"></textarea>
           </div>
           <div>
-            <label class="block text-sm font-medium mb-1">types.xml additions <span class="text-gray-400 font-normal">(optional)</span></label>
+            <label class="block text-sm font-medium mb-1" for="sTypesContent">types.xml additions <span class="text-gray-400 font-normal">(optional)</span></label>
             <textarea id="sTypesContent" rows="4" placeholder="&lt;type name=&quot;…&quot;&gt;…&lt;/type&gt;"
               class="w-full bg-gray-700 p-2 rounded font-mono text-sm"></textarea>
           </div>
           <div>
-            <label class="block text-sm font-medium mb-1">spawnabletypes.xml additions <span class="text-gray-400 font-normal">(optional)</span></label>
+            <label class="block text-sm font-medium mb-1" for="sSpawnableTypes">spawnabletypes.xml additions <span class="text-gray-400 font-normal">(optional)</span></label>
             <textarea id="sSpawnableTypes" rows="4" placeholder="&lt;type name=&quot;…&quot;&gt;…&lt;/type&gt;"
               class="w-full bg-gray-700 p-2 rounded font-mono text-sm"></textarea>
           </div>
@@ -227,15 +228,15 @@
 
       <div class="space-y-4">
         <div>
-          <label class="block text-sm font-medium mb-1">Name *</label>
+          <label class="block text-sm font-medium mb-1" for="pName">Name *</label>
           <input id="pName" type="text" placeholder="e.g. Christmas 2026" class="w-full bg-gray-700 p-2 rounded">
         </div>
         <div>
-          <label class="block text-sm font-medium mb-1">Description</label>
+          <label class="block text-sm font-medium mb-1" for="pDesc">Description</label>
           <input id="pDesc" type="text" placeholder="Optional" class="w-full bg-gray-700 p-2 rounded">
         </div>
         <div>
-          <label class="block text-sm font-medium mb-1">Schedule</label>
+          <label class="block text-sm font-medium mb-1" for="pScheduleType">Schedule</label>
           <select id="pScheduleType" class="w-full bg-gray-700 p-2 rounded">
             <option value="none">No schedule (manual only)</option>
             <option value="date_range">Date range (auto on/off)</option>
@@ -244,11 +245,11 @@
         <div id="dateRangeFields" class="hidden space-y-2">
           <div class="flex gap-3">
             <div class="flex-1">
-              <label class="block text-sm font-medium mb-1">Start Date</label>
+              <label class="block text-sm font-medium mb-1" for="pStartDate">Start Date</label>
               <input id="pStartDate" type="datetime-local" class="w-full bg-gray-700 p-2 rounded">
             </div>
             <div class="flex-1">
-              <label class="block text-sm font-medium mb-1">End Date</label>
+              <label class="block text-sm font-medium mb-1" for="pEndDate">End Date</label>
               <input id="pEndDate" type="datetime-local" class="w-full bg-gray-700 p-2 rounded">
             </div>
           </div>
@@ -266,7 +267,7 @@
   <div id="addSnippetModal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden">
     <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md border border-gray-600">
       <h2 class="text-xl font-bold mb-4">Add Snippet to Preset</h2>
-      <select id="snippetPickerSelect" class="w-full bg-gray-700 p-2 rounded mb-4">
+      <select id="snippetPickerSelect" aria-label="Snippet to add" class="w-full bg-gray-700 p-2 rounded mb-4">
         <option value="">Select a snippet…</option>
       </select>
       <div class="flex gap-3">

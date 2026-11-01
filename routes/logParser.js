@@ -14,6 +14,9 @@ const { claimBountiesForKillInTransaction } = require('../services/bountyService
 const { playtimeRewardCents, centsToAmount } = require('../utils/money');
 const moneySupplyManager = require('../utils/moneySupplyManager');
 const { queueKillEvent } = require('../utils/feedEventQueue');
+const { appendEvent } = require('../src/events/eventWriter');
+const { parseDeLine, validateDePosition, humanNameForDeType } = require('../utils/ceDynamicEvents');
+const { classifyAdmDeathLine, classifyAdmHitLine, FALL_ATTRIBUTION_MS } = require('../utils/admDeathCauses');
 const { resolveGuildDiscordId, getGuildDownloadPath } = require('../services/logSyncService');
 const { detectDayzPlatform } = require('../utils/dayzPlatform');
 const {
@@ -30,7 +33,7 @@ const {
   processWaitingTeleports,
 } = require('../services/teleportProcessorService');
 const { openContainedFileSync } = require('../utils/safePath');
-const { parseRptClockTimestamp: parseSharedRptClockTimestamp } = require('../utils/rptChronology');
+const { createRptChronology, parseRptClockTimestamp: parseSharedRptClockTimestamp } = require('../utils/rptChronology');
 const {
   createRptTelemetryCollector,
   replaceRptTelemetryEvents,
@@ -3854,6 +3857,231 @@ function normalizeOnlinePlayerLoginTimestamps(players, parsedSourceObservedAt,
 }
 
 /**
+ * ADM Death Causes — scan ADM files for death lines and persist one event per
+ * death to the events table (eventType 'player.death_cause') via eventWriter.
+ *
+ * Cause: pvp (killer/weapon/distance/body part), infected (Zmb*), npc,
+ * vehicle (NO DRIVER), suicide, bleed, drowned, unknown — with 'died' lines
+ * re-classified as 'fall' when the same player took a FallDamageHealth hit
+ * within FALL_ATTRIBUTION_MS earlier in the same file.
+ *
+ * Same pattern as processCeDynamicEvents:
+ *   - within this run: the `seen` set (duplicate lines across scans);
+ *   - across runs: the events-table dedupeKey lookup (a new scan never
+ *     re-persists);
+ *   - failures are logged and never fail the surrounding log scan.
+ */
+async function processAdmDeathCauses(db, { baseDir, admFiles, serverContext }) {
+  const files = admFiles || [];
+  if (files.length === 0) return { persisted: 0, duplicates: 0, errors: 0 };
+
+  const seen = new Set();
+  let persisted = 0;
+  let duplicates = 0;
+  let errors = 0;
+
+  for (const filePath of files) {
+    let logDate = extractLogDateFromFilePath(filePath, baseDir)
+      || new Date().toISOString().slice(0, 10);
+    let previousTimestamp = null;
+    const fallHitsByPlayer = new Map(); // victimId -> [ms, …]
+    const pvpHitsByPair = new Map(); // victimId:killerId -> { ms, bodyPart }
+    try {
+      for await (const { line } of streamLogLines(filePath, { rootDir: baseDir, fullHistory: true })) {
+        let nowMs = null;
+        const lineTimeMatch = line.match(/^(\d{2}:\d{2}:\d{2}) \|/);
+        if (lineTimeMatch) {
+          const effective = parseADMTimestamp(lineTimeMatch[1], logDate, previousTimestamp);
+          logDate = effective.slice(0, 10);
+          previousTimestamp = effective;
+          nowMs = Date.parse(effective);
+        }
+        if (nowMs == null) continue;
+
+        const hit = classifyAdmHitLine(line, nowMs);
+        if (hit) {
+          if (hit.kind === 'fall') {
+            const list = fallHitsByPlayer.get(hit.playerId) || [];
+            list.push(hit.ms);
+            if (list.length > 32) list.shift();
+            fallHitsByPlayer.set(hit.playerId, list);
+          } else {
+            const key = hit.victimId + ':' + hit.attackerId;
+            const prev = pvpHitsByPair.get(key);
+            if (!prev || hit.ms >= prev.ms) pvpHitsByPair.set(key, { ms: hit.ms, bodyPart: hit.bodyPart });
+          }
+          continue;
+        }
+
+        const death = classifyAdmDeathLine(line);
+        if (!death) continue;
+
+        let cause = death.cause;
+        if (cause === 'unknown') {
+          const hits = fallHitsByPlayer.get(death.victimId) || [];
+          cause = hits.some(h => nowMs - h >= 0 && nowMs - h <= FALL_ATTRIBUTION_MS) ? 'fall' : 'unknown';
+        }
+        let bodyPart = null;
+        if (cause === 'pvp') {
+          const last = pvpHitsByPair.get(death.victimId + ':' + death.killerId);
+          if (last && last.ms <= nowMs) bodyPart = last.bodyPart;
+        }
+
+        const dedupeKey = death.victimId + '|' + previousTimestamp + '|' + cause;
+        if (seen.has(dedupeKey)) {
+          duplicates += 1;
+          continue;
+        }
+        seen.add(dedupeKey);
+        try {
+          const alreadyPersisted = await db.get(
+            `SELECT 1 FROM events
+             WHERE server_id = ? AND event_type = 'player.death_cause'
+               AND (payload->>'dedupeKey') = ?
+             LIMIT 1`,
+            [serverContext.id, dedupeKey]
+          );
+          if (alreadyPersisted) {
+            duplicates += 1;
+            continue;
+          }
+          const payload = {
+            dedupeKey,
+            victimName: death.victimName,
+            victimId: death.victimId,
+            cause,
+            pos: death.pos,
+            sourceFile: path.basename(filePath),
+          };
+          if (cause === 'pvp') {
+            payload.killerName = death.killerName;
+            payload.killerId = death.killerId;
+            payload.weapon = death.weapon;
+            payload.distance = death.distance;
+            payload.bodyPart = bodyPart;
+          } else if (cause === 'vehicle') {
+            payload.vehicle = death.vehicle;
+          } else if (cause === 'infected' || cause === 'npc') {
+            payload.npcClass = death.npcClass;
+          }
+          await appendEvent(db, {
+            serverId: serverContext.id,
+            eventType: 'player.death_cause',
+            timestamp: new Date(nowMs),
+            payload,
+          });
+          persisted += 1;
+        } catch (err) {
+          errors += 1;
+          // A persistent failure must not re-loop every scan: the key stays in
+          // `seen`; the next scan re-derives it and re-checks the events table.
+          console.error(`  ❌ ADM death-cause persist failed (server ${serverContext.id}, ${death.victimName} ${cause}):`, err.message);
+        }
+      }
+    } catch (err) {
+      console.error(`  ❌ Error scanning ${path.basename(filePath)} for death causes:`, err.message);
+    }
+  }
+
+  if (persisted > 0 || duplicates > 0) {
+    console.log(`  ✓ ADM death causes: ${persisted} new, ${duplicates} duplicate line(s), ${errors} error(s)`);
+  }
+  return { persisted, duplicates, errors };
+}
+
+/**
+ * CE Dynamic Events — scan RPT + server.log for "[CE][DE] … Spawning" lines
+ * (Central Economy live world spawns).
+ *
+ * Each valid, unique (eventId, currentId) instance is persisted once to the
+ * events table (eventType 'ce.dynamic_event') and queued to the guild's
+ * dynamic_events Discord feed when one is enabled. Dedupe:
+ *   - within this run: the `seen` Set covers RPT + server.log (same instance
+ *     appears in both files);
+ *   - across runs: the events-table lookup (a new scan never re-announces).
+ * Out-of-range coordinates are counted and skipped, never persisted.
+ * Failures are logged and never fail the surrounding log scan.
+ */
+async function processCeDynamicEvents(db, { baseDir, rptFiles, serverContext, guildId }) {
+  const serverLogPath = path.join(baseDir, 'server.log');
+  const files = [...(rptFiles || [])];
+  if (fs.existsSync(serverLogPath)) files.push(serverLogPath);
+  if (files.length === 0) return { announced: 0, rejected: 0, skippedDuplicates: 0 };
+
+  const seen = new Set();
+  let announced = 0;
+  let rejected = 0;
+  let skippedDuplicates = 0;
+
+  for (const filePath of files) {
+    const logDate = path.extname(filePath).toUpperCase() === '.RPT'
+      ? extractRPTLogDate(filePath, baseDir)
+      : new Date(fs.statSync(filePath).mtimeMs).toISOString().slice(0, 10);
+    const chronology = createRptChronology();
+    try {
+      for await (const { line } of streamLogLines(filePath, { rootDir: baseDir })) {
+        const parsed = parseDeLine(line);
+        if (!parsed) continue;
+        const key = `${parsed.eventId}:${parsed.currentId}`;
+        if (seen.has(key)) {
+          skippedDuplicates += 1;
+          continue;
+        }
+        if (!validateDePosition(parsed.pos)) {
+          rejected += 1;
+          continue;
+        }
+        seen.add(key);
+        try {
+          const alreadyPersisted = await db.get(
+            `SELECT 1 FROM events
+             WHERE server_id = ? AND event_type = 'ce.dynamic_event'
+               AND (payload->>'eventId') = ? AND (payload->>'currentId') = ?
+             LIMIT 1`,
+            [serverContext.id, String(parsed.eventId), String(parsed.currentId)]
+          );
+          if (alreadyPersisted) {
+            skippedDuplicates += 1;
+            continue;
+          }
+          const timestampMs = parseSharedRptClockTimestamp(parsed.clock, logDate, chronology);
+          const payload = {
+            deType: parsed.deType,
+            eventId: parsed.eventId,
+            currentId: parsed.currentId,
+            pos: parsed.pos,
+            rotation: parsed.rotation,
+            humanName: humanNameForDeType(parsed.deType),
+            mapName: 'nasdara',
+            sourceFile: path.basename(filePath),
+          };
+          await appendEvent(db, {
+            serverId: serverContext.id,
+            eventType: 'ce.dynamic_event',
+            timestamp: timestampMs ? new Date(timestampMs) : new Date(),
+            payload,
+          });
+          await queueKillEvent(db, guildId, serverContext.id, 'dynamic_events', 'de_spawn', payload);
+          announced += 1;
+        } catch (err) {
+          // A persistent failure (e.g. bad FK) must not re-loop every scan:
+          // the key stays in `seen` so this run stops retrying it; the next
+          // scan re-derives it from the log and re-checks the events table.
+          console.error(`  ❌ CE dynamic event persist failed (server ${serverContext.id}, ${parsed.deType} ${parsed.eventId}/${parsed.currentId}):`, err.message);
+        }
+      }
+    } catch (err) {
+      console.error(`  ❌ Error scanning ${path.basename(filePath)} for CE dynamic events:`, err.message);
+    }
+  }
+
+  if (announced > 0 || rejected > 0) {
+    console.log(`  ✓ CE dynamic events: ${announced} new, ${rejected} rejected out-of-range, ${skippedDuplicates} duplicate line(s)`);
+  }
+  return { announced, rejected, skippedDuplicates };
+}
+
+/**
  * Standalone log scanner for a single server – callable from the scheduler.
  * @param {object} db - PostgreSQL database adapter
  * @param {number} userId - Internal DB user ID
@@ -4136,6 +4364,34 @@ async function scanLogsForServer(db, userId, serverId, token, {
     }
   }
 
+  // CE Dynamic Events (RPT + server.log): persist once and queue for the
+  // guild's dynamic_events Discord feed. Best-effort — a feed failure must
+  // never block the log scan or its pipeline bookkeeping.
+  let ceDynamicEventResult = { announced: 0, rejected: 0, skippedDuplicates: 0 };
+  try {
+    ceDynamicEventResult = await processCeDynamicEvents(db, {
+      baseDir,
+      rptFiles: allRptLogs,
+      serverContext,
+      guildId,
+    });
+  } catch (err) {
+    console.error(`  ❌ CE dynamic event processing failed for server ${serverId}:`, err.message);
+  }
+
+  // ADM Death Causes: one 'player.death_cause' event per ADM death line
+  // (weapon/distance/body part for PVP). Best-effort — never blocks the scan.
+  let admDeathCauseResult = { persisted: 0, duplicates: 0, errors: 0 };
+  try {
+    admDeathCauseResult = await processAdmDeathCauses(db, {
+      baseDir,
+      admFiles: allAdmLogs,
+      serverContext,
+    });
+  } catch (err) {
+    console.error(`  ❌ ADM death-cause processing failed for server ${serverId}:`, err.message);
+  }
+
   if (failedLogFiles.length > 0) {
     throw new Error(`Failed to parse ${new Set(failedLogFiles).size} ADM/RPT log file(s)`);
   }
@@ -4147,7 +4403,21 @@ async function scanLogsForServer(db, userId, serverId, token, {
   const allHealthUpdates = Array.from(healthUpdatesMap.values());
 
   await savePlayersToDatabase(db, userId, serverId, players, platform, serverContext.id);
-  await saveRPTLoginWaitEvents(db, serverId, allLoginWaitEvents, platform, serverContext.id);
+  const savedWaits = await saveRPTLoginWaitEvents(db, serverId, allLoginWaitEvents, platform, serverContext.id);
+  if (savedWaits > 0) {
+    // New enforced alt-account delay evidence just landed: re-evaluate the
+    // conservative auto-ban policy (services/altAutoBanService.js). Must
+    // never break the ingestion run itself.
+    try {
+      const { evaluateAltAutoBan } = require('../services/altAutoBanService');
+      const autobanSummary = await evaluateAltAutoBan(db, serverContext.id);
+      if (autobanSummary.banned.length > 0) {
+        console.log(`  🔨 Alt auto-ban: ${autobanSummary.banned.map(b => b.gamertag).join(', ')} banned on server ${serverContext.id}`);
+      }
+    } catch (err) {
+      console.error(`  ❌ Alt auto-ban evaluation failed for server ${serverContext.id}:`, err.message);
+    }
+  }
   await refreshPlayerServerActivity(db, serverId, serverContext.id);
   await saveHealthUpdates(db, serverId, allHealthUpdates, platform, serverContext.id);
 
@@ -4190,6 +4460,8 @@ async function scanLogsForServer(db, userId, serverId, token, {
     killEvents: totalKillsSaved,
     rptTelemetryEvents: totalTelemetrySaved,
     rptTelemetryEventsRetired: totalTelemetryRetired,
+    ceDynamicEvents: ceDynamicEventResult.announced,
+    admDeathCauses: admDeathCauseResult.persisted,
     onlineCachePublished,
     filesScanned: { admCount: allAdmLogs.length, rptCount: allRptLogs.length }
   };
@@ -4209,6 +4481,8 @@ module.exports.streamLogLines = streamLogLines;
 module.exports.extractLogDateFromFilePath = extractLogDateFromFilePath;
 module.exports.extractRPTLogDate = extractRPTLogDate;
 module.exports.parseADMLog = parseADMLog;
+module.exports.processCeDynamicEvents = processCeDynamicEvents;
+module.exports.processAdmDeathCauses = processAdmDeathCauses;
 module.exports.parseRPTLog = parseRPTLog;
 module.exports.parseRPTFileObservations = parseRPTFileObservations;
 module.exports.extractRPTLogDate = extractRPTLogDate;

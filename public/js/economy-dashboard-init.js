@@ -99,8 +99,10 @@
       // Modal wiring
       document.getElementById('ed-depositBtn')?.addEventListener('click', () => {
         document.getElementById('depositModal').classList.remove('hidden');
+        window.DzcOverlayFocus.open(document.getElementById('depositModal'), { onClose: () => window.DzcOverlayFocus.close(document.getElementById('depositModal')) });
       });
       document.getElementById('ed-cancelDeposit')?.addEventListener('click', () => {
+        window.DzcOverlayFocus.close(document.getElementById('depositModal'));
         document.getElementById('depositModal').classList.add('hidden');
       });
       document.getElementById('ed-confirmDeposit')?.addEventListener('click', async () => {
@@ -116,6 +118,7 @@
           if (data.success) {
             showMsg('ed-depositMsg', 'Deposit successful!', false);
             setTimeout(async () => {
+              window.DzcOverlayFocus.close(document.getElementById('depositModal'));
               document.getElementById('depositModal').classList.add('hidden');
               document.getElementById('ed-depositAmount').value = '';
               document.getElementById('ed-depositFeeInfo').classList.add('hidden');
@@ -129,8 +132,10 @@
 
       document.getElementById('ed-withdrawBtn')?.addEventListener('click', () => {
         document.getElementById('withdrawModal').classList.remove('hidden');
+        window.DzcOverlayFocus.open(document.getElementById('withdrawModal'), { onClose: () => window.DzcOverlayFocus.close(document.getElementById('withdrawModal')) });
       });
       document.getElementById('ed-cancelWithdraw')?.addEventListener('click', () => {
+        window.DzcOverlayFocus.close(document.getElementById('withdrawModal'));
         document.getElementById('withdrawModal').classList.add('hidden');
       });
       document.getElementById('ed-confirmWithdraw')?.addEventListener('click', async () => {
@@ -146,6 +151,7 @@
           if (data.success) {
             showMsg('ed-withdrawMsg', 'Withdrawal successful!', false);
             setTimeout(async () => {
+              window.DzcOverlayFocus.close(document.getElementById('withdrawModal'));
               document.getElementById('withdrawModal').classList.add('hidden');
               document.getElementById('ed-withdrawAmount').value = '';
               document.getElementById('ed-withdrawFeeInfo').classList.add('hidden');

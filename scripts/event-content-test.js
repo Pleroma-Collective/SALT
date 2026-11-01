@@ -356,7 +356,7 @@ function testSeasonPlan() {
   }
 }
 
-// ─── Real-data regression tests (found via live check in production) ───────
+// ─── Real-data regression tests (found via live check on saltskrew) ─────────
 
 function testRootTagOnFirstLine() {
   // chernarusplus working copies open as `<?xml ...?><eventposdef>` on ONE

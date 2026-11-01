@@ -5,22 +5,43 @@ const http = require('http');
 const https = require('https');
 
 const ENDPOINTS = (process.env.ENDPOINTS || 'http://127.0.0.1:3000/').split(',').map(s=>s.trim()).filter(Boolean);
-const TIMEOUT_MS = parseInt(process.env.TIMEOUT_MS || '5000', 10);
-const THRESHOLD_MS = parseInt(process.env.THRESHOLD_MS || '500', 10);
+const TIMEOUT_MS = Number(process.env.TIMEOUT_MS || '5000');
+const THRESHOLD_MS = Number(process.env.THRESHOLD_MS || '500');
+
+if (!ENDPOINTS.length || !Number.isInteger(TIMEOUT_MS) || TIMEOUT_MS <= 0 || TIMEOUT_MS > 2147483647 ||
+    !Number.isFinite(THRESHOLD_MS) || THRESHOLD_MS < 0) {
+  console.error('Invalid ENDPOINTS, TIMEOUT_MS (positive timer integer), or THRESHOLD_MS (non-negative number)');
+  process.exit(2);
+}
 
 async function check(url) {
   return new Promise((resolve) => {
     const start = Date.now();
+    let settled = false;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({ url, ...result });
+    };
     const lib = url.startsWith('https') ? https : http;
-    const req = lib.get(url, { timeout: TIMEOUT_MS }, (res) => {
-      // consume a small chunk to ensure server responded
-      res.once('data', () => {});
-      res.on('end', () => {});
-      const elapsed = Date.now() - start;
-      resolve({ url, status: res.statusCode, time: elapsed });
+    const req = lib.get(url, (res) => {
+      res.on('error', err => finish({ error: err.message }));
+      res.on('aborted', () => finish({ error: 'response aborted' }));
+      if (res.statusCode !== 200) {
+        finish({ error: `HTTP ${res.statusCode} (expected 200)` });
+        res.destroy();
+        return;
+      }
+      res.on('end', () => finish({ status: res.statusCode, time: Date.now() - start }));
+      res.resume(); // Drain the complete asset without retaining its body.
     });
-    req.on('error', (err) => resolve({ url, error: err.message }));
-    req.on('timeout', () => { req.destroy(); resolve({ url, error: 'timeout' }); });
+    req.on('error', err => finish({ error: err.message }));
+    // A total deadline also bounds DNS/connect and continuously trickling bodies.
+    const timer = setTimeout(() => {
+      finish({ error: 'timeout' });
+      req.destroy();
+    }, TIMEOUT_MS);
   });
 }
 
@@ -28,7 +49,7 @@ async function check(url) {
   console.log(`Dozy: profiling ${ENDPOINTS.length} endpoint(s)`);
   let failures = 0;
   for (const e of ENDPOINTS) {
-    const r = await check(e);
+    const r = await check(e).catch(err => ({ error: err.message }));
     if (r.error) {
       console.error(`FAIL: ${e} - ${r.error}`);
       failures++;

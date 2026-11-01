@@ -93,6 +93,9 @@ function detectPredictiveWarnings({ listFiles, readTail, configDir, issues } = {
   const shutdowns = [];
   const scanFiles = [...discovered.rpt.slice(-4), ...discovered.crash.slice(-2)];
   const seenFiles = new Set();
+  let errorLines = 0;
+  let warningLines = 0;
+  let linesScanned = 0;
   for (const file of scanFiles) {
     if (seenFiles.has(file)) continue;
     seenFiles.add(file);
@@ -106,6 +109,31 @@ function detectPredictiveWarnings({ listFiles, readTail, configDir, issues } = {
     warnings.push(...signals.warnings);
     ceLoops.push(...signals.ceLoops);
     shutdowns.push(...signals.shutdowns);
+    // Raw error/warning volume (health indicator). Counted from RPT/crash
+    // files only — the same double-counting rationale as the warnings merge
+    // above: 1.30 boot-noise lines appear in both RPT and server.log.
+    errorLines += signals.errorLines;
+    warningLines += signals.warningLines;
+    linesScanned += lines.length;
+  }
+
+  // DayZ 1.30 emits the [Shutdown] lines only in the rolling console
+  // server.log (verified: 1.30 RPTs contain zero such lines), so the crash-
+  // window history for 1.30 runs sources its restart endpoints from the
+  // synced server.log tail. Warnings stay RPT-sourced (the 1.30 boot-noise
+  // lines are also in the RPT — merging server.log warnings would
+  // double-count them).
+  if (discovered.serverLog) {
+    try {
+      const serverLogLines = readTail(configDir, discovered.serverLog, MAX_RPT_SCAN_BYTES);
+      // Time-only server.log timestamps need a real date: use the newest RPT
+      // actually scanned (its filename carries the real date), else today.
+      const serverLogLogDate = scanFiles.length
+        ? logDateFromRptFilename(scanFiles[scanFiles.length - 1])
+        : new Date().toISOString().slice(0, 10);
+      const serverLogSignals = extractSignals(serverLogLines, issueTable, serverLogLogDate);
+      shutdowns.push(...serverLogSignals.shutdowns);
+    } catch (_error) { /* unreadable server.log is non-fatal */ }
   }
 
   const crashWindows = buildCrashWindows(warnings, shutdowns);
@@ -146,6 +174,7 @@ function detectPredictiveWarnings({ listFiles, readTail, configDir, issues } = {
     lastCrashAt,
     warnings,
     ceLoop: ceLoopStats(ceLoops),
+    logTotals: { errorLines, warningLines, linesScanned },
   };
 }
 
@@ -201,12 +230,47 @@ async function persistWarnings(db, serverId, detection) {
   return rows;
 }
 
-/** Deterministic summary for the dashboard (no AI). */
+/**
+ * Deterministic summary for the dashboard (no AI).
+ *
+ * `health` is the server-health indicator: crash + raw error/warning volume
+ * aggregated from the same bounded scan as the precursors (RPT/crash tails;
+ * the 1.30 server.log tail feeds the shutdown endpoints, never the volume
+ * counters). State is `unknown` until the scan has any data; `critical` on
+ * a fatal crash window inside WARNING_WINDOW_MS; `degraded` when a
+ * precursor (active warning) is present; else `healthy`.
+ */
 function warningSummary(detection, persistedRows) {
+  const now = Date.now();
+  const crashWindows = detection.crashWindows || [];
+  const fatalWindows = crashWindows.filter(w => w.kind === 'fatal');
+  const recentFatal = fatalWindows.filter(w => w.endsAt && now - w.endsAt <= WARNING_WINDOW_MS);
+  const totals = detection.logTotals || null;
+  const hasData = Boolean(totals && totals.linesScanned > 0)
+    || crashWindows.length > 0
+    || (detection.warnings || []).length > 0;
+  const health = {
+    state: !hasData
+      ? 'unknown'
+      : recentFatal.length > 0
+        ? 'critical'
+        : (persistedRows || []).length > 0
+          ? 'degraded'
+          : 'healthy',
+    // Crashes only — scheduled restarts are restart windows, not crashes.
+    crashCount: recentFatal.length,
+    lastCrashAt: recentFatal.length
+      ? new Date(Math.max(...recentFatal.map(w => w.endsAt))).toISOString()
+      : null,
+    errorLines: totals ? totals.errorLines : null,
+    warningLines: totals ? totals.warningLines : null,
+    linesScanned: totals ? totals.linesScanned : null,
+    windowHours: WARNING_WINDOW_MS / (3600 * 1000),
+  };
   return {
     generatedAt: new Date().toISOString(),
     lastCrashAt: detection.lastCrashAt ? new Date(detection.lastCrashAt).toISOString() : null,
-    recentCrashCount: (detection.crashWindows || []).length,
+    recentCrashCount: crashWindows.length,
     ceLoop: detection.ceLoop,
     activeWarnings: persistedRows.map(row => ({
       id: row.id,
@@ -221,6 +285,7 @@ function warningSummary(detection, persistedRows) {
         : null,
     })),
     precursorsSeen: detection.precursors.length,
+    health,
   };
 }
 

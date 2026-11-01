@@ -13,6 +13,10 @@
   let currentSort = 'total';
   let currencySymbol = '$';
   let highlightIdentityId = null;
+  let lastServerId = null;
+  let lastOptions = null;
+  let hasLoaded = false;
+  let dfh = null; // DataFreshness handle (pages that provide #lb-freshness)
 
   function fmt(amount) {
     return `${currencySymbol}${Number(amount || 0).toFixed(2)}`;
@@ -101,6 +105,8 @@
   async function load(serverId, options) {
     highlightIdentityId = options?.highlightIdentityId || null;
     currentSort = options?.sortBy || 'total';
+    lastServerId = serverId;
+    lastOptions = options || null;
 
     const tbody = document.getElementById('leaderboardBody');
     if (tbody) {
@@ -115,14 +121,33 @@
       allRows = data.leaderboard || [];
       filtered = [...allRows];
       applySort();
+      hasLoaded = true;
       render();
+      if (dfh) dfh.markSuccess();
+      return { ok: true };
     } catch (err) {
       console.error('Leaderboard load error:', err);
-      if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-red-400">Failed to load leaderboard.</td></tr>';
+      if (tbody) {
+        // First load / server change: no stale rows, show the error.
+        // Refresh failure: keep the stale rows; dfh shows the error.
+        if (hasLoaded) render();
+        else tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-red-400">Failed to load leaderboard.</td></tr>';
+      }
+      if (dfh) dfh.markError('Failed to load leaderboard');
+      return { ok: false, message: err.message || 'Failed to load leaderboard' };
     }
   }
 
   function setupControls() {
+    // Freshness indicator + Refresh, when the page provides the anchor
+    // (/dashboard/economy-leaderboard).
+    if (window.DataFreshness) {
+      dfh = DataFreshness.mount('lb-freshness', async () => {
+        if (!lastServerId) throw new Error('No server selected');
+        const r = await load(lastServerId, lastOptions || {});
+        if (!r.ok) throw new Error(r.message);
+      }, { auto: false });
+    }
     const searchEl = document.getElementById('lb-search');
     const sortEl = document.getElementById('sortBy');
 

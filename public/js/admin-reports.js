@@ -79,6 +79,7 @@
       pendingResolveId = reportId;
       document.getElementById('resolveNote').value = '';
       document.getElementById('resolveModal').classList.remove('hidden');
+      window.DzcOverlayFocus.open(document.getElementById('resolveModal'), { onClose: closeResolveModal });
     }
 
     async function confirmResolve() {
@@ -119,6 +120,7 @@
     }
 
     function closeResolveModal() {
+      window.DzcOverlayFocus.close(document.getElementById('resolveModal'));
       pendingResolveId = null;
       document.getElementById('resolveModal').classList.add('hidden');
     }

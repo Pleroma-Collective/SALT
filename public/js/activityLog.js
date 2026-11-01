@@ -11,6 +11,9 @@
 let currentServerId = null;
 let currentPage = 1;
 let totalPages = 1;
+let dfh = null; // DataFreshness handle
+let lastLogsData = null;
+let hasLoadedLogs = false;
 
 function escHtml(str) {
   return String(str ?? '').replace(/[&<>"']/g, c =>
@@ -51,6 +54,9 @@ async function loadServers() {
 async function onServerChange() {
   currentServerId = document.getElementById('serverSelect').value || null;
   currentPage = 1;
+  lastLogsData = null;
+  hasLoadedLogs = false;
+  if (dfh) dfh.reset(); // new server: no stale data, timestamp restarts
   if (!currentServerId) {
     document.getElementById('logWrap').innerHTML = '<p class="text-gray-400">Select a server to view its activity log.</p>';
     return;
@@ -81,7 +87,7 @@ function formatDate(iso) {
 }
 
 async function loadLogs(page = 1) {
-  if (!currentServerId) return;
+  if (!currentServerId) return { ok: false, message: 'No server selected' };
   hideBanner();
   currentPage = page;
 
@@ -93,10 +99,21 @@ async function loadLogs(page = 1) {
     if (!data.success) throw new Error(data.error);
 
     totalPages = data.pageCount || 1;
+    lastLogsData = data;
+    hasLoadedLogs = true;
+    if (dfh) dfh.markSuccess();
     renderTable(data);
+    return { ok: true };
   } catch (err) {
     showBanner(`Failed to load logs: ${err.message}`);
-    document.getElementById('logWrap').innerHTML = '<p class="text-gray-400">Could not load activity log.</p>';
+    if (hasLoadedLogs) {
+      // Keep the stale rows visible; the freshness row reports the error.
+      renderTable(lastLogsData);
+      if (dfh) dfh.markError(err.message);
+    } else {
+      document.getElementById('logWrap').innerHTML = '<p class="text-gray-400">Could not load activity log.</p>';
+    }
+    return { ok: false, message: err.message };
   }
 }
 
@@ -160,5 +177,13 @@ document.getElementById('logWrap').addEventListener('click', event => {
   const button = event.target.closest('button[data-log-page]');
   if (button && !button.disabled) loadLogs(Number(button.dataset.logPage));
 });
+
+// Shared DataFreshness helper; Refresh re-runs the current page's query.
+if (window.DataFreshness) {
+  dfh = DataFreshness.mount('activity-freshness', async () => {
+    const r = await loadLogs(currentPage);
+    if (!r.ok) throw new Error(r.message);
+  }, { auto: false });
+}
 
 loadServers();

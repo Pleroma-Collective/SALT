@@ -9,7 +9,7 @@ const {
   logStartTimeMs,
   parseStrictTimestampMs,
 } = require('../utils/logFileChronology');
-const { parseServerLog, processRestartEvents } = require('./shopRestartService');
+const { parseServerLog, processRestartEvents, previousSessionScheduledShutdown } = require('./shopRestartService');
 
 const DOWNLOAD_ROOT = path.join(__dirname, '..', 'downloads');
 const RPT_EVIDENCE_TAIL_BYTES = 256 * 1024;
@@ -75,7 +75,7 @@ function restartTimestamp(ms) {
   return new Date(ms).toISOString().replace('T', ' ').slice(0, 19);
 }
 
-function readDownloadedServerLogEvents(serverRow, platformServerId, serverLogPath) {
+function readDownloadedServerLogContent(serverRow, platformServerId, serverLogPath) {
   const expectedPath = path.join(
     getGuildDownloadPath(serverRow.discord_guild_id, platformServerId),
     'config',
@@ -85,17 +85,23 @@ function readDownloadedServerLogEvents(serverRow, platformServerId, serverLogPat
     throw new Error(`Server ${platformServerId} restart log path does not match its authorized directory`);
   }
   const relativePath = path.relative(DOWNLOAD_ROOT, expectedPath);
-  return parseServerLog(readContainedFileSync(DOWNLOAD_ROOT, relativePath, 'utf8'));
+  return readContainedFileSync(DOWNLOAD_ROOT, relativePath, 'utf8');
+}
+
+function readDownloadedServerLogEvents(serverRow, platformServerId, serverLogPath) {
+  return parseServerLog(readDownloadedServerLogContent(serverRow, platformServerId, serverLogPath));
 }
 
 async function processDownloadedRestartEvidence(db, context, evidence) {
   const serverContext = normalizeServerContext(context);
   const { serverId, platformServerId } = serverContext;
   let serverRow = null;
+  let serverLogContent = null;
   let restartEvents = [];
   if (evidence?.serverLogPath) {
     serverRow = await resolveActiveServer(db, serverContext);
-    restartEvents = readDownloadedServerLogEvents(serverRow, platformServerId, evidence.serverLogPath);
+    serverLogContent = readDownloadedServerLogContent(serverRow, platformServerId, evidence.serverLogPath);
+    restartEvents = parseServerLog(serverLogContent);
   }
 
   const startedAtMs = evidence?.gameserverStatus === 'started'
@@ -179,8 +185,19 @@ async function processDownloadedRestartEvidence(db, context, evidence) {
     path.relative(DOWNLOAD_ROOT, rptPath),
     RPT_EVIDENCE_TAIL_BYTES
   );
-  const isScheduled = /\[Shutdown\]\s+Saving players, locking server and kicking all players\./i
-    .test(rptContent);
+  let isScheduled = null;
+  if (serverLogContent !== null) {
+    // DayZ 1.30 emits the [Shutdown] save line ONLY in the console
+    // server.log — the previous session's shutdown region in the rolling
+    // file is the authoritative evidence.
+    isScheduled = previousSessionScheduledShutdown(serverLogContent, startedAtMs);
+  }
+  if (isScheduled === null) {
+    // Pre-1.30 history (and 1.30 runs without a usable server.log): the same
+    // line also landed in the per-run RPT at the save moment.
+    isScheduled = /\[Shutdown\]\s+Saving players, locking server and kicking all players\./i
+      .test(rptContent);
+  }
   const detectedAt = restartTimestamp(startedAtMs);
   await processRestartEvents(db, serverRow.id, [{
     biosSessionId: providerRestartId,

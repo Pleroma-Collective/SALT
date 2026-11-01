@@ -157,6 +157,12 @@
       document.getElementById('sSpawnableTypes').value = snippet?.spawnabletypes_content || '';
       updatePatternFields();
       document.getElementById('snippetModal').classList.remove('hidden');
+      window.DzcOverlayFocus.open(document.getElementById('snippetModal'), {
+        onClose: function () {
+          document.getElementById('snippetModal').classList.add('hidden');
+          window.DzcOverlayFocus.close(document.getElementById('snippetModal'));
+        }
+      });
     }
 
     async function editSnippet(id) {
@@ -176,8 +182,10 @@
     }
 
     document.getElementById('newSnippetBtn').addEventListener('click', () => openSnippetModal());
-    document.getElementById('cancelSnippetBtn').addEventListener('click', () =>
-      document.getElementById('snippetModal').classList.add('hidden'));
+    document.getElementById('cancelSnippetBtn').addEventListener('click', () => {
+      window.DzcOverlayFocus.close(document.getElementById('snippetModal'));
+      document.getElementById('snippetModal').classList.add('hidden');
+    });
 
     document.getElementById('saveSnippetBtn').addEventListener('click', async () => {
       const pattern = document.getElementById('sPattern').value;
@@ -213,6 +221,7 @@
       });
       const d = await r.json();
       if (d.success) {
+        window.DzcOverlayFocus.close(document.getElementById('snippetModal'));
         document.getElementById('snippetModal').classList.add('hidden');
         await loadSnippets();
       } else {
@@ -308,6 +317,12 @@
       document.getElementById('pEndDate').value   = cfg?.end?.slice(0, 16) || '';
       toggleDateRange();
       document.getElementById('presetModal').classList.remove('hidden');
+      window.DzcOverlayFocus.open(document.getElementById('presetModal'), {
+        onClose: function () {
+          document.getElementById('presetModal').classList.add('hidden');
+          window.DzcOverlayFocus.close(document.getElementById('presetModal'));
+        }
+      });
     }
 
     function toggleDateRange() {
@@ -345,8 +360,10 @@
     });
 
     document.getElementById('newPresetBtn').addEventListener('click', () => openPresetModal());
-    document.getElementById('cancelPresetBtn').addEventListener('click', () =>
-      document.getElementById('presetModal').classList.add('hidden'));
+    document.getElementById('cancelPresetBtn').addEventListener('click', () => {
+      window.DzcOverlayFocus.close(document.getElementById('presetModal'));
+      document.getElementById('presetModal').classList.add('hidden');
+    });
 
     document.getElementById('savePresetBtn').addEventListener('click', async () => {
       const scheduleType = document.getElementById('pScheduleType').value;
@@ -378,6 +395,7 @@
       });
       const d = await r.json();
       if (d.success) {
+        window.DzcOverlayFocus.close(document.getElementById('presetModal'));
         document.getElementById('presetModal').classList.add('hidden');
         await loadPresets();
       } else {
@@ -406,10 +424,18 @@
         sel.appendChild(opt);
       });
       document.getElementById('addSnippetModal').classList.remove('hidden');
+      window.DzcOverlayFocus.open(document.getElementById('addSnippetModal'), {
+        onClose: function () {
+          document.getElementById('addSnippetModal').classList.add('hidden');
+          window.DzcOverlayFocus.close(document.getElementById('addSnippetModal'));
+        }
+      });
     }
 
-    document.getElementById('cancelAddSnippetBtn').addEventListener('click', () =>
-      document.getElementById('addSnippetModal').classList.add('hidden'));
+    document.getElementById('cancelAddSnippetBtn').addEventListener('click', () => {
+      window.DzcOverlayFocus.close(document.getElementById('addSnippetModal'));
+      document.getElementById('addSnippetModal').classList.add('hidden');
+    });
 
     document.getElementById('confirmAddSnippetBtn').addEventListener('click', async () => {
       const snippetId = document.getElementById('snippetPickerSelect').value;
@@ -421,6 +447,7 @@
       });
       const d = await r.json();
       if (d.success) {
+        window.DzcOverlayFocus.close(document.getElementById('addSnippetModal'));
         document.getElementById('addSnippetModal').classList.add('hidden');
         await loadPresets();
       } else {

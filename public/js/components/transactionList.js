@@ -13,6 +13,9 @@
   let currentIdentityId = null;
   let currencySymbol = '$';
   let requestVersion = 0;
+  let lastOptions = null;
+  let hasLoaded = false;
+  let dfh = null; // DataFreshness handle (pages that provide #tx-freshness)
 
   function fmt(amount) {
     return `${escapeHtml(currencySymbol)}${Math.abs(Number(amount || 0)).toFixed(2)}`;
@@ -188,6 +191,12 @@
       </div>
     `;
     modal.classList.remove('hidden');
+    window.DzcOverlayFocus.open(modal, { onClose: closeDetail });
+  }
+
+  function closeDetail() {
+    window.DzcOverlayFocus.close(document.getElementById('txDetailModal'));
+    document.getElementById('txDetailModal')?.classList.add('hidden');
   }
 
   function showLoading() {
@@ -203,6 +212,8 @@
     filtered = [];
     currentIdentityId = null;
     currentPage = 1;
+    hasLoaded = false;
+    if (dfh) dfh.reset();
     showLoading();
   }
 
@@ -210,6 +221,7 @@
     const version = ++requestVersion;
     currentIdentityId = identityId;
     currencySymbol = options?.currencySymbol || '$';
+    lastOptions = options || null;
     showLoading();
 
     try {
@@ -235,16 +247,35 @@
       }
       allTransactions = transactions;
       filtered = [...allTransactions];
+      hasLoaded = true;
       render();
+      if (dfh) dfh.markSuccess();
+      return { ok: true };
     } catch (err) {
       if (version !== requestVersion) return;
       console.error('TransactionList load error:', err);
       const container = document.getElementById('transactionList');
-      if (container) container.innerHTML = '<div class="text-center py-12 text-red-400">Failed to load transactions.</div>';
+      if (container) {
+        // Context change / first load: no stale data, show the error.
+        // Refresh failure: keep the stale rows visible — showLoading() above
+        // already replaced them, so re-render the last successful data.
+        if (hasLoaded) render();
+        else container.innerHTML = '<div class="text-center py-12 text-red-400">Failed to load transactions.</div>';
+      }
+      if (dfh) dfh.markError('Failed to load transactions');
+      return { ok: false, message: err.message || 'Failed to load transactions' };
     }
   }
 
   function setupControls() {
+    // Freshness indicator + Refresh, when the page provides the anchor
+    // (e.g. /dashboard/economy-transactions; the player portal doesn't).
+    if (window.DataFreshness) {
+      dfh = DataFreshness.mount('tx-freshness', async () => {
+        const r = await load(currentIdentityId, lastOptions || {});
+        if (r && !r.ok) throw new Error(r.message);
+      }, { auto: false });
+    }
     document.getElementById('typeFilter')?.addEventListener('change', applyFilters);
     document.getElementById('tl-search')?.addEventListener('input', applyFilters);
     document.getElementById('startDate')?.addEventListener('change', applyFilters);
@@ -257,12 +288,9 @@
       if (row) showDetail(Number(row.dataset.transactionId));
     });
 
-    const closeBtn = document.getElementById('closeTxDetail');
-    closeBtn?.addEventListener('click', () => {
-      document.getElementById('txDetailModal')?.classList.add('hidden');
-    });
+    document.getElementById('closeTxDetail')?.addEventListener('click', closeDetail);
     document.getElementById('txDetailModal')?.addEventListener('click', (e) => {
-      if (e.target === e.currentTarget) e.currentTarget.classList.add('hidden');
+      if (e.target === e.currentTarget) closeDetail();
     });
   }
 

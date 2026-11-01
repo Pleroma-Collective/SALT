@@ -314,7 +314,7 @@ function recordingDb(overrides = {}) {
     let resolveTransactions;
     const container = { innerHTML: 'old membership rows' };
     const context = {
-      window: {},
+      window: { DzcOverlayFocus: { open() {}, close() {} } }, // no-op: focus wiring is incidental to these scope tests
       document: {
         getElementById(id) {
           return id === 'transactionList' ? container : null;
@@ -352,7 +352,7 @@ function recordingDb(overrides = {}) {
   await test('transaction load errors render a scoped failure state', async () => {
     const container = { innerHTML: '' };
     const context = {
-      window: {},
+      window: { DzcOverlayFocus: { open() {}, close() {} } }, // no-op: focus wiring is incidental to these scope tests
       document: {
         getElementById(id) {
           return id === 'transactionList' ? container : null;
@@ -376,7 +376,7 @@ function recordingDb(overrides = {}) {
     const modalBody = { innerHTML: '' };
     const modal = { classList: { remove() {} } };
     const context = {
-      window: {},
+      window: { DzcOverlayFocus: { open() {}, close() {} } }, // no-op: focus wiring is incidental to these scope tests
       document: {
         getElementById(id) {
           if (id === 'transactionList') return container;
@@ -432,7 +432,7 @@ function recordingDb(overrides = {}) {
       timestamp: '2026-08-30T12:00:00.000Z',
     }));
     const context = {
-      window: {},
+      window: { DzcOverlayFocus: { open() {}, close() {} } }, // no-op: focus wiring is incidental to these scope tests
       document: {
         getElementById(id) {
           if (id === 'transactionList') return container;

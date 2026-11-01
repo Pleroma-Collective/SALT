@@ -1,4 +1,5 @@
 const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator } = rateLimit;
 
 // Rate limiting can be disabled via environment variable
 // Default is enabled (true) unless explicitly set to 'false'
@@ -81,7 +82,21 @@ const authLimiter = rateLimit({
 const strictLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
-  message: { error: 'Too many requests, please slow down.' },
+  // Authenticated traffic keys per account so players sharing a NAT/ISP IP do
+  // not pool into one bucket; anonymous traffic keeps the library's IP keying
+  // (IPv6-safe).
+  keyGenerator: (req) => (req.user && req.user.id) ? `user:${req.user.id}` : ipKeyGenerator(req.ip),
+  message: (req, res) => {
+    // Handler-only code path: runs exactly when the limit is hit, so this
+    // doubles as the rate-limit monitoring log (v8 removed onLimitReached).
+    console.log(`🚦 Rate limit reached: ${req.user && req.user.id ? `user:${req.user.id}` : req.ip} -> ${req.originalUrl}`);
+    const reset = Number(res.getHeader('RateLimit-Reset')) ||
+      Number(String(res.getHeader('RateLimit') || '').split(/reset=/)?.[1]) || 0;
+    const minutes = Math.max(1, Math.ceil(reset / 60));
+    return {
+      error: `Too many requests, please slow down.${reset > 0 ? ` Try again in ~${minutes} minute${minutes === 1 ? '' : 's'}.` : ''}`,
+    };
+  },
   standardHeaders: true,
   legacyHeaders: false
 });

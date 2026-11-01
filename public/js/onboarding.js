@@ -27,7 +27,9 @@
     root.textContent = '';
     var entries = payload && Array.isArray(payload.setup) ? payload.setup : [];
     if(entries.length === 0){
-      addText(root, 'p', 'No setup guild is linked to this account yet. Invite the bot, then run /register-token in that Discord guild.', 'muted');
+      addText(root, 'p', 'No setup guild is linked to this account yet. ' +
+        'Server owners: invite the bot, then run /register-token in your Discord guild. ' +
+        'Players: your character appears in the Player dashboard after you play on a registered server (or link your gamertag there).', 'muted');
       return;
     }
     entries.forEach(function(entry){
@@ -55,6 +57,15 @@
     safeHref(link, '/auth/discord');
   }
 
+  function disableInviteLink(){
+    var a = document.getElementById('inviteLink');
+    if(!a) return;
+    a.setAttribute('aria-disabled', 'true');
+    a.title = 'Invite link unavailable';
+    a.style.opacity = '.55';
+    a.style.pointerEvents = 'none';
+  }
+
   fetch('/api/config').then(function(r){
     if(!r.ok) throw new Error('cfg');
     return r.json();
@@ -64,8 +75,10 @@
       var a = document.getElementById('inviteLink');
       safeHref(a, u);
       safeText(a, 'Invite Bot');
+    } else {
+      disableInviteLink();
     }
-  }).catch(function(){ /* keep the disabled invite link */ });
+  }).catch(disableInviteLink);
 
   fetch('/api/access/setup').then(function(response){
     if(response.status === 401){

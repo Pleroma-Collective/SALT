@@ -359,9 +359,16 @@ function assertSafeServerPath(serverPath) {
   return resolvedPath;
 }
 
-function findMissionEventSpawns(serverPath, mapName, missionSubdirs) {
+// Marker-less holiday content: Central-Economy packs (e.g. CP/enoch economy
+// events) ship delta files without cfgeventspawns.xml. Detected so a
+// preferred mission that is a delta pack surfaces as "economy delta, no new
+// markers" instead of silently falling back to the base mission's markers.
+const MISSION_DELTA_FILES = ['cfgrandompresets.xml', 'cfgspawnabletypes.xml', 'cfgeffectarea.xml'];
+
+function findMissionEventSpawns(serverPath, mapName, missionSubdirs, preferredMission) {
   const roots = [serverPath, ...missionSubdirs.map(directory => path.join(serverPath, directory))];
   const candidates = [];
+  let preferredFolderDelta = null; // { name, deltaFiles } when the preferred mission dir exists but has no cfgeventspawns.xml
   for (const root of roots) {
     let entries;
     try {
@@ -375,9 +382,32 @@ function findMissionEventSpawns(serverPath, mapName, missionSubdirs) {
       if (!entry.isDirectory() || entry.isSymbolicLink()) continue;
       const match = entry.name.match(/\.([a-z0-9]+)$/i);
       if (!match || match[1].toLowerCase() !== mapName) continue;
+      if (preferredMission && entry.name !== preferredMission) continue;
       const candidate = path.join(root, entry.name, 'cfgeventspawns.xml');
-      if (regularFileStat(candidate)) candidates.push(candidate);
+      if (regularFileStat(candidate)) {
+        candidates.push(candidate);
+      } else if (preferredMission && entry.name === preferredMission && !preferredFolderDelta) {
+        let names = [];
+        try {
+          names = fs.readdirSync(path.join(root, entry.name)).map(name => name.toLowerCase());
+        } catch {
+          names = [];
+        }
+        preferredFolderDelta = {
+          name: entry.name,
+          deltaFiles: MISSION_DELTA_FILES.filter(file => names.includes(file)),
+        };
+      }
     }
+  }
+  if (preferredFolderDelta && candidates.length === 0) {
+    const deltaNote = preferredFolderDelta.deltaFiles.length
+      ? `; economy delta files present: ${preferredFolderDelta.deltaFiles.join(', ')}`
+      : '; no delta files found either';
+    return {
+      filePath: null,
+      error: `Mission "${preferredFolderDelta.name}" ships no cfgeventspawns.xml${deltaNote} — economy delta, no new event markers.`,
+    };
   }
   const uniqueCandidates = [...new Set(candidates)];
   if (uniqueCandidates.length > 1) {
@@ -433,11 +463,16 @@ function getEventSpawnLocations(serverPath, requestedMapName, options = {}) {
   const mapName = String(requestedMapName || '').toLowerCase();
   if (!/^[a-z0-9]+$/.test(mapName)) throw new Error('Invalid map name');
   const safeServerPath = assertSafeServerPath(serverPath);
-  const missionConfiguration = findMissionEventSpawns(
+  let missionConfiguration = findMissionEventSpawns(
     safeServerPath,
     mapName,
-    options.missionSubdirs || []
+    options.missionSubdirs || [],
+    options.preferredMission || null
   );
+  // Preferred mission absent on disk (e.g. mission name ≠ folder name): fall back to the full scan.
+  if (options.preferredMission && !missionConfiguration.filePath && !missionConfiguration.error) {
+    missionConfiguration = findMissionEventSpawns(safeServerPath, mapName, options.missionSubdirs || []);
+  }
   if (!missionConfiguration.filePath) {
     return {
       events: [],

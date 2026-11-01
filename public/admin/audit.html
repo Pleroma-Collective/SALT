@@ -6,6 +6,7 @@
   <title>Audit Log - Admin Panel</title>
   <link rel="stylesheet" href="/css/theme.css">
   <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="/css/components.css">
   <style>
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .spinner { animation: spin 1s linear infinite; }
@@ -28,7 +29,7 @@
     <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-6">
       <div class="flex gap-4 items-center flex-wrap">
         <div class="flex-1 min-w-[200px]">
-          <label class="block text-sm text-gray-400 mb-2">Action Type</label>
+          <label class="block text-sm text-gray-400 mb-2" for="actionFilter">Action Type</label>
           <select id="actionFilter" class="bg-gray-700 p-3 rounded w-full focus:ring-2 focus:ring-orange-500 outline-none">
             <option value="">All Actions</option>
             <option value="ADD_GUILD">Add Guild</option>
@@ -39,7 +40,7 @@
           </select>
         </div>
         <div class="flex-1 min-w-[200px]">
-          <label class="block text-sm text-gray-400 mb-2">Limit</label>
+          <label class="block text-sm text-gray-400 mb-2" for="limitSelect">Limit</label>
           <select id="limitSelect" class="bg-gray-700 p-3 rounded w-full focus:ring-2 focus:ring-orange-500 outline-none">
             <option value="50">50 entries</option>
             <option value="100" selected>100 entries</option>

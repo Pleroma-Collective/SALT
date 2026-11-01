@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DayZ Toolkit — client-side tools</title>
   <link rel="stylesheet" href="/css/theme.css">
+  <link rel="stylesheet" href="/css/components.css">
   <link rel="stylesheet" href="/css/tools.css">
 </head>
 <body class="tk-page">
@@ -45,10 +46,30 @@
         <h3>Event Conflict Check</h3>
         <p>Cross-checks cfgeventspawns.xml and cfgeventgroups.xml: shadowed names, invalid or out-of-bounds positions, and lootmin/lootmax inversions.</p>
       </a>
+      <a class="tk-tool-card" href="/tools/loot-probability">
+        <span class="tk-tool-tag">Calculate · admin</span>
+        <h3>Loot Probability Calculator</h3>
+        <p>Chance to find any item per building category, from your server&rsquo;s types.xml — quick answers from the extracted catalog, or drop your own types.xml. The math is shown. <em>Admin access required (server spawn rates are private).</em></p>
+      </a>
       <a class="tk-tool-card" href="/tools/paa-converter">
         <span class="tk-tool-tag">Convert</span>
         <h3>PAA ↔ PNG Map-Tile Converter</h3>
         <p>Drop .paa tiles, a map .pbo (DayZ 1.30 uncompressed), or .png images — lint + preview per tile, convert to PNG and back (DXT1/DXT5 auto), zip download.</p>
+      </a>
+      <a class="tk-tool-card" href="/tools/loadout-generator">
+        <span class="tk-tool-tag">Generate</span>
+        <h3>Loadout Generator</h3>
+        <p>Compose a player spawn config in the kitty_loadouts / CE format — pick items from your server&rsquo;s extracted catalog, set quantities and spawn weights, preview the JSON, download the file.</p>
+      </a>
+      <a class="tk-tool-card" href="/tools/spawnabletypes-generator">
+        <span class="tk-tool-tag">Generate</span>
+        <h3>Spawnabletypes Generator</h3>
+        <p>Compose a CE cfgspawnabletypes.xml — pick entity types from your server&rsquo;s extracted catalog, set damage, hoarder, cargo presets and part groups, preview the validated XML, download the file.</p>
+      </a>
+      <a class="tk-tool-card" href="/loadouts">
+        <span class="tk-tool-tag">Browse</span>
+        <h3>Loadout Browser</h3>
+        <p>All server-curated player loadouts — holiday sets first, then themed and vanilla-enhanced. One click copies the full spawn config JSON for pasting into a mission.</p>
       </a>
     </div>
     <p class="tk-blurb" style="margin-top:28px">

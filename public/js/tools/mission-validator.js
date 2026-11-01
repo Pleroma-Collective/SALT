@@ -1,6 +1,6 @@
 /* global document */
 /*
- * Mission Validator page. Client-side only.
+ * Mission Validator page (card t_0743c982). Client-side only.
  * Accepts a mission .zip (via locally vendored JSZip) or a set of loose
  * files / a folder. Every text file is validated locally; nothing is
  * uploaded.
@@ -20,6 +20,7 @@
 
   var results = document.createElement('div');
   results.className = 'tk-results';
+  var progress = dom.mountProgress(app);
 
   var MAX_ENTRIES = 500;
 
@@ -67,27 +68,10 @@
     items.forEach(function (item) { lowerNames[relLower(item.name)] = true; });
     var mapId = detectMapId(Object.keys(lowerNames));
 
-    // 1) Mission structure
+    // 1) Mission structure (rendered as a standard report card)
     var structure = core.missionStructureReport(lowerNames);
-    if (items.length > 0) {
-      var structCard = dom.el('section', 'tk-card tk-' + structure.summary.status);
-      var head = dom.el('div', 'tk-card-head');
-      head.appendChild(dom.el('span', 'tk-status tk-status-' + structure.summary.status, 'MISSION LAYOUT'));
-      head.appendChild(dom.el('h3', 'tk-card-title', items.length + ' files' + (mapId ? ' — map: ' + mapId : '')));
-      structCard.appendChild(head);
-      var list = dom.el('ul', 'tk-findings');
-      ['errors', 'warnings', 'info'].forEach(function (kind) {
-        (structure[kind] || []).forEach(function (f) {
-          var li = dom.el('li', 'tk-finding tk-finding-' + f.severity);
-          li.appendChild(dom.el('strong', 'tk-sev', f.severity.toUpperCase()));
-          li.appendChild(dom.el('span', 'tk-msg', ' ' + f.message + ' [' + f.code + ']'));
-          list.appendChild(li);
-        });
-      });
-      if (!list.childElementCount) list.appendChild(dom.el('li', 'tk-finding', 'Layout looks complete.'));
-      structCard.appendChild(list);
-      results.appendChild(structCard);
-    }
+    structure.fileName = 'mission layout — ' + items.length + ' files' + (mapId ? ' · map: ' + mapId : '');
+    var structureReport = structure;
 
     // 2) Per-file validation
     var fileReports = [];
@@ -115,8 +99,8 @@
           return;
         }
         if (!parsed.ok) return;
-        var ev = core.analyzeEvents(item.name, parsed.model, mapId);
-        if (ev.errors.length || ev.warnings.length || ev.info.length) fileReports.push(ev);
+        var ev = core.analyzeEvents(base + ' — conflict pass [' + mapId + ' bounds]', parsed.model, mapId);
+        fileReports.push(ev);
       });
     }
 
@@ -129,29 +113,49 @@
 
     var totalErrors = 0;
     var totalWarnings = 0;
+    var okFiles = 0;
     fileReports.forEach(function (report) {
       totalErrors += report.summary.errorCount;
       totalWarnings += report.summary.warningCount;
+      if (report.summary.valid) okFiles++;
+    });
+    totalErrors += structureReport.summary.errorCount;
+    totalWarnings += structureReport.summary.warningCount;
+
+    // Banner at the top, then the structure card, then per-file cards.
+    dom.renderResultSummary(results, {
+      total: fileReports.length + 1,
+      ok: okFiles + (structureReport.summary.valid ? 1 : 0),
+      errors: totalErrors,
+      warnings: totalWarnings,
+      note: 'scanned in ' + (Date.now() - start) + ' ms — all processing stayed in this tab'
+    });
+    dom.renderReport(results, structureReport);
+    fileReports.forEach(function (report) {
       dom.renderReport(results, report);
     });
-
-    var summary = dom.el('p', 'tk-summary-line',
-      'Scanned ' + fileReports.length + ' text file(s) in ' + (Date.now() - start) + ' ms — ' +
-      totalErrors + ' error(s), ' + totalWarnings + ' warning(s). All processing stayed in this tab.');
-    results.appendChild(summary);
   }
 
   async function handleZip(file) {
     if (typeof globalThis.JSZip === 'undefined') {
       results.appendChild(dom.el('p', 'tk-err', 'JSZip failed to load — reload the page.'));
+      progress.hide();
       return;
     }
-    var buffer = await dom.readAsArrayBuffer(file);
+    progress.show('Reading ' + file.name, null);
+    var buffer = await dom.readAsArrayBuffer(file, function (loaded, total) {
+      progress.show('Reading ' + file.name, total ? (loaded / total) * 100 : null);
+    });
     var zip;
     try {
-      zip = await globalThis.JSZip.loadAsync(buffer);
+      zip = await globalThis.JSZip.loadAsync(buffer, {
+        onprogress: function (e) {
+          progress.show('Unzipping ' + file.name, e.total ? (e.loaded / e.total) * 100 : null);
+        }
+      });
     } catch (err) {
       results.appendChild(dom.el('p', 'tk-err', 'Could not open zip: ' + err.message));
+      progress.hide();
       return;
     }
     var items = [];
@@ -172,6 +176,7 @@
     });
     if (aborted) {
       results.appendChild(dom.el('p', 'tk-err', aborted));
+      progress.hide();
       return;
     }
     // Re-walk to read (forEach is synchronous iteration; load lazily here).
@@ -187,6 +192,7 @@
     });
     for (var i = 0; i < pending.length; i++) {
       var p = pending[i];
+      progress.show('Extracting ' + p.name + ' (' + (i + 1) + '/' + pending.length + ')');
       if (p.name.endsWith('.sqm')) {
         items.push({ name: p.name, text: '' }); // structure marker only; .sqm is not text-validated
         continue;
@@ -204,24 +210,35 @@
     }
     if (items.length === 0) {
       results.appendChild(dom.el('p', 'tk-err', 'No inspectable mission files found in the archive.'));
+      progress.hide();
       return;
     }
+    progress.show('Validating ' + items.length + ' file(s)');
     runScan(items);
+    progress.hide();
   }
 
   function handleLoose(items) {
-    // Loose files / folder: use the file's webkitRelativePath when present.
-    var named = items.map(function (item) {
-      var name = item.name;
-      return { name: name, text: item.text };
+    // Loose files: read each file's text, then scan (binary source box).
+    var named = [];
+    var chain = Promise.resolve();
+    items.forEach(function (item) {
+      chain = chain.then(function () {
+        progress.show('Reading ' + item.name);
+        return dom.readAsText(item.file).then(function (text) {
+          named.push({ name: item.name, text: text });
+        });
+      });
     });
-    runScan(named);
+    chain.then(function () { progress.hide(); runScan(named); });
   }
 
   dom.mountSourceBox(app, {
     multiple: true,
     accept: '.zip,.xml,.json,.c',
     allowPaste: false,
+    binary: true,
+    title: 'Drop a mission .zip — or loose mission files — here',
     onFiles: function (items) {
       var zipItem = null;
       var loose = [];
@@ -229,7 +246,7 @@
         if (item.name.toLowerCase().endsWith('.zip')) zipItem = item;
         else loose.push(item);
       });
-      if (zipItem) handleZip(zipItem);
+      if (zipItem) handleZip(zipItem.file);
       else if (loose.length) handleLoose(loose);
     }
   });

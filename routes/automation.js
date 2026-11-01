@@ -2,8 +2,10 @@ const express = require('express');
 const router = express.Router();
 const {
   getDecryptedToken,
+  performLogSync,
   resolveOperationalServers,
-  performLogSync
+  diagnoseSyncServerAccess,
+  SYNC_DRIFT_REASONS,
 } = require('../services/logSyncService');
 const { scanLogsForServer } = require('../services/logScanService');
 const { processDownloadedRestartEvidence } = require('../services/logRestartProcessingService');
@@ -43,11 +45,31 @@ router.post('/log-sync', async (req, res) => {
 
   try {
     const requestedServerIds = Array.isArray(servers) ? servers : [];
-    const authorizedServers = requestedServerIds.length > 0
+    let authorizedServers = requestedServerIds.length > 0
       ? await resolveOperationalServers(db, req.user.id, requestedServerIds)
       : [];
-    if (!authorizedServers) {
-      return res.status(403).json({ error: 'Access denied for one or more servers' });
+    let skippedServers = [];
+    if (requestedServerIds.length > 0 && !authorizedServers) {
+      // The batch resolver is fail-closed (null if ANY id is unresolvable).
+      // Diagnose each id so pure drift (server deactivated after being saved)
+      // can be dropped while permission/config problems still fail closed,
+      // and the client learns exactly which servers broke the request.
+      const diagnosis = await diagnoseSyncServerAccess(db, req.user.id, requestedServerIds);
+      const blocking = diagnosis.filter(d => d.reason !== 'operational' && !SYNC_DRIFT_REASONS.has(d.reason));
+      if (blocking.length > 0) {
+        return res.status(403).json({ success: false, error: 'Access denied for one or more servers', servers: blocking });
+      }
+      const operationalIds = requestedServerIds.filter(
+        id => diagnosis.find(d => d.serverId === String(id).trim()).reason === 'operational'
+      );
+      if (operationalIds.length === 0) {
+        return res.status(403).json({ success: false, error: 'No operable servers in selection', servers: diagnosis });
+      }
+      skippedServers = diagnosis.filter(d => d.reason !== 'operational');
+      authorizedServers = await resolveOperationalServers(db, req.user.id, operationalIds);
+      if (!authorizedServers) {
+        return res.status(403).json({ success: false, error: 'Access denied for one or more servers' });
+      }
     }
     const canonicalServerIds = authorizedServers.map(server => server.platformServerId);
     if (canonicalServerIds.length > 0 && !await getDecryptedToken(db, req.user.id, canonicalServerIds)) {
@@ -70,7 +92,9 @@ router.post('/log-sync', async (req, res) => {
       [req.user.id, settings]
     );
 
-    res.json({ success: true });
+    res.json(skippedServers.length > 0
+      ? { success: true, skippedServers }
+      : { success: true });
   } catch (err) {
     return res.status(500).json({ error: 'Failed to save settings' });
   }
@@ -130,12 +154,44 @@ router.post('/sync-now', async (req, res) => {
       });
     }
 
-    const authorizedServers = await resolveOperationalServers(db, req.user.id, requestedServerIds);
+    let authorizedServers = await resolveOperationalServers(db, req.user.id, requestedServerIds);
+    let skippedServers = [];
     if (!authorizedServers) {
-      return res.status(403).json({
-        success: false,
-        error: 'Access denied for one or more servers'
-      });
+      const diagnosis = await diagnoseSyncServerAccess(db, req.user.id, requestedServerIds);
+      const blocking = diagnosis.filter(d => d.reason !== 'operational' && !SYNC_DRIFT_REASONS.has(d.reason));
+      if (blocking.length > 0) {
+        return res.status(403).json({
+          success: false,
+          error: 'Access denied for one or more servers',
+          servers: blocking
+        });
+      }
+      const operationalIds = requestedServerIds.filter(
+        id => diagnosis.find(d => d.serverId === String(id).trim()).reason === 'operational'
+      );
+      if (operationalIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'No operable servers selected for sync',
+          servers: diagnosis
+        });
+      }
+      skippedServers = diagnosis.filter(d => d.reason !== 'operational');
+      // Self-heal the saved config so the scheduler stops choking on servers
+      // that can no longer sync (they were deactivated after being saved).
+      console.warn(`⚠️ [sync-now] user ${req.user.id}: dropping stale servers ${skippedServers.map(d => `${d.serverId} (${d.reason})`).join(', ')}`);
+      settings.servers = operationalIds;
+      await db.run(
+        'UPDATE automation_settings SET auto_log_sync = ? WHERE user_id = ?',
+        [JSON.stringify(settings), req.user.id]
+      );
+      authorizedServers = await resolveOperationalServers(db, req.user.id, operationalIds);
+      if (!authorizedServers) {
+        return res.status(403).json({
+          success: false,
+          error: 'Access denied for one or more servers'
+        });
+      }
     }
     const serverIds = authorizedServers.map(server => server.platformServerId);
     const internalServerIdByPlatformId = new Map(
@@ -244,6 +300,15 @@ router.post('/sync-now', async (req, res) => {
     if (result.errors.length > 0) {
       console.log(`   ⚠️  Errors: ${result.errors.length}`);
     }
+    if ((result.providerGlitchServerIds || []).length > 0) {
+      // Ops-visible sentinel: node-level Nitrado file-server glitch — ADM/RPT
+      // keep syncing but server.log ingestion is suspended until the node
+      // heals (distinguishable from a real missing file; audit t_ac25cb2b §4).
+      console.error(
+        `   🚨 NITRADO_PROVIDER_GLITCH (server.log ingestion suspended, ADM/RPT fine): `
+        + `${result.providerGlitchServerIds.join(', ')}`
+      );
+    }
     if (parseErrors.length > 0) {
       console.log(`   ⚠️  Parse errors: ${parseErrors.length}`);
     }
@@ -256,7 +321,11 @@ router.post('/sync-now', async (req, res) => {
       filesSkipped: result.totalFilesSkipped,
       parsedServers,
       parseErrors: parseErrors.length > 0 ? parseErrors : undefined,
-      errors: result.errors.length > 0 ? result.errors : undefined
+      errors: result.errors.length > 0 ? result.errors : undefined,
+      providerGlitchServerIds: (result.providerGlitchServerIds || []).length > 0
+        ? result.providerGlitchServerIds
+        : undefined,
+      skippedServers: skippedServers.length > 0 ? skippedServers : undefined
     });
     } finally {
       await ingestionLock.release().catch(lockErr => {

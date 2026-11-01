@@ -6,6 +6,7 @@
   <title>Task Manager - DayZ Dashboard</title>
   <link rel="stylesheet" href="/css/theme.css">
   <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="/css/components.css">
   <script src="/js/instance-config.js" defer></script>
 </head>
 <body class="bg-gray-900 text-white">
@@ -18,7 +19,7 @@
 
     <!-- Server selector -->
     <div class="bg-gray-800 p-4 rounded-lg mb-6 border border-gray-700">
-      <label class="block mb-2 font-semibold">Select Server</label>
+      <label class="block mb-2 font-semibold" for="serverSelect">Select Server</label>
       <select id="serverSelect" class="bg-gray-700 p-2 rounded w-full max-w-sm">
         <option value="">Loading servers…</option>
       </select>
@@ -47,34 +48,34 @@
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div>
-          <label class="block mb-1 text-sm font-semibold">Task Type</label>
+          <label class="block mb-1 text-sm font-semibold" for="taskType">Task Type</label>
           <select id="taskType" class="bg-gray-700 p-2 rounded w-full">
             <option value="">Select a server first…</option>
           </select>
         </div>
 
         <div>
-          <label class="block mb-1 text-sm font-semibold">Minute <span class="text-gray-400 font-normal">(0–59 or *)</span></label>
+          <label class="block mb-1 text-sm font-semibold" for="taskMinute">Minute <span class="text-gray-400 font-normal">(0–59 or *)</span></label>
           <input id="taskMinute" type="text" value="0" class="bg-gray-700 p-2 rounded w-full" placeholder="0">
         </div>
 
         <div>
-          <label class="block mb-1 text-sm font-semibold">Hour <span class="text-gray-400 font-normal">(0–23, */4, 0,6,12,18, etc.)</span></label>
+          <label class="block mb-1 text-sm font-semibold" for="taskHour">Hour <span class="text-gray-400 font-normal">(0–23, */4, 0,6,12,18, etc.)</span></label>
           <input id="taskHour" type="text" value="*" class="bg-gray-700 p-2 rounded w-full" placeholder="*">
         </div>
 
         <div>
-          <label class="block mb-1 text-sm font-semibold">Day of Month <span class="text-gray-400 font-normal">(1–31 or *)</span></label>
+          <label class="block mb-1 text-sm font-semibold" for="taskDay">Day of Month <span class="text-gray-400 font-normal">(1–31 or *)</span></label>
           <input id="taskDay" type="text" value="*" class="bg-gray-700 p-2 rounded w-full" placeholder="*">
         </div>
 
         <div>
-          <label class="block mb-1 text-sm font-semibold">Month <span class="text-gray-400 font-normal">(1–12 or *)</span></label>
+          <label class="block mb-1 text-sm font-semibold" for="taskMonth">Month <span class="text-gray-400 font-normal">(1–12 or *)</span></label>
           <input id="taskMonth" type="text" value="*" class="bg-gray-700 p-2 rounded w-full" placeholder="*">
         </div>
 
         <div>
-          <label class="block mb-1 text-sm font-semibold">Weekday <span class="text-gray-400 font-normal">(0=Sun…6=Sat or *)</span></label>
+          <label class="block mb-1 text-sm font-semibold" for="taskWeekday">Weekday <span class="text-gray-400 font-normal">(0=Sun…6=Sat or *)</span></label>
           <input id="taskWeekday" type="text" value="*" class="bg-gray-700 p-2 rounded w-full" placeholder="*">
         </div>
       </div>

@@ -663,6 +663,60 @@ function startScheduler(db) {
     }
   });
 
+  // ── Dynamic messages.xml (MVP + admin server-update messages) ─────────
+  // Hourly: regenerate the managed block of each server's messages.xml
+  // from PVP kill data (MVP of the day) + admin message; upload only when
+  // the generated content changed.
+  const dynamicMessagesService = require('./services/dynamicMessagesService');
+  const missionFileServiceForMessages = require('./services/missionFileService');
+  const nitradoServiceForMessages = require('./services/nitradoService');
+  const { getGuildTokenForExactServer } = require('./utils/guildTokens');
+
+  let dynamicMessagesRunning = false;
+  async function checkDynamicMessages() {
+    if (dynamicMessagesRunning) return;
+    dynamicMessagesRunning = true;
+    try {
+      const servers = await db.query(
+        `SELECT s.id AS server_id, s.platform_server_id, s.guild_id
+         FROM servers s
+         JOIN server_features sf ON sf.server_id = s.id
+           AND sf.feature_name = 'dynamic_messages' AND sf.enabled = 1
+         JOIN guilds g ON g.id = s.guild_id AND g.status = 'approved'
+         WHERE s.status = 'active'
+         ORDER BY s.id`
+      );
+      for (const server of (servers || [])) {
+        try {
+          const token = await getGuildTokenForExactServer(db, server.server_id, server.guild_id);
+          if (!token) {
+            console.log(`   ⚠️  [dynamic-messages] no token for server ${server.platform_server_id}; skipped`);
+            continue;
+          }
+          const result = await dynamicMessagesService.deployDynamicMessages({
+            db,
+            internalServerId: server.server_id,
+            platformServerId: server.platform_server_id,
+            token,
+            fileService: missionFileServiceForMessages,
+            nitradoService: nitradoServiceForMessages,
+            triggeredBy: 'scheduler',
+          });
+          if (result.deployed) {
+            console.log(`✅ [dynamic-messages] refreshed ${result.messagesPath} on server ${server.platform_server_id}`);
+          }
+        } catch (error) {
+          console.error(`❌ [dynamic-messages] server ${server.platform_server_id}:`, error.message);
+        }
+      }
+    } catch (error) {
+      console.error('❌ [dynamic-messages] scheduler error:', error.message);
+    } finally {
+      dynamicMessagesRunning = false;
+    }
+  }
+  cron.schedule('0 * * * *', checkDynamicMessages);
+
   console.log('   ✅ Scheduler started successfully\n');
 }
 

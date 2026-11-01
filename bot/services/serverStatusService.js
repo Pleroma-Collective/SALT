@@ -25,6 +25,12 @@ const { estimate: estimateDayZTime } = require('../../public/js/dayz-time');
 
 const { toNitradoFtpPath } = require('../utils/nitrado');
 const { createNitradoService } = require('../../services/nitradoService');
+const {
+  normalizeStatus,
+  recordSessionState,
+  shouldRefreshFunding,
+  fundedUntilMs,
+} = require('../../services/sessionStateService');
 /* eslint-disable no-unused-vars, require-atomic-updates, no-inner-declarations, no-irregular-whitespace */
 
 const nitradoService = createNitradoService();
@@ -1154,6 +1160,50 @@ async function safeEdit(fn) {
   }
 }
 
+// Funding (Nitrado suspending_in) changes on the order of days; refresh at
+// most once per 12h per service so provider call volume stays flat as the
+// server list grows. The last attempt is remembered in-process only.
+const fundingRefreshAt = new Map();
+
+/**
+ * Persist the web-visible session state (dashboard pill + player portal):
+ * provider session anchor, the scheduled restart already computed above, and
+ * — at most every 12h — the Nitrado funding (suspending_in) observation.
+ * Never throws into the Discord cycle.
+ */
+async function persistSessionState(serverDbId, token, gameserver, restartAtMs) {
+  try {
+    const status = normalizeStatus(gameserver?.status);
+    const sessionStartedAtMs = status === 'started'
+      ? providerStatusChangeMs(gameserver.last_status_change)
+      : null;
+    let fundedUntilMsObserved = null;
+    let fundingObservedAtMs = null;
+    const serviceId = gameserver?.service_id ?? gameserver?.id ?? null;
+    if (serviceId && shouldRefreshFunding(fundingRefreshAt.get(String(serverDbId)))) {
+      fundingRefreshAt.set(String(serverDbId), Date.now());
+      try {
+        const details = await nitradoService.getServiceDetails(token, serviceId);
+        const observedAtMs = Date.now();
+        fundedUntilMsObserved = fundedUntilMs(details?.suspendingIn, observedAtMs);
+        fundingObservedAtMs = fundedUntilMsObserved === null ? null : observedAtMs;
+      } catch (err) {
+        console.warn(`⚠️  session-state: funding fetch failed (server ${serverDbId}): ${err.message}`);
+      }
+    }
+    await recordSessionState(pool, {
+      serverId: serverDbId,
+      status,
+      sessionStartedAtMs,
+      nextRestartAtMs: restartAtMs,
+      fundedUntilMs: fundedUntilMsObserved,
+      fundingObservedAtMs,
+    });
+  } catch (err) {
+    console.warn(`⚠️  session-state persist failed (server ${serverDbId}): ${err.message}`);
+  }
+}
+
 /**
  * Updates the status channels for a single guild config.
  */
@@ -1193,6 +1243,10 @@ async function updateGuild(client, guildRow, { updateVoiceChannels = true } = {}
   const restartLabel = restartResult?.label || null;
   const restartAtMs  = restartResult?.restartAtMs || null;
   const serverName = resolveServerName(dbName, gameserver);
+
+  // Web indicator state (dashboard pill + player portal). Fire-and-forget:
+  // a failed upsert never blocks the Discord status cycle.
+  persistSessionState(server_db_id, token, gameserver, restartAtMs);
   
   // Fetch online player list with debugging
   const onlinePlayers = await fetchOnlinePlayers(

@@ -1,6 +1,8 @@
 'use strict';
 
 // Local HTTP regression: real router/validators/auth/audit, in-memory DB only.
+const { ensureTestEncryptionKey } = require('./lib/test-env');
+ensureTestEncryptionKey();
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const fs = require('node:fs');
@@ -14,8 +16,12 @@ const { validateGuildId } = require('../middleware/validators');
 const GUILD_ID = '1234567890123456789';
 const OTHER_GUILD_ID = '9876543210987654321';
 const ADMIN = { id: 7, username: 'Test admin', platform_role: 'dashboard_admin', is_admin: 0 };
+const SERVERS = [
+  { id: 501, name: 'Srv 1', platform_server_id: 'salty_srv_1', guild_id: 42 },
+  { id: 502, name: 'Srv 2', platform_server_id: 'salty_srv_2', guild_id: 42 }
+];
 
-function fixture({ user = ADMIN, found = true } = {}) {
+function fixture({ user = ADMIN, found = true, blockedServer = null } = {}) {
   const calls = [];
   const db = {
     async get(sql, params) {
@@ -24,9 +30,18 @@ function fixture({ user = ADMIN, found = true } = {}) {
         assert.deepEqual(params, [GUILD_ID]);
         return found ? { id: 42, name: 'Test guild' } : null;
       }
-      assert.equal(sql, 'SELECT COUNT(*) as count FROM servers WHERE guild_id = ?');
-      assert.deepEqual(params, [42]);
-      return { count: 2 };
+      if (sql === 'SELECT COUNT(*) AS count FROM shop_items WHERE server_id = ?') {
+        return { count: blockedServer === 501 ? 1 : 0 };
+      }
+      return { count: 0 };
+    },
+    async all(sql, params) {
+      calls.push({ sql, params });
+      if (sql === 'SELECT * FROM servers WHERE guild_id = ?') {
+        assert.deepEqual(params, [42]);
+        return SERVERS;
+      }
+      return [];
     },
     async transaction(callback) {
       calls.push({ transaction: true });
@@ -42,13 +57,16 @@ function fixture({ user = ADMIN, found = true } = {}) {
     },
     async run(sql, params) {
       calls.push({ sql, params, inTransaction: false });
-      assert.match(sql, /^INSERT INTO audit_log /);
-      assert.equal(params[3], 42, 'guild audit target must use the internal integer ID');
+      if (sql.startsWith('INSERT INTO audit_log')) {
+        assert.equal(params[3], 42, 'guild audit target must use the internal integer ID');
+      }
       return { changes: 1 };
     }
   };
   const app = express();
   app.locals.db = db;
+  // Isolate the route's local-file cleanup from the repo checkout
+  app.locals.downloadRoot = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'guild-del-'));
   app.use(express.json());
   app.use((req, _res, next) => {
     req.isAuthenticated = () => Boolean(user);
@@ -121,35 +139,40 @@ async function request(app, method, path, body) {
   }
 }
 
-function assertSoftDisable(calls) {
-  const writes = calls.filter(call => call.sql?.startsWith('UPDATE') || call.sql?.startsWith('INSERT'));
-  assert.equal(writes.length, 4, 'guild/server deactivation, leave job, and audit writes');
-  assert.match(writes[0].sql, /UPDATE guilds\s+SET status = 'disabled'/);
-  assert.match(writes[0].sql, /WHERE discord_guild_id = \?/);
-  assert.deepEqual(writes[0].params, [ADMIN.id, GUILD_ID]);
-  assert.equal(writes[0].inTransaction, true);
-  assert.equal(writes[1].sql, "UPDATE servers SET status = 'inactive' WHERE guild_id = ? AND status = 'active'");
-  assert.deepEqual(writes[1].params, [42]);
-  assert.equal(writes[1].inTransaction, true);
-  assert.match(writes[2].sql, /INSERT INTO discord_guild_leave_jobs/);
-  assert.match(writes[2].sql, /ON CONFLICT \(discord_guild_id\) DO UPDATE SET/);
-  assert.match(writes[2].sql, /status = 'pending', attempts = 0, next_attempt_at = NOW\(\)/);
-  assert.deepEqual(writes[2].params, [GUILD_ID]);
-  assert.equal(writes[2].inTransaction, true);
-  assert.deepEqual(writes[3].params, [ADMIN.id, 'REMOVE_GUILD', 'guild', 42,
-    JSON.stringify({ guildName: 'Test guild', discordGuildId: GUILD_ID, serversAffected: 2 })]);
-  assert.equal(writes[3].inTransaction, true);
-  assert.equal(calls.filter(call => call.transaction).length, 1);
-  assert.equal(calls.some(call => /^DELETE\b/.test(call.sql || '')), false);
+function assertRealDeletion(calls) {
+  // 2 GUC transactions (one per server, economy assessments) + 1 deletion transaction
+  assert.equal(calls.filter(call => call.transaction).length, 3, 'per-server GUC txs + deletion tx');
+  const main = calls.filter(call => call.inTransaction === true &&
+    (call.sql?.startsWith('INSERT INTO discord_guild_leave_jobs') ||
+     call.sql === 'DELETE FROM guilds WHERE id = ?' ||
+     (call.sql?.startsWith('INSERT INTO audit_log') && call.params?.[1] === 'REMOVE_GUILD')));
+  assert.equal(main.length, 3, 'leave job, guild row, audit — exactly one write each');
+  const leave = main.find(call => call.sql.startsWith('INSERT INTO discord_guild_leave_jobs'));
+  assert.match(leave.sql, /ON CONFLICT \(discord_guild_id\) DO UPDATE SET/);
+  assert.match(leave.sql, /status = 'pending', attempts = 0, next_attempt_at = NOW\(\)/);
+  assert.deepEqual(leave.params, [GUILD_ID]);
+  assert.deepEqual(main.find(call => call.sql === 'DELETE FROM guilds WHERE id = ?').params, [42]);
+  assert.deepEqual(main.find(call => call.sql.startsWith('INSERT INTO audit_log')).params,
+    [ADMIN.id, 'REMOVE_GUILD', 'guild', 42,
+     JSON.stringify({ guildName: 'Test guild', discordGuildId: GUILD_ID, serversRemoved: 2, removedDirs: [] })]);
+  // pointer cleanup preserves surviving records instead of destroying them
+  const pointerWrites = calls.filter(call => call.inTransaction === false && call.sql?.startsWith('UPDATE'));
+  assert.equal(pointerWrites.length, 2, 'account links and audit events get null pointers');
+  assert.match(pointerWrites[0].sql, /UPDATE linked_accounts SET verified_by_guild_id = NULL/);
+  assert.deepEqual(pointerWrites[0].params, [42]);
+  assert.match(pointerWrites[1].sql, /UPDATE security_audit_events SET guild_id = NULL/);
+  assert.deepEqual(pointerWrites[1].params, [42]);
+  // no soft-disable writes remain anywhere
+  assert.ok(!calls.some(call => /UPDATE guilds\s+SET status/.test(call.sql || '')), 'no soft-disable writes');
 }
 
-test('dashboard bodyless DELETE validates the URL guild ID and soft-disables that guild', async () => {
+test('dashboard bodyless DELETE validates the URL guild ID and real-deletes that guild', async () => {
   const { app, calls } = fixture();
   const result = await request(app, 'DELETE', `/api/admin/guilds/${GUILD_ID}`);
   assert.equal(result.status, 200, JSON.stringify(result.body));
   assert.equal(result.body.success, true);
-  assert.equal(result.body.serversAffected, 2);
-  assertSoftDisable(calls);
+  assert.equal(result.body.serversRemoved, 2);
+  assertRealDeletion(calls);
 });
 
 test('DELETE ignores conflicting body and query IDs when targeting a valid URL', async () => {
@@ -157,7 +180,16 @@ test('DELETE ignores conflicting body and query IDs when targeting a valid URL',
   const result = await request(app, 'DELETE', `/api/admin/guilds/${GUILD_ID}?guildId=${OTHER_GUILD_ID}`,
     { guildId: OTHER_GUILD_ID });
   assert.equal(result.status, 200, JSON.stringify(result.body));
-  assertSoftDisable(calls);
+  assertRealDeletion(calls);
+});
+
+test('a linked server with live data blocks the guild delete with zero writes', async () => {
+  const { app, calls } = fixture({ blockedServer: 501 });
+  const result = await request(app, 'DELETE', `/api/admin/guilds/${GUILD_ID}`);
+  assert.equal(result.status, 409, JSON.stringify(result.body));
+  assert.match(result.body.error, /server Srv 1 still has data in shop_items/);
+  assert.ok(calls.every(call => !call.write && !call.inTransaction), 'blocked delete must not write');
+  assert.ok(!calls.some(call => call.transaction), 'blocked delete must not open a transaction');
 });
 
 for (const guildId of ['invalid', '1234567890123456', '12345678901234567890',

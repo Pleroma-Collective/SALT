@@ -192,9 +192,11 @@ function promptRestore(type, payload) {
   document.getElementById('confirmModalMsg').innerHTML = `You are about to restore the ${label}.`;
   document.getElementById('confirmModal').classList.remove('hidden');
   document.getElementById('confirmModalYes').onclick = executeRestore;
+  window.DzcOverlayFocus.open(document.getElementById('confirmModal'), { onClose: closeModal });
 }
 
 function closeModal() {
+  window.DzcOverlayFocus.close(document.getElementById('confirmModal'));
   pendingRestore = null;
   document.getElementById('confirmModal').classList.add('hidden');
 }

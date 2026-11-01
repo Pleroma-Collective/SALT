@@ -26,6 +26,11 @@ db/*.sql.dump
 data/
 data/*.db
 data/sessions.db
+# Static source config tracked in git (roadmap P1 holiday windows);
+# everything else under public/data/ stays ignored.
+!public/data/
+public/data/*
+!public/data/holiday-windows.json
 
 # Downloads
 downloads/
@@ -66,3 +71,6 @@ coverage/
 .LSOverride
 shady.sarif
 .hermes/
+
+# node_modules symlinks (local workspaces link to the main checkout)
+node_modules

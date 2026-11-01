@@ -246,9 +246,11 @@ function showConfirmModal(action, guild) {
   
   pendingAction = { action, guildId: guild.guild_id };
   modal.classList.remove('hidden');
+  window.DzcOverlayFocus.open(modal, { onClose: closeModal, focusEl: reasonInput });
 }
 
 function closeModal() {
+  window.DzcOverlayFocus.close(document.getElementById('confirmModal'));
   document.getElementById('confirmModal').classList.add('hidden');
   document.getElementById('actionReason').value = '';
   pendingAction = null;

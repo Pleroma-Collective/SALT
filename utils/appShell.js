@@ -94,6 +94,8 @@ const OWNER_NAV = [
   { title: 'Server', items: [
     { label: 'Control', href: '/dashboard/server-control', icon: 'control' },
     { label: 'Stats', href: '/dashboard/server-stats', icon: 'stats' },
+    { label: 'Deaths & PVP', href: '/dashboard/death-causes', icon: 'stats' },
+    { label: 'Event Rates', href: '/dashboard/dynamic-event-rates', icon: 'activity' },
     { label: 'Automation', href: '/dashboard/automation', icon: 'automation' },
     { label: 'Rotation', href: '/dashboard/rotation', icon: 'rotation' },
     { label: 'Backups', href: '/dashboard/backups', icon: 'backups' },
@@ -106,8 +108,7 @@ const OWNER_NAV = [
     { label: 'Roles', href: '/dashboard/roles', icon: 'roles' },
   ] },
   { title: 'World', items: [
-    { label: 'Map', href: '/map', icon: 'map' },
-    { label: 'Loot Finder', href: '/loot-finder', icon: 'loot' },
+    { label: 'Map & Loot', href: '/map', icon: 'map' },
     { label: 'Exclusions', href: '/dashboard/spawn-exclusions', icon: 'shield' },
   ] },
   { title: 'System', items: [
@@ -116,8 +117,8 @@ const OWNER_NAV = [
     { label: 'Tasks', href: '/dashboard/tasks', icon: 'tasks' },
     { label: 'Feeds', href: '/dashboard/feeds', icon: 'feeds' },
     { label: 'AI Assistant', href: '/dashboard/ai-assistant', icon: 'ai' },
-    { label: 'Settings', href: '/dashboard/settings', icon: 'settings' },
-    { label: 'Tools (Coming Soon)', dimmed: true, icon: 'tools' },
+    { label: 'Nitrado Server Settings', href: '/dashboard/settings', icon: 'settings' },
+    { label: 'Tools', href: '/tools', icon: 'tools' },
   ] },
 ];
 
@@ -126,10 +127,14 @@ const ADMIN_NAV = [
     { label: 'Dashboard', href: '/dashboard', icon: 'overview' },
   ] },
   { title: 'Platform', items: [
-    { label: 'Guilds', href: '/admin/guilds', icon: 'guilds' },
-    { label: 'Approvals', href: '/admin/guilds-approval', icon: 'shield' },
-    { label: 'Servers', href: '/admin/servers', icon: 'server' },
-    { label: 'Users', href: '/admin/users', icon: 'users' },
+    { label: 'Discord Server Management', href: '/admin/guilds', icon: 'guilds' },
+    { label: 'Bot Config', href: '/admin/bot-config', icon: 'control' },
+    { label: 'Zones', href: '/admin/zones', icon: 'map' },
+    { label: 'Faction War', href: '/admin/faction-war', icon: 'map' },
+    { label: 'Guild Management', href: '/admin/guilds-approval', icon: 'shield' },
+    { label: 'All Servers', href: '/admin/servers', icon: 'server' },
+    { label: 'Holidays', href: '/admin/holiday-events', icon: 'calendar' },
+    { label: 'Scoped Role Management', href: '/admin/users', icon: 'users' },
     { label: 'Audit', href: '/admin/audit', icon: 'audit' },
     { label: 'Reports', href: '/admin/reports', icon: 'reports' },
     { label: 'Supply', href: '/admin/supply-monitor', icon: 'supply' },
@@ -138,7 +143,7 @@ const ADMIN_NAV = [
     { label: 'Theme', href: '/admin/theme', icon: 'theme' },
   ] },
   { title: 'System', items: [
-    { label: 'Tools (Coming Soon)', dimmed: true, icon: 'tools' },
+    { label: 'Tools', href: '/tools', icon: 'tools' },
   ] },
 ];
 
@@ -325,6 +330,8 @@ function contextPillHtml(ctx) {
           <span class="dzc-pill-players"></span>
           <span class="dzc-pill-sep" aria-hidden="true">·</span>
           <span class="dzc-pill-sync"></span>
+          <span class="dzc-pill-sep" aria-hidden="true">·</span>
+          <span class="dzc-pill-session"></span>
         </span>
       </div>`;
 }
@@ -335,12 +342,23 @@ function hamburgerHtml() {
       </button>`;
 }
 
+function searchTriggerHtml() {
+  // Visible Ctrl/Cmd+K affordance in the shell topbar (palette itself is
+  // client-side-only, public/js/command-palette.js).
+  return `      <button type="button" class="dzc-cmdk-trigger" data-cmdk-trigger aria-label="Search pages (Ctrl+K)">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></svg>
+        <span class="dzc-cmdk-trigger-text">Search</span>
+        <kbd>Ctrl</kbd><kbd>K</kbd>
+      </button>`;
+}
+
 function topbarHtml(surface, crumbs, ctx, contentClass) {
   const extra = contentClass ? ` ${contentClass}` : '';
   return `  <div class="dzc-shell-main">
     <header class="dzc-shell-topbar" data-surface="${esc(surface)}">
 ${hamburgerHtml()}
 ${breadcrumbHtml(crumbs)}
+${searchTriggerHtml()}
 ${contextPillHtml(ctx)}
     </header>
     <main class="dzc-shell-content${extra}">`;

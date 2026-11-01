@@ -41,26 +41,41 @@ function testMeasuredVanillaMapDefinitions() {
     'unverified maps must preserve their existing renderer extent');
 
   // Nasdara (DayZ 1.30): world extent from the navmesh (327 x 327 cells @ 50.0
-  // = 16350); 43x43 NON-overlapping terrain tiles placed edge-to-edge (512).
+  // = 16350). Source is the 43x43 lco atlas; the playable world is the 0..31
+  // corner, so the grid is 32x32 of raw 512px cells, 512px advancement (no
+  // overlap — the source cells are non-overlapping, unlike the legacy maps).
+  // Each tile file is a 1:1 source copy cross-faded at the 8px seam window.
   const nasdara = coordinates.getMapDefinition('nasdara');
   assert.strictEqual(nasdara.id, 'nasdara');
   assert.strictEqual(nasdara.name, 'Nasdara');
-  assert.strictEqual(nasdara.gridSize, 46);
-  assert.strictEqual(nasdara.physicalTileSize, 512);
-  assert.strictEqual(nasdara.tileAdvancement, 480,
-    'nasdara tiles carry the standard 32px bleed (re-sliced from the 22016 game canvas)');
-  assert.strictEqual(nasdara.tileOverlap, 32);
-  assert.strictEqual(nasdara.worldWidth, 16350, 'nasdara world extent = 327 navmesh cells * 50.0');
-  assert.strictEqual(nasdara.worldHeight, 16350);
-  assert.strictEqual(nasdara.imageWidth, 22112, 'nasdara image = 45 * 480 + 512 (46-tile bleed grid)');
-  assert.strictEqual(nasdara.imageHeight, 22112);
-  assert.strictEqual(nasdara.verifiedGeometry, false,
-    'nasdara geometry must stay flagged unverified until a calibration pass lands');
-  assert.deepStrictEqual(coordinates.tileFileCoordinates(0, 0, 'nasdara'), { x: 0, y: 45 },
-    'nasdara tile file-y must flip on the 46-grid');
-  assert.deepStrictEqual(coordinates.tileFileCoordinates(45, 45, 'nasdara'), { x: 45, y: 0 });
-  assert.strictEqual(coordinates.tileFileCoordinates(46, 0, 'nasdara'), null,
-    'tile indices outside the 46-grid must be rejected');
+  assert.strictEqual(nasdara.gridSize, 43,
+    'nasdara ships the full 43x43 atlas (it IS the world, not a corner)');
+  assert.strictEqual(nasdara.physicalTileSize, 512,
+    'nasdara tiles are raw 512px source cells');
+  assert.strictEqual(nasdara.tileAdvancement, 384,
+    'nasdara source cells overlap by 128px, so the grid advances 384, not 512');
+  assert.strictEqual(nasdara.tileOverlap, 128);
+  assert.strictEqual(nasdara.worldWidth, 16384, 'nasdara playable world extent (map raster / killfeed; navmesh is 16350)');
+  assert.strictEqual(nasdara.worldHeight, 16384);
+  assert.strictEqual(nasdara.imageWidth, 16640, 'nasdara image = 42 * 384 + 512 = 43 overlapping 512px cells');
+  assert.strictEqual(nasdara.imageHeight, 16640);
+  assert.strictEqual(nasdara.contentWidth, 16640,
+    'nasdara content extent equals its image extent (no clamped bleed band)');
+  assert.strictEqual(nasdara.contentHeight, 16640);
+  for (const legacy of ['chernarusplus', 'enoch', 'sakhal', 'namalsk', 'takistanplus']) {
+    const legacyMap = coordinates.getMapDefinition(legacy);
+    assert.strictEqual(legacyMap.contentWidth, legacyMap.imageWidth,
+      `${legacy} content extent must equal its image extent (no behavior change)`);
+    assert.strictEqual(legacyMap.contentHeight, legacyMap.imageHeight,
+      `${legacy} content extent must equal its image extent (no behavior change)`);
+  }
+  assert.strictEqual(nasdara.verifiedGeometry, true,
+    'nasdara geometry verified 2026-10-18: areaflags orientation (56-57 separation) + game-asset cross-match (S_020_020_lco at canvas [10240,10752)^2, 0.0000 mismatch); 2026-10-22: 128px overlap both directions, max diff 0.0 over all 3444 adjacent pairs at the 384 advance, full 43x43 atlas = world');
+  assert.deepStrictEqual(coordinates.tileFileCoordinates(0, 0, 'nasdara'), { x: 0, y: 42 },
+    'nasdara tile file-y must flip on the 43-grid (file row 0 = north)');
+  assert.deepStrictEqual(coordinates.tileFileCoordinates(42, 42, 'nasdara'), { x: 42, y: 0 });
+  assert.strictEqual(coordinates.tileFileCoordinates(43, 0, 'nasdara'), null,
+    'tile indices outside the 43-grid must be rejected');
 }
 
 function testWorldLeafletTransformAndInverse() {
@@ -73,6 +88,34 @@ function testWorldLeafletTransformAndInverse() {
   const world = coordinates.leafletToWorld({ lat: leaflet[0], lng: leaflet[1] }, 'chernarusplus');
   approx(world.east, 4485.4);
   approx(world.north, 9763.8);
+}
+
+function testNasdaraContentExtentTransforms() {
+  // Nasdara is calibrated 1:1 (pixelScale = 1) with a constant offset
+  // (east -65, north -193), measured against an in-game ground-truth point —
+  // its 256px edge bleed means the world is NOT a uniform-scale map of the
+  // 16640px image. World [0,16384] -> leaflet: lat = north + 193, lng = east + 65.
+  const se = coordinates.worldToLeaflet({ east: 16384, north: 16384 }, 'nasdara');
+  approx(se[0], 16384 + 193, 1e-9, 'world SE north must land at lat 16577');
+  approx(se[1], 16384 + 65, 1e-9, 'world SE east must land at lng 16449');
+
+  const mid = coordinates.worldToLeaflet({ east: 8000, north: 8000 }, 'nasdara');
+  approx(mid[0], 8000 + 193, 1e-9);
+  approx(mid[1], 8000 + 65, 1e-9);
+
+  const roundTripped = coordinates.leafletToWorld({ lat: mid[0], lng: mid[1] }, 'nasdara');
+  approx(roundTripped.east, 8000, 1e-9);
+  approx(roundTripped.north, 8000, 1e-9);
+
+  // In-game ground-truth anchor (izurvive): the leaflet position that read
+  // (8464, 8662) under the old uniform scale must now read (8549, 8623).
+  const anchor = coordinates.leafletToWorld({ lat: 8815.68, lng: 8614.13 }, 'nasdara');
+  approx(anchor.east, 8549, 1.5);
+  approx(anchor.north, 8623, 1.5);
+
+  approx(coordinates.pixelsPerWorldUnit('nasdara'), 1, 1e-9);
+  approx(coordinates.pixelsPerWorldUnit('enoch'), 15392 / 12800, 1e-9,
+    'legacy maps keep their existing pixels-per-world scale');
 }
 
 function testSourceAdaptersKeepAdmAndWorldVectorsDistinct() {
@@ -106,8 +149,8 @@ function testTileBoundsUseMeasuredAdvancementAndPhysicalSize() {
 function testEveryMapPageLoadsTheCentralCoordinateModuleFirst() {
   const pages = [
     ['public/map.html', '/js/map.js'],
+    ['public/map.html', '/js/map-loot-layer.js'],
     ['public/player-map.html', '/js/player-map-standalone.js'],
-    ['public/loot-finder.html', '/js/loot-finder.js'],
     ['public/shop.html', '/js/shop.js'],
   ];
   for (const [pagePath, consumer] of pages) {
@@ -184,7 +227,7 @@ function testRenderersUseTheCentralTransformWithoutLegacyVanillaGeometry() {
     'public/js/map.js',
     'public/js/player-map-standalone.js',
     'public/js/player-map.js',
-    'public/js/loot-finder.js',
+    'public/js/map-loot-layer.js',
     'public/js/shop.js',
   ]) {
     const source = read(relativePath);
@@ -253,7 +296,7 @@ function testRenderersUseTheCentralTransformWithoutLegacyVanillaGeometry() {
     /if \(playerDataRequestInFlight\)[\s\S]{0,500}pendingPlayerDataLoad = \{ identityId, options, mapName, serverId \};[\s\S]*finally \{[\s\S]{0,500}loadPlayerData\(pending\.identityId, pending\.options\)/,
     'an in-flight request must queue the latest replacement load for a new terrain');
 
-  const lootFinder = read('public/js/loot-finder.js');
+  const lootFinder = read('public/js/map-loot-layer.js');
   assert.match(lootFinder, /let lootContextGeneration = 0;/,
     'loot finder must track terrain/server context across asynchronous work');
   assert.match(lootFinder,
@@ -269,7 +312,7 @@ function testRenderersUseTheCentralTransformWithoutLegacyVanillaGeometry() {
     /await loadCategories\(mapName, generation\);\s*if \(generation !== lootContextGeneration \|\| mapName !== currentMapName\) return;/,
     'terrain changes must guard the category-load boundary before starting a search');
   assert.match(lootFinder,
-    /function clearLootContextUi\(\)[\s\S]{0,600}clearElement\(dom\.itemList\)[\s\S]{0,300}renderEmptyItemDetail\(\)[\s\S]{0,400}populateSelect\(dom\.filterCategory, \[\], 'All categories'\)/,
+    /function clearLootContextUi\(\)[\s\S]{0,600}clearElement\(dom\.lootItemList\)[\s\S]{0,300}renderEmptyItemDetail\(\)[\s\S]{0,400}populateSelect\(dom\.lootFilterCategory, \[\], 'All categories'\)/,
     'server and terrain changes must immediately clear item, detail, marker, and filter state');
   assert.match(lootFinder,
     /function clearLiveContextUi\(\)[\s\S]{0,500}renderLiveEconomyHealth\(null\)[\s\S]{0,200}renderLiveCandidates\(\[\]\)[\s\S]{0,200}renderLiveSpawnFeed\(\[\]\)/,
@@ -278,14 +321,14 @@ function testRenderersUseTheCentralTransformWithoutLegacyVanillaGeometry() {
     /function clearLiveContextUi\(\)[\s\S]{0,500}dom\.liveLastUpdated\.textContent = ''/,
     'context clearing must remove the previous server timestamp immediately');
   assert.match(lootFinder,
-    /function handleServerSelectorChange\(\)[\s\S]{0,250}clearLootContextUi\(\)[\s\S]{0,100}clearLiveContextUi\(\)/,
+    /function onServerChange\(serverId\)[\s\S]{0,250}clearLootContextUi\(\)[\s\S]{0,100}clearLiveContextUi\(\)/,
     'server selection must clear previous-server finder and live data before discovery awaits');
   assert.match(lootFinder,
-    /function handleMapSelectorChange\(\)[\s\S]{0,250}clearLootContextUi\(\)[\s\S]{0,100}clearLiveContextUi\(\)/,
+    /function onMapChange\(mapName\)[\s\S]{0,250}clearLootContextUi\(\)[\s\S]{0,100}clearLiveContextUi\(\)/,
     'terrain selection must clear previous-terrain finder and live data before category loading');
   assert.match(lootFinder,
-    /function handleServerSelectorChange\(\)[\s\S]*?triggerSearch\(\);\s*if \(isAdmin && !dom\.panelLive\.classList\.contains\('hidden'\)\) \{\s*refreshLivePanel\(\)/,
-    'server selection must refresh an open live panel after the new context loads');
+    /function onMapChange\(mapName\)[\s\S]*?triggerSearch\(\);[\s\S]{0,200}if \(isAdmin\) \{[\s\S]{0,50}refreshLivePanel\(\)/,
+    'terrain selection must refresh the admin live panel after the new context loads');
   assert.match(lootFinder,
     /let searchRequestId = 0;[\s\S]*let liveRequestId = 0;/,
     'same-context search and live requests must have independent ordering identities');
@@ -433,9 +476,33 @@ async function testPlayerMapQueuesLatestContextAcrossRapidTerrainSwitches() {
     'the latest replacement request must clear the loading overlay');
 }
 
+function testXamCalibrationPoints() {
+  // The XAM (dayz.xam.nu 1.29-7) reference points confirm chernarus/enoch/sakhal
+  // use the exact uniform-scale, zero-offset transform (least-squares fit
+  // residual < 0.01 world units, sub-centimetre). Locks that calibration in so
+  // a future transform change that would silently shift these maps fails here.
+  const data = JSON.parse(read('scripts/coordinate-calibration-points.json'));
+  let checked = 0;
+  for (const entry of data.maps) {
+    const def = coordinates.getMapDefinition(entry.id);
+    for (const p of entry.points) {
+      const world = coordinates.leafletToWorld(
+        { lat: def.contentHeight - p.pixel.y, lng: p.pixel.x },
+        entry.id
+      );
+      approx(world.east, p.world.x, 0.5, `${entry.id} east @ ${p.label}`);
+      approx(world.north, p.world.z, 0.5, `${entry.id} north @ ${p.label}`);
+      checked++;
+    }
+  }
+  assert.ok(checked >= 30, `expected 30+ calibration points, checked ${checked}`);
+}
+
 async function main() {
   testMeasuredVanillaMapDefinitions();
   testWorldLeafletTransformAndInverse();
+  testNasdaraContentExtentTransforms();
+  testXamCalibrationPoints();
   testSourceAdaptersKeepAdmAndWorldVectorsDistinct();
   testTileBoundsUseMeasuredAdvancementAndPhysicalSize();
   testEveryMapPageLoadsTheCentralCoordinateModuleFirst();

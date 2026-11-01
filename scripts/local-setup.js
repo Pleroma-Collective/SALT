@@ -22,6 +22,7 @@ function createLocalEnvironment(options = {}) {
   content = replaceEmptySetting(content, 'SESSION_SECRET', crypto.randomBytes(32).toString('hex'));
   content = replaceEmptySetting(content, 'ENCRYPTION_KEY', crypto.randomBytes(32).toString('hex'));
   content = replaceEmptySetting(content, 'POSTGRES_PASSWORD', crypto.randomBytes(32).toString('base64url'));
+  content = replaceEmptySetting(content, 'TEST_ADMIN_TOKEN', crypto.randomBytes(24).toString('base64url'));
 
   fs.writeFileSync(targetPath, content, { encoding: 'utf8', flag: 'wx', mode: 0o600 });
   return targetPath;

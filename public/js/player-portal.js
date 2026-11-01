@@ -5,6 +5,25 @@ let selectedAccount = null;
 let selectedServer = null;
 let currentIdentityId = null;
 let currentEconomyServerId = null;
+
+/* Overlay focus (card t_6cca8223): this page's modals use the shared helper —
+   open captures the trigger, close releases it and returns focus there. */
+function closeDepositModalUI() {
+  window.DzcOverlayFocus.close(document.getElementById('depositModal'));
+  document.getElementById('depositModal').classList.add('hidden');
+}
+function closeWithdrawModalUI() {
+  window.DzcOverlayFocus.close(document.getElementById('withdrawModal'));
+  document.getElementById('withdrawModal').classList.add('hidden');
+}
+function closeTransferModalUI() {
+  window.DzcOverlayFocus.close(document.getElementById('transferModal'));
+  document.getElementById('transferModal').classList.add('hidden');
+}
+function closeTransferHistoryModalUI() {
+  window.DzcOverlayFocus.close(document.getElementById('transferHistoryModal'));
+  document.getElementById('transferHistoryModal').classList.add('hidden');
+}
 // Stats sub-sections reachable from the shell nav (card 7/9). Keyed by nav
 // section name -> element id of the sub-section inside #my-stats.
 const STAT_SUBSECTIONS = {
@@ -146,6 +165,36 @@ function loadGuilds() {
     });
 }
 
+/**
+ * Session / funding line for a guild card (card t_c1de9125):
+ * "⏱ Session 3h 12m · ↻ Restart in 1h 48m · 💳 Funded 23d".
+ * Unknown segments are shown as dashes, never invented.
+ */
+function formatSessionLine(server) {
+  const now = Date.now();
+  const parts = [];
+  if (server.sessionStartedAt) {
+    const upMs = now - new Date(server.sessionStartedAt).getTime();
+    if (Number.isFinite(upMs) && upMs >= 0) {
+      parts.push(`⏱ Session ${formatDuration(Math.floor(upMs / 1000))}`);
+    }
+  }
+  if (server.nextRestartAt) {
+    const leftMs = new Date(server.nextRestartAt).getTime() - now;
+    if (Number.isFinite(leftMs)) {
+      parts.push(leftMs > 0
+        ? `↻ Restart in ${formatDuration(Math.floor(leftMs / 1000))}`
+        : leftMs > -30 * 60 * 1000
+          ? '↻ Restarting…'
+          : '');
+    }
+  }
+  parts.push(server.fundedUntil
+    ? `💳 Funded ${Number(server.daysFunded) || 0}d`
+    : '💳 Funded —');
+  return parts.join(' · ');
+}
+
 function displayGuilds(guilds) {
   const html = `
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -164,6 +213,7 @@ function displayGuilds(guilds) {
           <div class="flex justify-between text-sm text-gray-400">
             <span>👥 ${guild.player_count || 0} player${guild.player_count !== 1 ? 's' : ''}</span>
           </div>
+          <div class="mt-2 text-xs text-gray-500">${escHtml(formatSessionLine(server))}</div>
         </div>
       `)).join('')}
     </div>
@@ -512,9 +562,11 @@ function showLinkModal(accountId, gamertag, platform, serverId) {
     <p class="text-sm text-gray-400">Platform: ${safePlatform.innerHTML}</p>
   `;
   document.getElementById('linkModal').classList.remove('hidden');
+  window.DzcOverlayFocus.open(document.getElementById('linkModal'), { onClose: closeLinkModal });
 }
 
 function closeLinkModal() {
+  window.DzcOverlayFocus.close(document.getElementById('linkModal'));
   selectedAccount = null;
   selectedServer = null;
   document.getElementById('linkModal').classList.add('hidden');
@@ -2453,6 +2505,7 @@ function setupEconomyModals() {
     document.getElementById('depositAmount').value = '';
     document.getElementById('depositFeeInfo').classList.add('hidden');
     depositModal.classList.remove('hidden');
+    window.DzcOverlayFocus.open(depositModal, { onClose: closeDepositModalUI });
   });
 
   withdrawBtn.addEventListener('click', function() {
@@ -2463,14 +2516,15 @@ function setupEconomyModals() {
     document.getElementById('withdrawAmount').value = '';
     document.getElementById('withdrawFeeInfo').classList.add('hidden');
     withdrawModal.classList.remove('hidden');
+    window.DzcOverlayFocus.open(withdrawModal, { onClose: closeWithdrawModalUI });
   });
 
   document.getElementById('cancelDepositBtn').addEventListener('click', () => {
-    depositModal.classList.add('hidden');
+    closeDepositModalUI();
   });
 
   document.getElementById('cancelWithdrawBtn').addEventListener('click', () => {
-    withdrawModal.classList.add('hidden');
+    closeWithdrawModalUI();
   });
 
   document.getElementById('depositAmount').addEventListener('input', function() {
@@ -2492,7 +2546,7 @@ function setupEconomyModals() {
     try {
       const data = await performDeposit(currentIdentityId, amount);
       if (data.success) {
-        depositModal.classList.add('hidden');
+        closeDepositModalUI();
         await loadEconomy(currentIdentityId);
         const economyTabEl = document.getElementById('economy-tab');
         if (economyTabEl && economyTabEl.style.display !== 'none') {
@@ -2521,7 +2575,7 @@ function setupEconomyModals() {
     try {
       const data = await performWithdraw(currentIdentityId, amount);
       if (data.success) {
-        withdrawModal.classList.add('hidden');
+        closeWithdrawModalUI();
         await loadEconomy(currentIdentityId);
         const economyTabEl = document.getElementById('economy-tab');
         if (economyTabEl && economyTabEl.style.display !== 'none') {
@@ -2820,11 +2874,12 @@ function setupTransferModal() {
     }
 
     transferModal.classList.remove('hidden');
+    window.DzcOverlayFocus.open(transferModal, { onClose: closeTransferModalUI });
   });
 
   // Cancel transfer
   document.getElementById('cancelTransfer').addEventListener('click', () => {
-    transferModal.classList.add('hidden');
+    closeTransferModalUI();
   });
 
   // Clear recipient
@@ -2873,7 +2928,7 @@ function setupTransferModal() {
     try {
       const data = await performTransfer(currentIdentityId, selectedTransferRecipient.identityId, amount, message || null);
       if (data.success) {
-        transferModal.classList.add('hidden');
+        closeTransferModalUI();
         await loadEconomy(currentIdentityId);
         const economyTabEl = document.getElementById('economy-tab');
         if (economyTabEl && economyTabEl.style.display !== 'none') {
@@ -2911,12 +2966,13 @@ function setupTransferModal() {
   if (viewHistoryBtn) {
     viewHistoryBtn.addEventListener('click', () => {
       transferHistoryModal.classList.remove('hidden');
+      window.DzcOverlayFocus.open(transferHistoryModal, { onClose: closeTransferHistoryModalUI });
       setHistoryFilter('all');
     });
   }
 
   document.getElementById('closeTransferHistory').addEventListener('click', () => {
-    transferHistoryModal.classList.add('hidden');
+    closeTransferHistoryModalUI();
   });
 
   document.getElementById('filterAll').addEventListener('click', () => setHistoryFilter('all'));
@@ -3225,6 +3281,7 @@ function setupEconomyTabButtons() {
       document.getElementById('depositAmount').value = '';
       document.getElementById('depositFeeInfo').classList.add('hidden');
       depositModal.classList.remove('hidden');
+      window.DzcOverlayFocus.open(depositModal, { onClose: closeDepositModalUI });
     });
   }
 
@@ -3237,6 +3294,7 @@ function setupEconomyTabButtons() {
       document.getElementById('withdrawAmount').value = '';
       document.getElementById('withdrawFeeInfo').classList.add('hidden');
       withdrawModal.classList.remove('hidden');
+      window.DzcOverlayFocus.open(withdrawModal, { onClose: closeWithdrawModalUI });
     });
   }
 
@@ -3271,6 +3329,7 @@ function setupEconomyTabButtons() {
       }
 
       transferModal.classList.remove('hidden');
+      window.DzcOverlayFocus.open(transferModal, { onClose: closeTransferModalUI });
     });
   }
 
@@ -3454,9 +3513,9 @@ function openPlayerMap() {
     return;
   }
 
-  const mapName = 'chernarusplus'; // standalone page default; user can switch there
+  // No mapName here: the standalone page defaults to the server's currently
+  // configured map (a ?mapName= link param still overrides it).
   let url = '/player-map?identityId=' + encodeURIComponent(currentIdentityId) +
-            '&mapName=' + encodeURIComponent(mapName) +
             '&serverId=' + encodeURIComponent(currentServerId);
 
   // If the player is in a faction, pass faction context so the map can show

@@ -1,5 +1,5 @@
 /* =====================================================================
- * DayZ Toolkit — client-side tools.
+ * DayZ Toolkit — client-side tools (card t_0743c982).
  * Colors are --dzc-* theme tokens so pages track the active theme;
  * the toolkit ships its own fallbacks so it renders before any theme.
  * ===================================================================== */
@@ -94,7 +94,35 @@ body.tk-page {
   margin-bottom: 12px;
 }
 .tk-dropzone.tk-dragging { border-color: var(--dzc-accent); background: var(--dzc-surface); }
+.tk-dropzone-title { margin: 0; font-size: 14px; color: var(--dzc-text); }
 .tk-drophint { font-size: 12px; color: var(--dzc-text-faint); margin: 4px 0 0; }
+
+/* Progress indicator (shared by all file-processing tools) */
+.tk-progress { margin: 4px 0 12px; }
+.tk-progress-label { font-size: 12px; color: var(--dzc-text-muted); }
+.tk-progress-track {
+  height: 6px;
+  background: var(--dzc-bg-tint);
+  border: 1px solid var(--dzc-border);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.tk-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--dzc-accent);
+  border-radius: 999px;
+  transition: width 0.15s ease;
+}
+.tk-progress-track.tk-progress-busy .tk-progress-fill {
+  width: 40%;
+  animation: tk-progress-slide 1.2s ease-in-out infinite;
+}
+@keyframes tk-progress-slide {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(275%); }
+}
 
 .tk-paste-row { display: flex; gap: 8px; margin-top: 12px; }
 .tk-paste {
@@ -159,6 +187,35 @@ body.tk-page {
 .tk-msg { color: var(--dzc-text-muted); }
 
 .tk-summary-line { color: var(--dzc-text-muted); font-size: 14px; }
+
+/* Pass/fail banner — top of every results area */
+.tk-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--dzc-radius-md);
+  margin-bottom: 14px;
+  border: 1px solid var(--dzc-border);
+  background: var(--dzc-surface);
+}
+.tk-banner-status { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; }
+.tk-banner-text { font-size: 13px; color: var(--dzc-text-muted); }
+.tk-banner-pass { border-color: color-mix(in srgb, var(--dzc-stat) 45%, var(--dzc-border)); }
+.tk-banner-pass .tk-banner-status { color: var(--dzc-stat); }
+.tk-banner-fail { border-color: color-mix(in srgb, var(--dzc-danger) 55%, var(--dzc-border)); }
+.tk-banner-fail .tk-banner-status { color: var(--dzc-danger); }
+
+/* Expandable overflow of long findings lists */
+.tk-more { padding: 0 14px 12px; }
+.tk-more-summary {
+  font-size: 12px;
+  color: var(--dzc-info);
+  cursor: pointer;
+  padding: 4px 0;
+}
+.tk-more-summary:hover { color: var(--dzc-accent); }
+.tk-findings-rest { padding-top: 4px; }
 
 /* Index page */
 .tk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }

@@ -4,6 +4,8 @@
 // (a) DELETE /api/admin/guilds enqueues a pending leave job in the same transaction
 // (b) GET /api/admin/guilds excludes disabled guilds by default; pending page unaffected
 // (c) the bot consumer completes on leave success / guild gone, and backs off on errors
+const { ensureTestEncryptionKey } = require('./lib/test-env');
+ensureTestEncryptionKey();
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const { test } = require('node:test');
@@ -59,12 +61,20 @@ async function request(app, method, path) {
 }
 
 // (a) DELETE enqueues the leave job atomically with the deactivation.
-test('DELETE /guilds enqueues a pending guild-leave job inside the deactivation transaction', async () => {
+test('DELETE /guilds enqueues a pending guild-leave job alongside the real deletion', async () => {
   const calls = [];
   const db = {
     async get(sql) {
       calls.push({ sql });
       return { id: 42, name: 'Removed guild' };
+    },
+    async all(sql) {
+      calls.push({ sql });
+      return [];
+    },
+    async run(sql, params) {
+      calls.push({ sql, params, inTransaction: false });
+      return { changes: 1 };
     },
     async transaction(callback) {
       calls.push({ transaction: true });
@@ -79,16 +89,17 @@ test('DELETE /guilds enqueues a pending guild-leave job inside the deactivation 
   const result = await request(adminApp(db), 'DELETE', `/api/admin/guilds/${GUILD_ID}`);
   assert.equal(result.status, 200, JSON.stringify(result.body));
   assert.equal(result.body.success, true);
+  assert.equal(result.body.serversRemoved, 0, 'guild without servers deletes cleanly');
 
-  const writes = calls.filter(call => call.sql?.startsWith('UPDATE') || call.sql?.startsWith('INSERT'));
-  assert.equal(writes.length, 4, 'guild update, server update, leave job, audit');
-  const leaveJob = writes[2];
-  assert.match(leaveJob.sql, /INSERT INTO discord_guild_leave_jobs/);
+  const txWrites = calls.filter(call => call.inTransaction === true);
+  assert.equal(txWrites.length, 3, 'leave job, guild row, audit');
+  const leaveJob = txWrites.find(call => call.sql?.startsWith('INSERT INTO discord_guild_leave_jobs'));
   assert.match(leaveJob.sql, /VALUES \(\?, 'pending', 0, NOW\(\), NOW\(\)\)/);
   assert.match(leaveJob.sql, /ON CONFLICT \(discord_guild_id\) DO UPDATE SET/);
   assert.match(leaveJob.sql, /status = 'pending', attempts = 0, next_attempt_at = NOW\(\)/);
   assert.deepEqual(leaveJob.params, [GUILD_ID]);
-  assert.equal(leaveJob.inTransaction, true, 'leave job must commit with the deactivation');
+  assert.equal(leaveJob.inTransaction, true, 'leave job must commit with the deletion');
+  assert.ok(txWrites.some(call => call.sql === 'DELETE FROM guilds WHERE id = ?'), 'the guild row itself is deleted');
   assert.equal(calls.filter(call => call.transaction).length, 1);
 });
 

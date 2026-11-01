@@ -6,18 +6,10 @@
   <title>Shop Admin - DayZ Dashboard</title>
   <link rel="stylesheet" href="/css/theme.css">
   <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="/css/components.css">
   <style>
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .spinner { animation: spin 1s linear infinite; }
-    .form-input {
-      background: #374151; border: 1px solid #4b5563; border-radius: 0.375rem;
-      color: white; padding: 0.375rem 0.625rem; width: 100%; font-size: 0.875rem;
-    }
-    .form-input:focus { outline: none; border-color: #3b82f6; }
-    .form-select {
-      background: #374151; border: 1px solid #4b5563; border-radius: 0.375rem;
-      color: white; padding: 0.375rem 0.625rem; width: 100%; font-size: 0.875rem;
-    }
     .form-label { display: block; color: #9ca3af; font-size: 0.8rem; margin-bottom: 0.25rem; }
     .order-detail-row { background: #1f2937; }
     #bulk-bar { background: #1e3a5f; border: 1px solid #3b82f6; }
@@ -39,7 +31,7 @@
 
     <!-- Server selector -->
     <div class="bg-gray-800 rounded-lg p-4 mb-6 border border-gray-700">
-      <label class="form-label">Select Server (Guild)</label>
+      <label class="form-label" for="serverSelect">Select Server (Guild)</label>
       <select id="serverSelect" class="form-select max-w-sm">
         <option value="">-- Loading servers... --</option>
       </select>
@@ -64,34 +56,34 @@
         <input type="hidden" id="edit-item-id">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="form-label">Name *</label>
+            <label class="form-label" for="item-name">Name *</label>
             <input type="text" id="item-name" class="form-input" placeholder="Item name">
           </div>
           <div>
-            <label class="form-label">Item Class</label>
+            <label class="form-label" for="item-class">Item Class</label>
             <input type="text" id="item-class" class="form-input" placeholder="e.g. AKM">
           </div>
           <div class="md:col-span-2">
-            <label class="form-label">Description</label>
+            <label class="form-label" for="item-desc">Description</label>
             <input type="text" id="item-desc" class="form-input" placeholder="Short description">
           </div>
           <div>
-            <label class="form-label">Price *</label>
+            <label class="form-label" for="item-price">Price *</label>
             <input type="number" id="item-price" class="form-input" placeholder="0" min="0">
           </div>
           <div id="item-type-row">
-            <label class="form-label" id="item-type-label">Item Type</label>
+            <label class="form-label" id="item-type-label" for="item-type">Item Type</label>
             <select id="item-type" class="form-select">
               <option value="item">Item</option>
               <option value="event_rental">Event Rental</option>
             </select>
           </div>
           <div id="rental-restarts-row">
-            <label class="form-label">Max Restarts <span class="text-gray-400 font-normal text-xs">(optional cap — player chooses actual duration at purchase; 0 = unlimited)</span></label>
+            <label class="form-label" for="item-rental-restarts">Max Restarts <span class="text-gray-400 font-normal text-xs">(optional cap — player chooses actual duration at purchase; 0 = unlimited)</span></label>
             <input type="number" id="item-rental-restarts" class="form-input" placeholder="0" min="0">
           </div>
           <div>
-            <label class="form-label">Spawn Method</label>
+            <label class="form-label" for="item-spawn-method">Spawn Method</label>
             <select id="item-spawn-method" class="form-select">
               <option value="cfgEffectArea">cfgEffectArea (compatibility placement)</option>
               <option value="event" selected>Event (CE Spawn)</option>
@@ -113,7 +105,7 @@
             </div>
             <div id="emote-capture-fields" class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3" style="display:none;">
               <div>
-                <label class="form-label">Required emote</label>
+                <label class="form-label" for="emote-capture-type">Required emote</label>
                 <select id="emote-capture-type" class="form-select">
                   <option value="EmoteGreeting">Wave</option>
                   <option value="EmoteClap">Clap</option>
@@ -128,7 +120,7 @@
                 </select>
               </div>
               <div>
-                <label class="form-label">Required held item class <span class="text-gray-400">(optional)</span></label>
+                <label class="form-label" for="emote-capture-held-item">Required held item class <span class="text-gray-400">(optional)</span></label>
                 <input type="text" id="emote-capture-held-item" class="form-input" maxlength="80" placeholder="e.g. Roadflare">
               </div>
             </div>
@@ -138,15 +130,15 @@
             <p class="text-sm font-semibold text-emerald-300 mb-3">Object Spawner configuration</p>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label class="form-label">Mission-relative JSON file</label>
+                <label class="form-label" for="item-custom-json">Mission-relative JSON file</label>
                 <input type="text" id="item-custom-json" class="form-input" value="custom/dayz_dashboard_shop_objects.json">
               </div>
               <div>
-                <label class="form-label">Scale</label>
+                <label class="form-label" for="object-spawner-scale">Scale</label>
                 <input type="number" id="object-spawner-scale" class="form-input" value="1" min="0.001" max="100" step="0.001">
               </div>
               <div>
-                <label class="form-label">Custom string <span class="text-gray-400">(optional)</span></label>
+                <label class="form-label" for="object-spawner-custom-string">Custom string <span class="text-gray-400">(optional)</span></label>
                 <input type="text" id="object-spawner-custom-string" class="form-input" maxlength="1024">
               </div>
               <label class="flex items-center gap-2 text-sm mt-6">
@@ -159,13 +151,13 @@
           <div id="item-capability-panel" class="md:col-span-2 rounded border border-cyan-800 bg-cyan-950/30 p-4" style="display:none;">
             <p class="text-sm font-semibold text-cyan-300 mb-3">📡 Radar / Jammer Capability</p>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div><label class="form-label">Capability</label><select id="cap-type" class="form-select"><option value="radar">Radar</option><option value="jammer">Jammer</option></select></div>
-              <div><label class="form-label">Radar reveal</label><select id="cap-radar-mode" class="form-select"><option value="exact">Exact</option><option value="approximate">Approximate</option><option value="presence">Presence only</option></select></div>
-              <div><label class="form-label">Jammer scope</label><select id="cap-jammer-scope" class="form-select"><option value="full_map">Full map</option><option value="player">Purchaser radius</option><option value="area">Placed area</option></select></div>
-              <div><label class="form-label">Jammer effect</label><select id="cap-jammer-effect" class="form-select"><option value="suppress">Suppress</option><option value="deceive">Deceive</option><option value="both">Both</option></select></div>
-              <div><label class="form-label">Audience</label><select id="cap-jammer-targets" class="form-select"><option value="enemies">Enemies</option><option value="everyone_except_owner">Everyone except purchaser</option><option value="everyone">Everyone</option><option value="allies">Allies</option></select></div>
-              <div><label class="form-label">Radius metres</label><input id="cap-radius" type="number" min="1" max="25000" class="form-input" placeholder="Optional for radar/full map"></div>
-              <div><label class="form-label">Deception persistence</label><select id="cap-persistence" class="form-select"><option value="transient">Transient</option><option value="activation">Activation-stable</option><option value="audit">Audit persisted</option></select></div>
+              <div><label class="form-label" for="cap-type">Capability</label><select id="cap-type" class="form-select"><option value="radar">Radar</option><option value="jammer">Jammer</option></select></div>
+              <div><label class="form-label" for="cap-radar-mode">Radar reveal</label><select id="cap-radar-mode" class="form-select"><option value="exact">Exact</option><option value="approximate">Approximate</option><option value="presence">Presence only</option></select></div>
+              <div><label class="form-label" for="cap-jammer-scope">Jammer scope</label><select id="cap-jammer-scope" class="form-select"><option value="full_map">Full map</option><option value="player">Purchaser radius</option><option value="area">Placed area</option></select></div>
+              <div><label class="form-label" for="cap-jammer-effect">Jammer effect</label><select id="cap-jammer-effect" class="form-select"><option value="suppress">Suppress</option><option value="deceive">Deceive</option><option value="both">Both</option></select></div>
+              <div><label class="form-label" for="cap-jammer-targets">Audience</label><select id="cap-jammer-targets" class="form-select"><option value="enemies">Enemies</option><option value="everyone_except_owner">Everyone except purchaser</option><option value="everyone">Everyone</option><option value="allies">Allies</option></select></div>
+              <div><label class="form-label" for="cap-radius">Radius metres</label><input id="cap-radius" type="number" min="1" max="25000" class="form-input" placeholder="Optional for radar/full map"></div>
+              <div><label class="form-label" for="cap-persistence">Deception persistence</label><select id="cap-persistence" class="form-select"><option value="transient">Transient</option><option value="activation">Activation-stable</option><option value="audit">Audit persisted</option></select></div>
             </div>
             <div class="mt-3"><span class="form-label">Allowed non-violent deception actions</span><div class="flex flex-wrap gap-3 text-xs">
               <label><input type="checkbox" name="cap-action" value="emote"> Emote</label><label><input type="checkbox" name="cap-action" value="placement"> Placement</label><label><input type="checkbox" name="cap-action" value="build"> Build</label><label><input type="checkbox" name="cap-action" value="takedown"> Take-down</label><label><input type="checkbox" name="cap-action" value="ping"> Ping</label><label><input type="checkbox" name="cap-action" value="location"> Location</label>
@@ -180,7 +172,7 @@
             <!-- Prefix + generated name row -->
             <div class="grid grid-cols-2 gap-3 mb-3">
               <div>
-                <label class="form-label">Event Name Prefix</label>
+                <label class="form-label" for="ec-prefix">Event Name Prefix</label>
                 <select id="ec-prefix" class="form-select">
                   <option value="Static">Static</option>
                   <option value="Item">Item</option>
@@ -192,7 +184,7 @@
                 </select>
               </div>
               <div>
-                <label class="form-label">Base Name <span class="text-gray-400 font-normal">(optional hint)</span></label>
+                <label class="form-label" for="item-event-name">Base Name <span class="text-gray-400 font-normal">(optional hint)</span></label>
                 <input type="text" id="item-event-name" class="form-input" placeholder="e.g. AK101 (leave blank to use class)">
               </div>
             </div>
@@ -210,7 +202,7 @@
                 <input type="number" id="ec-nominal" class="form-input" value="99" min="0" title="How many instances the CE tries to maintain">
               </div>
               <div>
-                <label class="form-label">Min</label>
+                <label class="form-label" for="ec-min">Min</label>
                 <input type="number" id="ec-min" class="form-input" value="0" min="0">
               </div>
               <div>
@@ -222,34 +214,34 @@
                 <input type="number" id="ec-lifetime" class="form-input" value="0" min="0" title="0 = use item type default">
               </div>
               <div>
-                <label class="form-label">Restock (s)</label>
+                <label class="form-label" for="ec-restock">Restock (s)</label>
                 <input type="number" id="ec-restock" class="form-input" value="0" min="0">
               </div>
               <div>
-                <label class="form-label">Safe Radius</label>
+                <label class="form-label" for="ec-saferadius">Safe Radius</label>
                 <input type="number" id="ec-saferadius" class="form-input" value="0" min="0">
               </div>
               <div>
-                <label class="form-label">Distance Radius</label>
+                <label class="form-label" for="ec-distanceradius">Distance Radius</label>
                 <input type="number" id="ec-distanceradius" class="form-input" value="0" min="0">
               </div>
               <div>
-                <label class="form-label">Cleanup Radius</label>
+                <label class="form-label" for="ec-cleanupradius">Cleanup Radius</label>
                 <input type="number" id="ec-cleanupradius" class="form-input" value="0" min="0">
               </div>
               <div>
-                <label class="form-label">Rental Placement Clearance</label>
+                <label class="form-label" for="ec-placement-clearance">Rental Placement Clearance</label>
                 <input type="number" id="ec-placement-clearance" class="form-input" value="0" min="0">
                 <p class="text-xs text-gray-500 mt-1">Minimum map clearance reserved around each rental placement. This is separate from DayZ CE radii.</p>
               </div>
             </div>
             <div class="grid grid-cols-2 gap-3 mt-3">
               <div>
-                <label class="form-label">Secondary Spawner <span class="text-gray-400">(optional)</span></label>
+                <label class="form-label" for="ec-secondary">Secondary Spawner <span class="text-gray-400">(optional)</span></label>
                 <input type="text" id="ec-secondary" class="form-input" placeholder="e.g. InfectedIndustrial">
               </div>
               <div>
-                <label class="form-label">Limit</label>
+                <label class="form-label" for="ec-limit">Limit</label>
                 <select id="ec-limit" class="form-select">
                   <option value="child">child</option>
                   <option value="mixed">mixed</option>
@@ -258,7 +250,7 @@
                 </select>
               </div>
               <div>
-                <label class="form-label">Position Mode</label>
+                <label class="form-label" for="ec-position">Position Mode</label>
                 <select id="ec-position" class="form-select">
                   <option value="fixed">fixed</option>
                   <option value="player">player</option>
@@ -279,7 +271,7 @@
                   <input type="number" id="ec-child-max" class="form-input" value="1" min="0" title="Maximum number of this object to spawn per position">
                 </div>
                 <div>
-                  <label class="form-label">Min</label>
+                  <label class="form-label" for="ec-child-min">Min</label>
                   <input type="number" id="ec-child-min" class="form-input" value="1" min="0">
                 </div>
                 <div>
@@ -287,29 +279,59 @@
                   <input type="number" id="ec-child-lootmax" class="form-input" value="0" min="0" title="Maximum loot items spawned inside the object">
                 </div>
                 <div>
-                  <label class="form-label">Loot Min</label>
+                  <label class="form-label" for="ec-child-lootmin">Loot Min</label>
                   <input type="number" id="ec-child-lootmin" class="form-input" value="0" min="0">
                 </div>
               </div>
               <div class="mt-3">
-                <label class="form-label">Composed Children JSON <span class="text-gray-400">(optional)</span></label>
+                <label class="form-label" for="ec-children-json">Composed Children JSON <span class="text-gray-400">(optional)</span></label>
                 <textarea id="ec-children-json" class="form-input font-mono text-xs" rows="4" placeholder='[{"type":"AKM","min":1,"max":1,"lootmin":0,"lootmax":0},{"type":"Mag_AKM_30Rnd","min":1,"max":2,"lootmin":0,"lootmax":0}]'></textarea>
                 <p class="text-xs text-gray-400 mt-1">A JSON array enables multiple event children (objects, guns, magazines, or event-group names). Leave blank to use Item Class and the child fields above.</p>
               </div>
               <div class="mt-3">
-                <label class="form-label">Event Group Children JSON <span class="text-gray-400">(optional)</span></label>
+                <label class="form-label" for="ec-event-group-json">Event Group Children JSON <span class="text-gray-400">(event groups — optional)</span></label>
                 <textarea id="ec-event-group-json" class="form-input font-mono text-xs" rows="4" placeholder='[{"type":"Land_Wreck_C130J","x":0,"y":0,"z":0,"a":0,"deloot":10,"lootmin":4,"lootmax":8},{"type":"AKM","x":1.5,"y":0,"z":-2,"a":90,"spawnsecondary":false}]'></textarea>
-                <p class="text-xs text-gray-400 mt-1">Offsets are relative X/Y/Z coordinates inside this object group. Each child type remains an object. A true <code>spawnsecondary</code> flag calls the event's &lt;secondary&gt; event from <code>events.xml</code> at that child offset; it does not directly place animals, infected, or NPCs.</p>
+                <p class="text-xs text-gray-400 mt-1">This is where you set up event groups: multiple objects with relative X/Y/Z offsets in one event, plus optional secondary spawns. Offsets are relative X/Y/Z coordinates inside this object group. Each child type remains an object. A true <code>spawnsecondary</code> flag calls the event's &lt;secondary&gt; event from <code>events.xml</code> at that child offset; it does not directly place animals, infected, or NPCs.</p>
               </div>
               <div class="mt-3">
-                <label class="form-label">Companion cfgEffectArea Entries JSON <span class="text-gray-400">(unsupported)</span></label>
-                <textarea id="ec-effect-components-json" class="form-input font-mono text-xs" rows="3" disabled></textarea>
-                <p class="text-xs text-amber-300 mt-1">Companion cfgEffectArea entries are disabled because DayZ requires each Type to inherit EffectArea; arbitrary item classes can crash mission startup.</p>
+                <label class="form-label" for="ec-effect-components-json">Companion cfgEffectArea Entries JSON <span class="text-gray-400">(optional)</span></label>
+                <textarea id="ec-effect-components-json" class="form-input font-mono text-xs" rows="3" placeholder='[{"type":"ContaminatedArea_Static","offset":[0,0,0],"radius":10}]'></textarea>
+                <p class="text-xs text-amber-300 mt-1">Each Type MUST inherit DayZ's <code>EffectArea</code> class — a wrong class can crash mission startup. Entries are companions to this event (offsets are relative to the event position), not standalone; they are removed with the event on refund, cancel, or expiry.</p>
               </div>
               <div class="mt-3">
-                <label class="form-label">Companion Object Spawner Entries JSON <span class="text-gray-400">(optional)</span></label>
-                <textarea id="ec-object-components-json" class="form-input font-mono text-xs" rows="3" disabled></textarea>
-                <p class="text-xs text-amber-300 mt-1">Object Spawner components are temporarily disabled until shop-owned file creation and cfggameplay.json registration can both be reversed safely.</p>
+                <label class="form-label" for="ec-object-components-json">Companion Object Spawner Entries JSON <span class="text-gray-400">(optional)</span></label>
+                <textarea id="ec-object-components-json" class="form-input font-mono text-xs" rows="3" placeholder='[{"name":"Land_Barn_Wood2","file":"custom/shop.json","offset":[2,0,-3],"ypr":[0,0,0],"scale":1}]'></textarea>
+                <p class="text-xs text-amber-300 mt-1">Entries land in the shop-owned cfggameplay file and its registration; reversal is supported via tracked <code>_shopEntryId</code> — test with one cheap entry first.</p>
+              </div>
+              <div class="mt-3">
+                <p class="text-xs text-gray-400 mb-2">&#x1F40D; Animal territory <span>(required when the event spawns Animal classes or uses an Animal secondary)</span></p>
+                <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div>
+                    <label class="form-label" for="ec-territory-species">Species</label>
+                    <input type="text" id="ec-territory-species" class="form-input" list="territory-species-options" placeholder="e.g. Wolf">
+                    <datalist id="territory-species-options"></datalist>
+                  </div>
+                  <div>
+                    <label class="form-label" for="ec-territory-file">Territory File</label>
+                    <input type="text" id="ec-territory-file" class="form-input" placeholder="e.g. shop_wolf_territories">
+                    <p class="text-xs text-gray-500 mt-1">Stores zones in <code>custom/&lt;name&gt;.xml</code>, registered in cfgenvironment.xml on first purchase.</p>
+                  </div>
+                  <div>
+                    <label class="form-label" for="ec-territory-radius">Zone Radius (m)</label>
+                    <input type="number" id="ec-territory-radius" class="form-input" min="1" step="any" placeholder="e.g. 500">
+                  </div>
+                  <div>
+                    <label class="form-label" for="ec-territory-color">Zone Color</label>
+                    <input type="text" id="ec-territory-color" class="form-input" placeholder="e.g. 0.8 0.2 0.2 1">
+                  </div>
+                </div>
+                <p class="text-xs text-gray-400 mt-1">Each purchase creates one zone at the chosen spot and removes it on expiry/refund/cancel. Leave the species blank for non-animal events.</p>
+              </div>
+              <div class="mt-3">
+                <label class="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" id="ec-companion-ack" class="w-4 h-4">
+                  <span>I understand these companion entries can crash mission startup if a class name is wrong, and they will be provisioned with this event.</span>
+                </label>
               </div>
             </div>
             <div class="flex gap-6 mt-3">
@@ -328,7 +350,7 @@
             </div>
           </div>
           <div>
-            <label class="form-label">Image URL</label>
+            <label class="form-label" for="item-image-url">Image URL</label>
             <input type="text" id="item-image-url" class="form-input" placeholder="https://...">
           </div>
         </div>
@@ -341,11 +363,11 @@
       <!-- Search / filter bar -->
       <div class="flex gap-3 mb-3 flex-wrap items-end">
         <div class="flex-1 min-w-44">
-          <label class="form-label">Search</label>
+          <label class="form-label" for="items-search">Search</label>
           <input type="text" id="items-search" class="form-input" placeholder="Name or class...">
         </div>
         <div>
-          <label class="form-label">Type</label>
+          <label class="form-label" for="items-type-filter">Type</label>
           <select id="items-type-filter" class="form-select w-40">
             <option value="">All types</option>
             <option value="item">Item</option>
@@ -353,7 +375,7 @@
           </select>
         </div>
         <div>
-          <label class="form-label">Status</label>
+          <label class="form-label" for="items-status-filter">Status</label>
           <select id="items-status-filter" class="form-select w-36">
             <option value="">All</option>
             <option value="active">Active</option>
@@ -399,19 +421,19 @@
     <!-- Preset Locations tab -->
     <div id="tab-presets" style="display:none;">
       <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 mb-4">
-        <label class="form-label">Select Item</label>
+        <label class="form-label" for="preset-item-select">Select Item</label>
         <select id="preset-item-select" class="form-select max-w-sm mb-4">
           <option value="">-- Select an item --</option>
         </select>
         <h3 class="font-semibold mb-3">Add Preset Location</h3>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-          <div><label class="form-label">Label</label><input type="text" id="preset-label" class="form-input" placeholder="e.g. North Base"></div>
-          <div><label class="form-label">Pos X</label><input type="number" step="0.001" id="preset-x" class="form-input" placeholder="0"></div>
-          <div><label class="form-label">Pos Y</label><input type="number" step="0.001" id="preset-y" class="form-input" placeholder="0"></div>
-          <div><label class="form-label">Pos Z</label><input type="number" step="0.001" id="preset-z" class="form-input" placeholder="0"></div>
-          <div><label class="form-label">YPR X</label><input type="number" step="0.001" id="preset-ypr-x" class="form-input" placeholder="0"></div>
-          <div><label class="form-label">YPR Y</label><input type="number" step="0.001" id="preset-ypr-y" class="form-input" placeholder="0"></div>
-          <div><label class="form-label">YPR Z</label><input type="number" step="0.001" id="preset-ypr-z" class="form-input" placeholder="0"></div>
+          <div><label class="form-label" for="preset-label">Label</label><input type="text" id="preset-label" class="form-input" placeholder="e.g. North Base"></div>
+          <div><label class="form-label" for="preset-x">Pos X</label><input type="number" step="0.001" id="preset-x" class="form-input" placeholder="0"></div>
+          <div><label class="form-label" for="preset-y">Pos Y</label><input type="number" step="0.001" id="preset-y" class="form-input" placeholder="0"></div>
+          <div><label class="form-label" for="preset-z">Pos Z</label><input type="number" step="0.001" id="preset-z" class="form-input" placeholder="0"></div>
+          <div><label class="form-label" for="preset-ypr-x">YPR X</label><input type="number" step="0.001" id="preset-ypr-x" class="form-input" placeholder="0"></div>
+          <div><label class="form-label" for="preset-ypr-y">YPR Y</label><input type="number" step="0.001" id="preset-ypr-y" class="form-input" placeholder="0"></div>
+          <div><label class="form-label" for="preset-ypr-z">YPR Z</label><input type="number" step="0.001" id="preset-ypr-z" class="form-input" placeholder="0"></div>
         </div>
         <button id="add-preset-btn" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded font-semibold">Add Preset</button>
       </div>
@@ -447,7 +469,7 @@
       </div>
       <div class="flex gap-3 mb-3 items-end flex-wrap">
         <div>
-          <label class="form-label">Filter by status</label>
+          <label class="form-label" for="orders-status-filter">Filter by status</label>
           <select id="orders-status-filter" class="form-select w-40">
             <option value="">All statuses</option>
             <option value="completed">Completed</option>
@@ -456,7 +478,7 @@
           </select>
         </div>
         <div class="flex-1 min-w-44">
-          <label class="form-label">Search player</label>
+          <label class="form-label" for="orders-search">Search player</label>
           <input type="text" id="orders-search" class="form-input" placeholder="Player name...">
         </div>
       </div>

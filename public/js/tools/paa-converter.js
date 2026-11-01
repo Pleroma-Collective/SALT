@@ -1,5 +1,5 @@
 /*
- * DayZ Toolkit — PAA / PBO ↔ PNG map-tile converter.
+ * DayZ Toolkit — PAA / PBO ↔ PNG map-tile converter (card t_27450d2f).
  *
  * 100% client-side, fully offline: files never leave the browser. Pipeline:
  *   .paa  -> DayZPaaFormat.parsePaaHeader (lint) -> grad_aff WASM decode
@@ -200,20 +200,17 @@
 
   var resultsEl = dom.el('div', 'tk-results');
   app.appendChild(resultsEl);
-  var statusEl = dom.el('p', 'tk-summary-line', '');
-  app.appendChild(statusEl);
+  var progress = dom.mountProgress(app);
 
   var batchOutputs = [];   // { name, blob }
   var objectUrls = [];
-
-  function setStatus(text) { statusEl.textContent = text; }
 
   function resetResults() {
     objectUrls.forEach(function (u) { URL.revokeObjectURL(u); });
     objectUrls = [];
     batchOutputs = [];
     resultsEl.textContent = '';
-    setStatus('');
+    progress.hide();
   }
 
   /** Render one per-file card from lint findings; returns the card. */
@@ -322,14 +319,19 @@
           [{ severity: 'error', message: 'file is ' + fmtBytes(bytes.length) +
             ' — above the ' + fmtBytes(PAA_MAX) + ' per-file cap' }],
           file.size);
-        return 0;
+        return -1;
       }
       var h = fmt.parsePaaHeader(bytes);
       var card = fileReport(file.name, h.ok ? 'excellent' : 'invalid', h.issues, file.size,
         h.ok ? [lintDetail(h) + ' — converting…'] : null);
-      if (!h.ok) return 0;
+      if (!h.ok) return -1;
       return emitPng(card, outName, decodePaa(bytes), t0).then(function () { return 1; });
     });
+  }
+
+  /** Yield to the event loop once so the progress bar can paint. */
+  function tick() {
+    return new Promise(function (resolve) { setTimeout(resolve, 0); });
   }
 
   function convertPboFile(file, taken) {
@@ -341,7 +343,7 @@
           [{ severity: 'error', message: 'PBO is ' + fmtBytes(bytes.length) +
             ' — above the ' + fmtBytes(PBO_MAX) + ' cap (use the pbo-viewer CLI for bigger splits)' }],
           file.size);
-        return 0;
+        return -1;
       }
       var pbo = fmt.parsePboHeader(bytes);
       var extra = ['uncompressed PBO · ' + pbo.entries.length + ' entries · ' +
@@ -351,7 +353,7 @@
       }
       var card = fileReport(file.name, pbo.ok ? 'excellent' : 'invalid', pbo.issues, file.size,
         pbo.ok ? extra : null);
-      if (!pbo.ok) return 0;
+      if (!pbo.ok) return -1;
       var entries = pbo.paaEntries;
       if (!entries.length) {
         addInfoLine(card, 'no .paa entries inside — nothing to convert');
@@ -365,17 +367,18 @@
       var stem = file.name.replace(/\.pbo$/i, '');
       var made = 0;
       var chain = Promise.resolve();
-      picked.forEach(function (e) {
+      picked.forEach(function (e, ei) {
         chain = chain.then(function () {
-          setStatus('Converting ' + file.name + ': ' + baseName(e.name) +
-            ' (' + (made + 1) + '/' + picked.length + ')');
-          var paaBytes = fmt.pboEntryBytes(bytes, e);
-          var h = fmt.parsePaaHeader(paaBytes);
-          var sub = fileReport(baseName(e.name), h.ok ? 'excellent' : 'invalid',
-            h.issues, paaBytes.length, h.ok ? [lintDetail(h)] : null);
-          if (!h.ok) return;
-          var outName = uniqueName(stem + '/' + baseName(e.name).replace(/\.paa$/i, '') + '.png', taken);
-          return emitPng(sub, outName, decodePaa(paaBytes), t0).then(function () { made++; });
+          return tick().then(function () {
+            progress.show('Converting ' + baseName(e.name) + ' (' + (ei + 1) + '/' + picked.length + ')');
+            var paaBytes = fmt.pboEntryBytes(bytes, e);
+            var h = fmt.parsePaaHeader(paaBytes);
+            var sub = fileReport(baseName(e.name), h.ok ? 'excellent' : 'invalid',
+              h.issues, paaBytes.length, h.ok ? [lintDetail(h)] : null);
+            if (!h.ok) return;
+            var outName = uniqueName(stem + '/' + baseName(e.name).replace(/\.paa$/i, '') + '.png', taken);
+            return emitPng(sub, outName, decodePaa(paaBytes), t0).then(function () { made++; });
+          });
         });
       });
       return chain.then(function () { return made; });
@@ -394,7 +397,7 @@
             ' (' + h.mips.length + ' mips) · ' + fmtBytes(paaBytes.length) +
             ' · ' + (Date.now() - t0) + ' ms']
           : null);
-      if (!h.ok) return 0;
+      if (!h.ok) return -1;
       var outName = uniqueName(file.name.replace(/\.png$/i, '') + '.paa', taken);
       var blob = new Blob([paaBytes], { type: 'application/octet-stream' });
       addDownloadRow(card, blob, outName);
@@ -408,24 +411,27 @@
     resetResults();
     var total = files.reduce(function (s, f) { return s + f.size; }, 0);
     if (total > BATCH_BYTES) {
-      setStatus('Batch is ' + fmtBytes(total) + ' — over the ' +
-        fmtBytes(BATCH_BYTES) + ' budget. Split the drop.');
       resultsEl.appendChild(dom.el('p', 'tk-err',
-        'Batch exceeds the ' + (BATCH_BYTES / 1048576) + ' MiB budget — drop fewer files.'));
+        'Batch is ' + fmtBytes(total) + ' — over the ' +
+        fmtBytes(BATCH_BYTES) + ' budget. Split the drop.'));
+      progress.hide();
       return;
     }
     var taken = new Set();
-    setStatus('Loading converter (WASM)…');
-    loadWasm().catch(function (err) {
-      setStatus('WASM failed to load: ' + err.message);
+    progress.show('Loading converter (WASM)…');
+    var load = loadWasm().catch(function (err) {
       resultsEl.appendChild(dom.el('p', 'tk-err', 'WASM failed to load: ' + err.message));
-    }).then(function (a) {
+      progress.hide();
+      return null;
+    });
+    return load.then(function (a) {
       if (!a) return;
       var t0 = Date.now();
-      var failCount = 0;
+      var stats = { failed: 0 };
       var chain = Promise.resolve();
-      files.forEach(function (f) {
+      files.forEach(function (f, idx) {
         chain = chain.then(function () {
+          progress.show('Converting ' + f.name + ' (' + (idx + 1) + '/' + files.length + ')');
           var lower = f.name.toLowerCase();
           var job;
           if (lower.endsWith('.paa')) {
@@ -438,21 +444,27 @@
             fileReport(f.name, 'invalid',
               [{ severity: 'error', message: 'unsupported extension — only .paa, .pbo and .png' }],
               f.size);
-            return Promise.resolve(0);
+            return Promise.resolve(-1);
           }
           return job.catch(function (err) {
-            failCount += 1;
             resultsEl.appendChild(dom.el('p', 'tk-err', f.name + ': ' + err.message));
-            return 0;
+            return -1;
           });
+        }).then(function (n) {
+          if (n < 0) stats.failed += 1;
+          return 0;
         });
       });
-      chain.then(function () {
+      return chain.then(function () {
+        progress.hide();
         var dt = ((Date.now() - t0) / 1000).toFixed(1);
         var outputs = batchOutputs.length;
-        var summary = 'Done in ' + dt + ' s — ' + outputs + ' output(s)' +
-          (failCount ? ', ' + failCount + ' failed' : '') +
-          ' · all processing stayed in this tab.';
+        dom.renderResultSummary(resultsEl, {
+          total: files.length,
+          ok: files.length - stats.failed,
+          errors: stats.failed,
+          note: 'done in ' + dt + ' s — ' + outputs + ' output(s) · all processing stayed in this tab'
+        });
         if (outputs > 1) {
           var row = dom.el('div', 'tk-actions');
           row.style.marginTop = '12px';
@@ -462,7 +474,6 @@
           row.appendChild(zbtn);
           app.appendChild(row);
         }
-        setStatus(summary);
       });
     });
   }
@@ -470,7 +481,7 @@
   function downloadZip(btn) {
     var JZ = globalThis.JSZip;
     if (!JZ) {
-      setStatus('JSZip failed to load — download the files individually.');
+      progress.show('JSZip failed to load — download the files individually.');
       return;
     }
     btn.disabled = true;
@@ -480,11 +491,12 @@
     batchOutputs.forEach(function (o) { zip.file(uniqueName(o.name, names), o.blob); });
     zip.generateAsync({ type: 'blob' })
       .then(function (blob) {
+        progress.hide();
         downloadBlob(blob, 'dayz-tiles-' + new Date().toISOString().replace(/[:T]/g, '-') + '.zip');
         btn.textContent = 'Zip downloaded';
       })
       .catch(function (err) {
-        setStatus('Zip failed: ' + err.message);
+        progress.show('Zip failed: ' + err.message);
         btn.disabled = false;
         btn.textContent = 'Download all as .zip (' + batchOutputs.length + ')';
       });

@@ -18,6 +18,7 @@ const router = express.Router();
 const { getGuildTokenForServer } = require('../utils/guildTokens');
 const { ensureServerOwner } = require('../middleware/serverAccess');
 const nitradoService = require('../services/nitradoService');
+const { controlServerLifecycle } = require('../services/serverLifecycleMutationService');
 const { sendExternalApiError } = require('../utils/externalApiResponse');
 const { normalizeProviderServerName } = require('../utils/serverNames');
 
@@ -95,18 +96,37 @@ router.get('/:serverId/details', async (req, res) => {
 
 /**
  * POST /api/control/:serverId/:action
- * Sends a control action (restart, start, stop) to Nitrado.
+ * Sends a control action (restart, start, stop) to Nitrado through the
+ * durable provider mutation journal: the pre-action state is snapshotted
+ * before the provider call and restored on rollback/recovery.
  */
-router.post('/:serverId/:action', (req, res) => {
+router.post('/:serverId/:action', async (req, res) => {
   const { action } = req.params;
   if (!['restart', 'start', 'stop'].includes(action)) {
     return res.status(400).json({ success: false, error: `Unknown action: ${action}` });
   }
-  return res.status(503).json({
-    success: false,
-    code: 'PROVIDER_MUTATION_DISABLED',
-    error: 'Server lifecycle controls are temporarily unavailable pending durable provider mutation support',
-  });
+  const db = req.app.locals.db;
+
+  try {
+    const result = await controlServerLifecycle({
+      db,
+      internalServerId: req.params.serverId,
+      actor: req.user,
+      action,
+    });
+    res.json({ success: true, message: result.message, operationId: result.operationId });
+  } catch (err) {
+    if (err.status || err.statusCode) {
+      return res.status(err.status || err.statusCode).json({
+        success: false,
+        error: err.message,
+        ...(err.code ? { code: err.code } : {}),
+        ...(err.code === 'PROVIDER_RECOVERY_PENDING' ? { recoveryPending: true } : {}),
+      });
+    }
+    console.error('Error controlling server:', err.message, err.code ? `(code ${err.code})` : '');
+    return sendExternalApiError(res, err, 'Nitrado');
+  }
 });
 
 module.exports = router;

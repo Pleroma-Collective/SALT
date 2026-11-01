@@ -1,6 +1,6 @@
 /* global document */
 /*
- * Event Conflict Check page. Client-side only.
+ * Event Conflict Check page (card t_0743c982). Client-side only.
  * Cross-checks cfgeventspawns.xml / cfgeventgroups.xml / events.xml:
  * shadowed names, invalid coordinates, out-of-bounds positions,
  * and lootmin/lootmax inversions.
@@ -64,15 +64,19 @@
     var otherItems = items.filter(function (item) {
       return !EVENT_BASENAMES[item.name.split('/').pop().toLowerCase()];
     });
-    otherItems.forEach(function (item) {
-      dom.renderSummaryLine(results, item.name + ': not an event definition file (needs cfgeventspawns.xml, cfgeventgroups.xml or events.xml) — skipped.');
-    });
     if (!eventItems.length) {
+      otherItems.forEach(function (item) {
+        dom.renderSummaryLine(results, item.name + ': not an event definition file (needs cfgeventspawns.xml, cfgeventgroups.xml or events.xml) — skipped.');
+      });
       dom.renderSummaryLine(results, 'No event files detected.');
       return;
     }
-    results.appendChild(dom.el('p', 'tk-results-title', eventItems.length + ' event file(s) — all checks ran locally'));
 
+    // ---- Phase 1: per-file structural + conflict passes ----
+    var fileReports = [];
+    var okFiles = 0;
+    var totalErrors = 0;
+    var totalWarnings = 0;
     eventItems.forEach(function (item) {
       var base = item.name.split('/').pop().toLowerCase();
       var mapId;
@@ -80,23 +84,35 @@
       else if (mapSelect.value === 'none') mapId = null;
       else mapId = mapSelect.value;
 
-      // 1) Structural validation (root, required attrs, unique names, class names, coords)
       var structural = core.validateXml(item.name, item.text, dom.makeXmlParser(), base);
-      dom.renderReport(results, structural);
-
-      // 2) Conflict pass (needs the parsed model)
+      var reports = [structural];
       var parsed;
-      try { parsed = dom.makeXmlParser()(item.text); } catch (err) { return; }
-      if (!parsed.ok) return;
-      var conflicts = core.analyzeEvents(item.name, parsed.model, mapId);
-      if (conflicts.errors.length || conflicts.warnings.length || conflicts.info.length) {
-        var copy = structural; // keep card titles distinct
-        conflicts.fileName = base + ' — conflict pass' + (mapId ? ' [' + mapId + ' bounds]' : ' [no bounds]');
-        dom.renderReport(results, conflicts);
-        void copy;
-      } else if (mapId) {
-        dom.renderSummaryLine(results, base + ': no conflicts, all positions inside ' + mapId + ' bounds.');
+      try { parsed = dom.makeXmlParser()(item.text); } catch (err) { parsed = { ok: false }; }
+      if (parsed.ok) {
+        var conflicts = core.analyzeEvents(base + ' — conflict pass' + (mapId ? ' [' + mapId + ' bounds]' : ' [no bounds]'), parsed.model, mapId);
+        reports.push(conflicts);
       }
+      reports.forEach(function (r) {
+        totalErrors += r.summary.errorCount;
+        totalWarnings += r.summary.warningCount;
+        fileReports.push(r);
+      });
+      if (reports.every(function (r) { return r.summary.errorCount === 0; })) okFiles++;
+    });
+
+    // ---- Phase 2: banner, skipped files, then cards ----
+    dom.renderResultSummary(results, {
+      total: eventItems.length + otherItems.length,
+      ok: okFiles,
+      errors: totalErrors,
+      warnings: totalWarnings,
+      note: 'all checks ran locally'
+    });
+    otherItems.forEach(function (item) {
+      dom.renderSummaryLine(results, item.name + ': not an event definition file (needs cfgeventspawns.xml, cfgeventgroups.xml or events.xml) — skipped.');
+    });
+    fileReports.forEach(function (report) {
+      dom.renderReport(results, report);
     });
   }
 
@@ -104,6 +120,8 @@
     multiple: true,
     accept: '.xml,.txt',
     allowPaste: true,
+    pastePlaceholder: 'Paste event XML here (single document)…',
+    title: 'Drop cfgeventspawns.xml / cfgeventgroups.xml / events.xml here',
     onFiles: function (items) {
       // Pasted content is always validated as the event file matching the paste;
       // give it a neutral name so auto-map detection skips it.

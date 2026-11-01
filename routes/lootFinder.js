@@ -321,4 +321,36 @@ router.get('/heatmap', ensureAuthenticated, ensurePlatformServerOwner, async (re
   }
 });
 
+/**
+ * GET /api/loot/recent-spawns?serverId=123&map=nasdara&windowMinutes=60&limit=500
+ * Live "recently spawned loot" layer data, sourced from the coord-bearing
+ * `Adding <Item> at [east,north]` lines in the current server.log.
+ *
+ * Disclosure: returns individual spawn events (what item, where, when) — NOT
+ * spawn rates/odds. The static odds surface (items.json rates) stays
+ * admin-gated; this is a per-event observation layer gated like the loot
+ * heatmap (ensurePlatformServerOwner).
+ */
+router.get('/recent-spawns', ensureAuthenticated, ensurePlatformServerOwner, async (req, res) => {
+  const { serverId, map = 'nasdara', windowMinutes, limit } = req.query;
+  if (!serverId) return res.status(400).json({ ok: false, error: 'serverId required' });
+
+  const mapName = VALID_MAPS.has(String(map).toLowerCase()) ? String(map).toLowerCase() : 'nasdara';
+  const win = Math.max(5, Math.min(1440, parseInt(windowMinutes, 10) || 60));
+  const lim = Math.max(1, Math.min(2000, parseInt(limit, 10) || 500));
+
+  try {
+    const data = await lootLive.getRecentLootSpawns(
+      mapName,
+      req.platformServerAccess.discordGuildId,
+      serverId,
+      { windowMinutes: win, limit: lim }
+    );
+    res.json({ ok: true, mapName, ...data });
+  } catch (err) {
+    console.error('❌ /api/loot/recent-spawns error:', err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 module.exports = router;

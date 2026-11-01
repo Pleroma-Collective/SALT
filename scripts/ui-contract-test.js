@@ -141,7 +141,7 @@ function registerRoutes(app) {
   assert.strictEqual(serializeManifest(manifest), serializeManifest(buildManifest(fixtureRoot)));
 
   const repositoryManifest = buildManifest(root);
-  assert.strictEqual(repositoryManifest.pages.length, 50, 'every current HTML document must remain inventoried');
+  assert.strictEqual(repositoryManifest.pages.length, 60, 'every current HTML document must remain inventoried');
   assert.deepStrictEqual(
     repositoryManifest.pages.filter(page => page.routes.length === 0).map(page => page.file),
     [],
@@ -154,6 +154,12 @@ function registerRoutes(app) {
     }
   }
   for (const page of repositoryManifest.pages) {
+    // The CSP (script-src 'self', no 'unsafe-inline') blocks inline <script>
+    // blocks at load time — page logic must live in external files, or the
+    // page silently dead-ends on its initial loading state.
+    const pageHtml = fs.readFileSync(path.join(root, page.file), 'utf8');
+    assert(!/<script(?![^>]*\bsrc=)[^>]*>/.test(pageHtml),
+      `page contains an inline <script> block (blocked by CSP): ${page.file}`);
     assert.strictEqual(new Set(page.scripts).size, page.scripts.length, `page loads a duplicate script: ${page.file}`);
     for (const source of page.scripts.filter(source => source.startsWith('/') && !source.startsWith('//'))) {
       const localSourcePath = source.split(/[?#]/, 1)[0];

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getUserGuilds, verifyGuildMembership, classifyMembershipVerificationError } = require('../utils/discordAPI');
+const { sessionView } = require('../services/sessionStateService');
 const {
   buildAchievementProgress,
   calculatePlayerProgression,
@@ -124,13 +125,15 @@ router.get('/guilds', async (req, res) => {
     `, [userId]);
 
     const linkedServers = await db.query(`
-      SELECT DISTINCT g.discord_guild_id AS guild_id, s.id, s.name
+      SELECT DISTINCT g.discord_guild_id AS guild_id, s.id, s.name,
+        sst.session_started_at, sst.next_restart_at, sst.funded_until, sst.funding_observed_at
       FROM server_player_memberships spm
       JOIN linked_accounts la ON la.id = spm.source_link_id
         AND la.user_id = spm.user_id AND la.identity_id = spm.identity_id
         AND la.verification_method IN ('emote_challenge', 'admin_approved', 'self_asserted')
       JOIN servers s ON s.id = spm.server_id AND s.guild_id = spm.guild_id AND s.status = 'active'
       JOIN guilds g ON g.id = spm.guild_id AND g.status = 'approved'
+      LEFT JOIN server_session_state sst ON sst.server_id = s.id
       WHERE spm.user_id = ? AND spm.status = 'active'
       ORDER BY s.name ASC
     `, [userId]);
@@ -167,9 +170,11 @@ router.get('/guilds', async (req, res) => {
             ORDER BY g.name ASC
           `, missingIds);
           discordServers = await db.query(`
-            SELECT g.discord_guild_id AS guild_id, s.id, s.name
+            SELECT g.discord_guild_id AS guild_id, s.id, s.name,
+              sst.session_started_at, sst.next_restart_at, sst.funded_until, sst.funding_observed_at
             FROM guilds g
             JOIN servers s ON s.guild_id = g.id AND s.status = 'active'
+            LEFT JOIN server_session_state sst ON sst.server_id = s.id
             WHERE g.discord_guild_id IN (${placeholders})
               AND g.status = 'approved'
             ORDER BY s.name ASC
@@ -186,7 +191,13 @@ router.get('/guilds', async (req, res) => {
       const key = String(server.guild_id);
       const servers = serversByGuild.get(key) || [];
       if (!servers.some(existing => Number(existing.id) === Number(server.id))) {
-        servers.push({ id: Number(server.id), name: server.name });
+        // Session / funding state for the guild-card indicator
+        // (card t_c1de9125) — DB-only, written by the bot status loop.
+        servers.push({
+          id: Number(server.id),
+          name: server.name,
+          ...sessionView(server),
+        });
       }
       serversByGuild.set(key, servers);
     }

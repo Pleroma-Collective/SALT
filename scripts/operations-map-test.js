@@ -324,7 +324,10 @@ function testBoundsAndFrontendContract() {
   assert.match(serviceSource, /soi\.spawn_method IN \('cfgEffectArea', 'custom_json', 'event'\)/);
   assert.match(serviceSource, /first_evidence_at >= \? AND last_evidence_at >= \?/);
   assert.match(app, /app\.use\('\/api\/operations-map'/);
-  assert.match(app, /app\.get\('\/map'[^\n]*ensureHasModeratableServers/);
+  // Merged map page (t_d684a1b7): /map has no staff page gate — the operations
+  // data endpoints gate per-server instead (no data leak on an open page).
+  assert.doesNotMatch(app, /app\.get\('\/map'[^\n]*ensureHasModeratableServers/);
+  assert.match(route, /router\.param\('serverId', requireServerCapability\(CAPABILITIES\.SERVER_MODERATE\)\)/);
   assert.match(app, /\/api\/user\/moderatable-guilds/);
   for (const id of ['operations-player-toggle', 'operations-event-toggle', 'operations-purchase-toggle',
     'operations-territory-toggle', 'operations-zone-toggle', 'operations-faction-toggle', 'operations-status',

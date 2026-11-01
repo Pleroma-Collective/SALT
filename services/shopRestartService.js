@@ -71,6 +71,184 @@ function parseServerLog(logContent) {
 }
 
 // ---------------------------------------------------------------------------
+// Previous-session scheduled-shutdown evidence (rolling server.log)
+// ---------------------------------------------------------------------------
+
+// DayZ 1.30 moved the `[Shutdown]` console lines OUT of the per-run RPT: the
+// countdown + "Saving players, locking server and kicking all players." lines
+// now appear ONLY in the rolling console server.log. The previous session's
+// save line is therefore the authoritative "this restart was scheduled"
+// evidence for 1.30+, while the identical RPT line remains the fallback for
+// pre-1.30 history files.
+
+const BIOS_SESSION_REGEX = /Connected to BIOS \(server registration\) with id [0-9a-f-]{36}/i;
+const SAVING_PLAYERS_REGEX = /\[Shutdown\]\s+Saving players, locking server and kicking all players\./i;
+const SHUTDOWN_COUNTDOWN_REGEX = /\[Shutdown\]\s+Shutting down in \d+/i;
+const SERVER_LOG_LINE_TIMESTAMP = /^(\d{1,2}:\d{2}:\d{2}|\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/;
+const SCHEDULED_SHUTDOWN_CORRELATION_MS = 30 * 60 * 1000;
+
+/**
+ * Correlate a time-only ("H:MM:SS" / "HH:MM:SS") server.log timestamp with a
+ * provider start time. Console server.log lines carry no date, so the
+ * timestamp is a wall-clock time on the node's local day: compare
+ * time-of-day against the start's UTC time-of-day with a per-timezone
+ * tolerance (node local vs provider UTC, 0-14h apart, mirroring
+ * rptFilenameMatchesProviderStart) and normalize across midnight.
+ *
+ * @param {string} value "H:MM:SS" or "HH:MM:SS"
+ * @param {number} startedAtMs provider start epoch ms
+ * @returns {boolean}
+ */
+function timeOnlyTimestampMatchesProviderStart(value, startedAtMs) {
+  if (typeof value !== 'string' || !/^\d{1,2}:\d{2}:\d{2}$/.test(value)) return false;
+  if (typeof startedAtMs !== 'number' || !Number.isFinite(startedAtMs)) return false;
+  const [, hh, mm, ss] = value.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
+  const hour = Number(hh);
+  const localClockMs = (hour * 3600 + Number(mm) * 60 + Number(ss)) * 1000;
+  if (hour > 23) return false;
+  const dayMs = 86400000;
+  let difference = (startedAtMs % dayMs) - localClockMs;
+  // Normalize across midnight: 23:55 local vs a 00:02 UTC start is +7 minutes,
+  // not -23h53m.
+  if (difference > dayMs / 2) difference -= dayMs;
+  if (difference < -dayMs / 2) difference += dayMs;
+  const hourMs = 60 * 60 * 1000;
+  const timezoneHours = Math.round(difference / hourMs);
+  return Math.abs(timezoneHours) <= 14
+    && Math.abs(difference - timezoneHours * hourMs) <= SCHEDULED_SHUTDOWN_CORRELATION_MS;
+}
+
+function datedTimestampMatchesProviderStart(value, startedAtMs) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(value)) return false;
+  if (typeof startedAtMs !== 'number' || !Number.isFinite(startedAtMs)) return false;
+  const localClockMs = Date.parse(`${value.replace(' ', 'T')}Z`);
+  if (!Number.isFinite(localClockMs)) return false;
+  const hourMs = 60 * 60 * 1000;
+  const difference = startedAtMs - localClockMs;
+  const timezoneHours = Math.round(difference / hourMs);
+  return Math.abs(timezoneHours) <= 14
+    && Math.abs(difference - timezoneHours * hourMs) <= SCHEDULED_SHUTDOWN_CORRELATION_MS;
+}
+
+function biosLineIsCurrentSession(line, startedAtMs) {
+  const tsMatch = String(line).trim().match(SERVER_LOG_LINE_TIMESTAMP);
+  if (!tsMatch) return null;
+  const timestamp = tsMatch[1];
+  return timestamp.includes('-')
+    ? datedTimestampMatchesProviderStart(timestamp, startedAtMs)
+    : timeOnlyTimestampMatchesProviderStart(timestamp, startedAtMs);
+}
+
+/**
+ * Determine whether the most recent completed session in a rolling
+ * server.log ended with a scheduled shutdown.
+ *
+ * The file is rolling (single file, 100k-line cap) so "the previous run's
+ * server.log" is this same file: its tail holds the previous session's
+ * shutdown region unless the current session already registered.
+ *
+ * Evidence levels, per candidate region (checked most-recent first):
+ *  - a "Saving players, locking server and kicking all players." line
+ *    (present in every era's console stream) → definitive scheduled
+ *  - only a "[Shutdown] Shutting down in N" countdown (pre-1.30 tails —
+ *    and only pre-1.30 tails — carry the countdown without the save line,
+ *    which also landed in the per-run RPT) → null, defer to the caller's
+ *    RPT fallback
+ *  - no shutdown lines → definitive not-scheduled (crash)
+ *
+ * Freshness gate: the file's LAST timestamped line must correlate with the
+ * provider start time (mod timezone). A stale file that does not straddle
+ * the restart boundary yields null so the caller falls back to the RPT.
+ *
+ * @param {string|null} logContent full text of the rolling server.log
+ * @param {number|null} startedAtMs provider start epoch ms for the CURRENT
+ *        session (the restart under investigation).
+ * @returns {boolean|null} true/false, or null when the file carries no
+ *        usable shutdown evidence (caller falls back to the RPT).
+ */
+function previousSessionScheduledShutdown(logContent, startedAtMs) {
+  if (typeof logContent !== 'string' || logContent.length === 0) return null;
+  const lines = logContent.split('\n');
+
+  // Freshness: the file must straddle the restart boundary. The last
+  // timestamped line is either the tail of the previous session (file synced
+  // before the new session registered) or an early current-session line —
+  // both correlate with the provider start time. Checked BEFORE the shutdown
+  // search so a stale file with old shutdown lines yields null (RPT fallback)
+  // instead of a false "not scheduled".
+  let lastTimestamped = null;
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    const tsMatch = lines[i].trim().match(SERVER_LOG_LINE_TIMESTAMP);
+    if (tsMatch) { lastTimestamped = tsMatch[1]; break; }
+  }
+  if (!lastTimestamped) return null;
+  if (!datedTimestampMatchesProviderStart(lastTimestamped, startedAtMs)
+      && !timeOnlyTimestampMatchesProviderStart(lastTimestamped, startedAtMs)) {
+    return null; // stale: does not cover the restart under investigation
+  }
+
+  // Verdict for one region [start, end): save line wins; a bare countdown
+  // defers to the RPT; no shutdown lines means the session crashed.
+  const verdict = (start, end) => {
+    for (let i = start; i < end; i += 1) {
+      if (SAVING_PLAYERS_REGEX.test(lines[i])) return true;
+    }
+    for (let i = start; i < end; i += 1) {
+      if (SHUTDOWN_COUNTDOWN_REGEX.test(lines[i])) return null;
+    }
+    return false;
+  };
+
+  const biosIndices = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    if (BIOS_SESSION_REGEX.test(lines[i])) biosIndices.push(i);
+  }
+
+  if (biosIndices.length >= 2) {
+    const lastIdx = biosIndices[biosIndices.length - 1];
+    const prevIdx = biosIndices[biosIndices.length - 2];
+    const lastIsCurrent = biosLineIsCurrentSession(lines[lastIdx], startedAtMs);
+    if (lastIsCurrent === true) {
+      // The last BIOS line opened the current session: the previous session
+      // is the region between the two BIOS lines.
+      return verdict(prevIdx, lastIdx);
+    }
+    if (lastIsCurrent === false) {
+      // The last BIOS line opened the previous session: its shutdown is the
+      // tail of the file.
+      return verdict(lastIdx, lines.length);
+    }
+    // Undecidable (no timestamp on the last BIOS line): check the most recent
+    // region first, then the one before it.
+    const tail = verdict(lastIdx, lines.length);
+    if (tail !== false) return tail;
+    return verdict(prevIdx, lastIdx);
+  }
+
+  if (biosIndices.length === 1) {
+    const idx = biosIndices[0];
+    const lastIsCurrent = biosLineIsCurrentSession(lines[idx], startedAtMs);
+    if (lastIsCurrent === true) {
+      // The BIOS line opened the current session; the previous session is
+      // everything before it (any older shutdowns were rotated out with
+      // their BIOS lines).
+      return verdict(0, idx);
+    }
+    if (lastIsCurrent === false) {
+      // The BIOS line opened the previous session; its shutdown is the tail.
+      return verdict(idx, lines.length);
+    }
+    const tail = verdict(idx, lines.length);
+    if (tail !== false) return tail;
+    return verdict(0, idx);
+  }
+
+  // No BIOS lines: the file is the tail of a single session; its shutdown
+  // region is the whole file.
+  return verdict(0, lines.length);
+}
+
+// ---------------------------------------------------------------------------
 // Owner restart recording
 // ---------------------------------------------------------------------------
 
@@ -316,4 +494,6 @@ module.exports = {
   recordOwnerRestart,
   processRestartEvents,
   decrementRentalCounts,
+  previousSessionScheduledShutdown,
+  timeOnlyTimestampMatchesProviderStart,
 };

@@ -306,7 +306,7 @@ function testRenderWithCsrfThemeInjection() {
   assert.ok(captured[0].includes('name="csrf-token"'), 'csrf meta present');
   assert.ok(!captured[0].includes('data-theme-override'), 'no override block when no override');
   assert.ok(captured[0].includes('/js/theme-toggle.js'), 'toggle script injected');
-  assert.ok(captured[0].includes('dayz-theme'), 'no-flash inline script injected');
+  assert.ok(captured[0].includes('<script src="/js/theme-preflight.js"></script>'), 'no-flash preflight script injected (external: site CSP blocks inline scripts)');
 
   // A new base theme name flows through unchanged.
   res.send = html => captured.push(html);

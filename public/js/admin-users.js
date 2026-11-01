@@ -196,6 +196,7 @@ async function openRoles(userId) {
     renderAssignments();
     renderGrantOptions();
     document.getElementById('role-modal').classList.remove('hidden');
+    window.DzcOverlayFocus.open(document.getElementById('role-modal'), { onClose: closeRoles });
   } catch (error) {
     if (generation !== selectionGeneration) return;
     alert(error.message);
@@ -265,6 +266,7 @@ async function kickUser(userId, button) {
 }
 
 function closeRoles() {
+  window.DzcOverlayFocus.close(document.getElementById('role-modal'));
   selectionGeneration++;
   selectedUser = null;
   selectedAssignments = [];

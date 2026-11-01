@@ -1,0 +1,841 @@
+11:47:39 [CE][Storage] Saved data file [5] items.
+11:47:41 [CE][Storage] Saved data file [4] items.
+11:47:41   Adding Chemlight_Yellow at [4667,7442]
+11:47:43 [CE][Storage] Saved data file [3] items.
+11:47:45 [Shutdown] Shutting down in 60 seconds (1 minutes).
+11:47:45 [Shutdown] Saving players, locking server and kicking all players.
+11:47:45 Player Frosty1024 (163524563) kicked from server: 11 (Server is shutting down.)
+11:47:45 Player Vere1982 (804276082) kicked from server: 11 (Server is shutting down.)
+11:47:45 [Disconnect]: Client 804276082 early disconnect
+11:47:45 [Disconnect]: Client 163524563 early disconnect
+11:47:45 [Disconnect]: Start script disconnect 804276082 (dbCharacterId 1297 dbPlayerId 1297) logoutTime 0
+11:47:45 [Disconnect]: Start script disconnect 163524563 (dbCharacterId 363 dbPlayerId 363) logoutTime 0
+11:47:45 [Disconnect]: Finish script disconnect 804276082 (BF1A34FFD2A40FAFE2B5190063BD4091C39CDCDE)
+11:47:45 [Disconnect]: DisconnectPlayerFinish 804276082
+11:47:45 [Disconnect]: Remove player info 804276082
+11:47:45 [Disconnect]: Finish script disconnect 163524563 (366B4BCC01FF278DDBB8F4ABECBB807D2CBC1B82)
+11:47:45 [Disconnect]: DisconnectPlayerFinish 163524563
+11:47:45 [Disconnect]: Remove player info 163524563
+11:47:45 [Disconnect]: Player destroy 804276082 
+11:47:45 Player Vere1982 (id=BF1A34FFD2A40FAFE2B5190063BD4091C39CDCDE pos=<4669.1, 7433.7, 391.4>) disconnected.
+11:47:45 BIOS remove player 9ccbbcda-6e2c-4ba9-9045-3b883a5bffb2
+11:47:45 BattlEye Server: Player #1 Vere1982 disconnected
+11:47:45 [Disconnect]: Player destroy 163524563 
+11:47:45 Player Frosty1024 (id=366B4BCC01FF278DDBB8F4ABECBB807D2CBC1B82 pos=<7141.7, 8899.4, 242.8>) disconnected.
+11:47:45 BIOS remove player 507e9df7-d12f-407f-98c1-9eb1ee1ce0f9
+11:47:45 BattlEye Server: Player #0 Frosty1024 disconnected
+11:47:45 [CE][Storage] Saved data file [4] items.
+11:47:47 [CE][Storage] Saved data file [1] items.
+11:47:50 [CE][Storage] Saved data file [2] items.
+11:47:52 [CE][Storage] Saved data file [20452] items.
+11:47:54 [CE][Storage] Saved data file [0] items.
+11:47:54 [CE][Storage] Saved data file [0] items.
+11:47:54 [CE][Storage] Saved data file [0] items.
+11:47:54 [CE][Storage] Saved data file [2] items.
+11:47:55   Adding LinenVest_Grey at [10895,7755]
+11:47:55   Adding LinenVest_Grey at [6745,7525]
+11:47:55   Adding LinenVest_Grey at [4923,9021]
+11:47:55   Adding LinenVest_Grey at [11547,9490]
+11:47:55   Adding LinenVest_Grey at [11318,12149]
+11:47:55   Adding LinenVest_Grey at [7824,12413]
+11:47:55   Adding LinenVest_Grey at [10986,7670]
+11:47:55   Adding LinenVest_Grey at [10445,10755]
+11:47:55   Adding LinenVest_Grey at [10360,10662]
+11:47:55   Adding LinenVest_Grey at [9529,8901]
+11:47:55   Adding Ammo_45ACP at [12105,10926]
+11:47:55   Adding NailBox at [8308,11462]
+11:47:55   Adding NailBox at [7808,12209]
+11:47:55   Adding NailBox at [10772,4691]
+11:47:55   Adding NailBox at [10908,10878]
+11:47:55   Adding NailBox at [10689,7667]
+11:47:55   Adding NailBox at [3709,4873]
+11:47:55   Adding NailBox at [3892,11182]
+11:47:55   Adding NailBox at [3500,11527]
+11:47:55   Adding NailBox at [5697,13033]
+11:47:55   Adding NailBox at [6871,3691]
+11:47:55   Adding ShortSleeveShirt_White at [5032,7229]
+11:47:55   Adding ShortSleeveShirt_White at [4139,13527]
+11:47:55   Adding ShortSleeveShirt_White at [10679,8672]
+11:47:55   Adding ShortSleeveShirt_White at [8118,11495]
+11:47:55   Adding ShortSleeveShirt_White at [10561,10701]
+11:47:55   Adding ShortSleeveShirt_White at [10414,8084]
+11:47:55   Adding ShortSleeveShirt_White at [9983,11675]
+11:47:55   Adding FieldShovel at [12287,11064]
+11:47:55   Adding FieldShovel at [2867,9292]
+11:47:55   Adding FieldShovel at [11978,10628]
+11:47:55   Adding FieldShovel at [14870,7993]
+11:47:55   Adding FieldShovel at [14829,7871]
+11:47:55   Adding FieldShovel at [14853,7845]
+11:47:55 [CE][LootRespawner] (PRIDummy) :: Item [342] is hard to place, performance drops: "FieldShovel"
+11:47:55   Adding FieldShovel at [12785,6698]
+11:47:55   Adding SkateHelmet_Black at [7213,4240]
+11:47:55   Adding SkateHelmet_Black at [10528,5005]
+11:47:55   Adding SkateHelmet_Black at [9954,4169]
+11:47:55   Adding SkateHelmet_Black at [4523,10929]
+11:47:55   Adding SkateHelmet_Black at [9301,4311]
+11:47:55   Adding SkateHelmet_Black at [4459,5593]
+11:47:55   Adding Hoodie_Brown at [3804,11131]
+11:47:55   Adding Hoodie_Brown at [9082,12159]
+11:47:55   Adding Hoodie_Brown at [4437,12347]
+11:47:55   Adding Hoodie_Brown at [8831,12262]
+11:47:55   Adding Hoodie_Brown at [8513,11754]
+11:47:55   Adding Hoodie_Brown at [8381,10082]
+11:47:55   Adding TShirt_White at [8635,12759]
+11:47:55   Adding TShirt_White at [10789,8498]
+11:47:55   Adding TShirt_White at [9180,11975]
+11:47:55   Adding TShirt_White at [8537,9165]
+11:47:55   Adding TShirt_White at [9266,11918]
+11:47:55   Adding TShirt_White at [4423,10019]
+11:47:55   Adding SaltySticks at [3968,14204]
+11:47:55   Adding SaltySticks at [10618,11419]
+11:47:55   Adding SaltySticks at [4425,12391]
+11:47:55   Adding SaltySticks at [9955,10664]
+11:47:55   Adding SaltySticks at [8307,12965]
+11:47:56   Adding Ammo_556x45Tracer at [5823,5654]
+11:47:56   Adding HikingBootsLow_Grey at [5622,11661]
+11:47:56   Adding HikingBootsLow_Grey at [5606,12923]
+11:47:56   Adding HikingBootsLow_Grey at [7676,12465]
+11:47:56   Adding HikingBootsLow_Grey at [7996,12796]
+11:47:56   Adding HikingBootsLow_Grey at [10926,13966]
+11:47:56   Adding Blouse_White at [10763,8588]
+11:47:56   Adding Blouse_White at [10340,10605]
+11:47:56   Adding Blouse_White at [9324,10168]
+11:47:56   Adding Blouse_White at [4349,10283]
+11:47:56   Adding Blouse_White at [4374,10215]
+11:47:56 !!! [CE][Point] Removing 7680.344238, 12502.145508 from Vanilla_Land_House_1M3
+11:47:56   Adding Pate at [9449,11863]
+11:47:56   Adding Pate at [8390,12460]
+11:47:56   Adding Pate at [3819,12109]
+11:47:56   Adding Pate at [4416,12326]
+11:47:56 [CE][LootRespawner] (PRIDummy) :: Item [524] causing search overtime: "Mag_SCARH_20Rnd"
+11:47:56   Adding SCAR_StockBttstck at [8705,5567]
+11:47:56   Adding NBCGlovesGray at [12044,10731]
+11:47:56   Adding NBCGlovesGray at [7297,10665]
+11:47:56 [CE][LootRespawner] (PRIDummy) :: Item [343] is hard to place, performance drops: "NBCGlovesGray"
+11:47:56   Adding NBCGlovesGray at [7609,8755]
+11:47:56   Adding UKAssVest_Olive at [2596,10026]
+11:47:56 [CE][LootRespawner] (PRIDummy) :: Item [525] causing search overtime: "M4_Suppressor"
+11:47:57   Adding TShirt_RedBlackStripes at [4371,12384]
+11:47:57   Adding TShirt_RedBlackStripes at [13673,12782]
+11:47:57   Adding AthleticShoes_Green at [6734,4750]
+11:47:57   Adding AthleticShoes_Green at [4840,5878]
+11:47:59 [CE][DE] [StaticContainerLocked] Spawning: EventID:[24] CurrentID:[28460] at [10057.5,-1.0,8261.5] a: -1.000
+11:47:59 [CE][SpawnRandomLoot] (StaticContainerLocked) :: !!! No group configured for 'Land_Mil_ContainerHabitat_Armory_Locked_Green_DE', failed to spawn loot
+11:47:59 	(child) Spawned Land_Mil_ContainerHabitat_Armory_Locked_Green_DE EventID:[24] CurrentID:[28460] at [10057.5,195.6,8261.5] a: 181.214
+11:47:59 [CE][VehicleRespawner] (PRIContainerLocked) :: Respawning: "StaticContainerLocked"
+11:47:59 [CE][DE] [StaticHeliCrash] Spawning: EventID:[25] CurrentID:[28461] at [5714.5,-1.0,8606.2] a: -1.000
+11:47:59 	spawn refused... too close to another one.
+11:47:59 [CE][DE] [StaticHeliCrash] Spawning: EventID:[25] CurrentID:[28461] at [7412.8,-1.0,5080.8] a: -1.000
+11:47:59 	spawn refused... too close to another one.
+11:47:59 [CE][DE] [StaticHeliCrash] Spawning: EventID:[25] CurrentID:[28461] at [9759.1,-1.0,3521.9] a: -1.000
+11:47:59 [CE][SpawnRandomLoot] (StaticHeliCrash) :: Type: StaticObj_Wreck_Mi24_TK_DE, lootmin: 10, lootmax: 15, wanted: 11, deloot: 2, containermaxsum: 15
+11:47:59   Adding AK101 at [9763,3522]
+11:47:59   Adding AmmoBox_545x39Tracer_20Rnd at [9759,3528]
+11:47:59   Adding VSS at [9762,3515]
+11:47:59   Adding Ammo_12gaPellets at [9753,3521]
+11:47:59   Adding AKS74U at [9757,3524]
+11:47:59   Adding Mag_MP5_30Rnd at [9762,3527]
+11:47:59   Adding UMP45 at [9757,3518]
+11:47:59   Adding Ammo_545x39Tracer at [9760,3517]
+11:47:59   Adding OBRPants_Beige at [9750,3526]
+11:47:59   Adding OBRPants_Olive at [9755,3528]
+11:47:59   Adding SmershBag at [9764,3524]
+11:47:59 [CE][SpawnRandomLoot] (StaticHeliCrash) :: EventID:[25] CurrentID[28461] at [9759.10,3521.92]: 11 items added :: DELoot(1) other(10)
+11:47:59   1 DELoot not placed because (count >= nominal)
+11:47:59   Secondary event for DynamicEvent "StaticHeliCrash" ID[28461] at [9759.10,3521.92]
+11:47:59 	(child) Spawned StaticObj_Wreck_Mi24_TK_DE EventID:[25] CurrentID:[28461] at [9759.1,167.7,3521.9] a: 54.091
+11:47:59 [CE][VehicleRespawner] (PRIHeliCrash) :: Respawning: "StaticHeliCrash"
+11:48:07   Items deleted: 1, of: 1
+11:48:07   Items deleted: 8, of: 8
+11:48:08   Items deleted: 17, of: 17
+11:48:08   Items deleted: 16, of: 16
+11:48:08   Items deleted: 13, of: 13
+11:48:09   Items deleted: 9, of: 9
+11:48:09   Items deleted: 11, of: 11
+11:48:09   Items deleted: 6, of: 6
+11:48:11 [CE][Storage] Saved data file [0] items.
+11:48:13 [CE][Storage] Saved data file [343] items.
+11:48:14 [CE][Storage] Saved data file [750] items.
+11:48:15 [CE][Storage] Saved data file [1812] items.
+11:48:16 [CE][Storage] Saved data file [4700] items.
+11:48:18 [CE][Storage] Saved data file [3387] items.
+11:48:19 [CE][Storage] Saved data file [3047] items.
+11:48:20 [CE][Storage] Saved data file [2616] items.
+11:48:22 [CE][Storage] Saved data file [2830] items.
+11:48:22 [A2S] received data
+11:48:22 [A2S] A2S_INFO
+11:48:22 [A2S] received data
+11:48:22 [A2S] A2S_PLAYER
+11:48:22 [A2S] received data
+11:48:22 [A2S] A2S_RULES
+11:48:23 [CE][Storage] Saved data file [2830] items.
+11:48:24 [CE][Storage] Saved data file [109] items.
+11:48:26 [CE][Storage] Saved data file [221] items.
+11:48:26 [CE][Storage] Saved data file [414] items.
+11:48:28 [CE][Storage] Saved data file [0] items.
+11:48:30 [CE][Storage] Saved data file [0] items.
+11:48:32 [CE][Storage] Saved data file [1] items.
+11:48:34 [CE][Storage] Saved data file [3] items.
+11:48:36 [CE][Storage] Saved data file [5] items.
+11:48:37 [A2S] received data
+11:48:37 [A2S] A2S_INFO
+11:48:37 [A2S] received data
+11:48:37 [A2S] A2S_PLAYER
+11:48:37 [A2S] received data
+11:48:37 [A2S] A2S_RULES
+11:48:39 [CE][Storage] Saved data file [4] items.
+11:48:41 [CE][Storage] Saved data file [3] items.
+11:48:43 [CE][Storage] Saved data file [4] items.
+11:48:45 [CE][Storage] Saved data file [1] items.
+11:48:47 [CE][Storage] Saved data file [2] items.
+11:48:49 [CE][Storage] Saved data file [20452] items.
+11:48:50 [Server] :: termination in: 5
+11:48:51 [Server] :: termination in: 4
+11:48:52 [Server] :: termination in: 3
+11:48:53 [Server] :: termination in: 2
+11:48:54 [Server] :: termination in: 1
+11:48:56 [A2S] destroying...
+11:48:56 [A2S] receive problem
+11:48:56 [A2S] run finished
+11:48:56 [CE][Storage] Saved data file [414] items.
+11:48:56 [CE][Storage] Saved data file [221] items.
+11:48:56 [CE][Storage] Saved data file [109] items.
+11:48:56 [CE][Storage] Saved data file [2830] items.
+11:48:56 [CE][Storage] Saved data file [2830] items.
+11:48:56 [CE][Storage] Saved data file [2616] items.
+11:48:56 [CE][Storage] Saved data file [3047] items.
+11:48:56 [CE][Storage] Saved data file [3387] items.
+11:48:56 [CE][Storage] Saved data file [4700] items.
+11:48:56 [CE][Storage] Saved data file [1812] items.
+11:48:56 [CE][Storage] Saved data file [750] items.
+11:48:56 [CE][Storage] Saved data file [343] items.
+11:48:56 [CE][Storage] Saved data file [0] items.
+11:48:56 [CE][Storage] Saved data file [0] items.
+11:48:56 [CE][Storage] Saved data file [5113] items.
+11:48:56 [CE][Storage] Saved data file [2] items.
+11:48:56 [CE][Storage] Saved data file [1] items.
+11:48:56 [CE][Storage] Saved data file [4] items.
+11:48:56 [CE][Storage] Saved data file [3] items.
+11:48:56 [CE][Storage] Saved data file [4] items.
+11:48:56 [CE][Storage] Saved data file [5] items.
+11:48:56 [CE][Storage] Saved data file [3] items.
+11:48:56 [CE][Storage] Saved data file [1] items.
+11:48:56 [CE][Storage] Saved data file [0] items.
+11:48:56 [CE][Storage] Saved data file [0] items.
+11:48:56 [CE][Storage] Saved data file [2] items.
+11:48:56 [CE][Storage] Saved data file [0] items.
+11:48:56 [CE][Storage] Saved data file [0] items.
+11:51:36 BattlEye server updated to version: 220
+11:51:36 BattlEye Server: Initialized (v1.220, DayZ 1.30.164200.56)
+11:51:36 [SUCCESS] a2s init ip address 109 230 243 72 and port 11403
+11:51:36 [A2S] run started
+11:51:36 Roles assigned.
+11:51:36 Reading mission ...
+11:51:52 [A2S] received data
+11:51:52 [A2S] A2S_INFO
+11:51:52 [A2S] received data
+11:51:52 [A2S] A2S_PLAYER
+11:51:52 [A2S] received data
+11:51:52 [A2S] A2S_RULES
+11:51:54 [CE][Hive] :: Initializing OFFLINE
+11:51:54 [StorageDirs] :: Selected storage directory: C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\
+11:51:54 [CE][Hive] :: Loading core data ... 
+11:51:54 [CE][CoreData] :: 10 root classes, 19 defaults, 0 updaters...
+11:51:59 !!! [CE][PlayerSpawnPoints] :: There are no valid groups.
+11:51:59 !!! [CE][PlayerSpawnPoints] :: NO VALID SPAWNS, players will spawn at { 0,0,0 } !!!
+11:52:00 !!! [CE][PlayerSpawnPoints] :: There are no valid groups.
+11:52:00 !!! [CE][PlayerSpawnPoints] :: NO VALID SPAWNS, players will spawn at { 0,0,0 } !!!
+11:52:00 [CE][Hive] :: Loading map data ... 
+11:52:00 [CE][IgnoreList] "cfgignorelist.xml" :: loaded 19 types
+11:52:07 [CE][TypeSetup] :: 727 classes setuped...
+11:52:07 [CE][TypeSetup] :: 33 classes setuped...
+11:52:08 [CE][RegisterBind] :: 0 classes binded...
+11:52:08 [CE][RegisterConfig] :: 7034 config classes registered, 0 sub-counters...
+11:52:08 [CE][Hive] :: Loading map data ... 
+11:52:08 !!! [CE] :: Ignoring duplicate usage named bit 'Halloween'.
+11:52:08 !!! [CE] :: Ignoring duplicate usage named bit 'Airstrike'.
+11:52:08 [CE][LoadPrototype] :: loaded 754 prototypes
+11:52:08   1421 containers, 17068 points
+11:52:08   79 dispatches, 527 proxies
+11:52:08 !!! [CE][LoadPrototype] 17 groups have no points...
+11:52:08 !!! [CE][LoadPrototype] 53 groups have wrong points...
+11:52:08 !!! [CE][LoadPrototype] 3 Errors during XML parse...
+11:52:08 [CE][LoadPrototype] :: last group name: Vanilla_Land_Tunnel_Single_Bunker...
+11:52:08 [CE][LoadPrototype] :: loaded 0 prototypes
+11:52:08   70 containers, 407 points
+11:52:08   0 dispatches, 0 proxies
+11:52:08 [CE][LoadPrototype] :: last group name: FigTree3...
+11:52:10 [CE][LoadMap] "Group" :: loaded 13719 groups, groups failed: 0, largest group range: 45.9
+11:52:10 [CE][LoadMap] "Dirt" :: loaded 0 groups, groups failed: 0, largest group range: 45.9
+11:52:11 [CE][LoadClusters] "Cluster" :: Loading files...
+11:52:11 [CE][LoadClusters] :: file: "mapgroupcluster.xml", 2 types, 50000 instances
+11:52:11 [CE][LoadClusters] :: file: "mapgroupcluster01", 2 types, 50000 instances
+11:52:11 [CE][LoadClusters] :: file: "mapgroupcluster02", 2 types, 18635 instances
+11:52:11 [CE][Storage] ver:21 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\types.bin"
+11:52:11 [CE][Storage] ver:21 stamp:15659, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\types.001"
+11:52:11 [CE][Storage] ver:21 stamp:15660, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\types.002"
+11:52:11 [CE][Storage] Restoring file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\types.bin".
+11:52:11 !!! [CE][DE] (InfectedCity) :: Unable to create child (ZmbM_takiCitizenUrbanB_BlueBright) as the type does not exist.
+11:52:11 [CE][offlineDB] :: Loaded 39 dynamic events 200 total types.
+11:52:11 !!! [CE][DE] (AmbientAmbientQADog9e44d2) :: Unable to create child (Animal_CanisFamiliaris) as the type does not exist.
+11:52:11 [CE][offlineDB] :: Loaded 42 dynamic events 202 total types.
+11:52:11 !!! [CE][offlineDB] :: Type 'CeramicPot_Black' will be ignored. (Type does not exist. (Typo?))
+11:52:11 !!! [CE][offlineDB] :: Type 'CeramicPot_Gray' will be ignored. (Type does not exist. (Typo?))
+11:52:11 !!! [CE][offlineDB] :: Type 'CeramicPot_Natural' will be ignored. (Type does not exist. (Typo?))
+11:52:11 !!! [CE][offlineDB] :: Type 'CeramicPot_White' will be ignored. (Type does not exist. (Typo?))
+11:52:11 !!! [CE][offlineDB] :: Type 'ChristmasTree' will be ignored. (Not spawnable. (Scope is not public?))
+11:52:11 !!! [CE][offlineDB] :: Type 'Glock_Tan' will be ignored. (Type does not exist. (Typo?))
+11:52:11 !!! [CE][offlineDB] :: Type 'Land_House_1M2_Dam1' will be ignored. (Not spawnable. (Scope is not public?))
+11:52:11 !!! [CE][offlineDB] :: Type 'Land_House_1M3_Dam1' will be ignored. (Not spawnable. (Scope is not public?))
+11:52:11 !!! [CE][offlineDB] :: Type 'Land_House_1M3_Dam3' will be ignored. (Type does not exist. (Typo?))
+11:52:11 !!! [CE][offlineDB] :: Type 'Land_House_1M4_Dam1' will be ignored. (Not spawnable. (Scope is not public?))
+11:52:11 !!! [CE][offlineDB] :: Type 'Land_House_1M4_Dam3' will be ignored. (Not spawnable. (Scope is not public?))
+11:52:11 !!! [CE][offlineDB] :: Type 'Land_House_1S1_Dam1' will be ignored. (Type does not exist. (Typo?))
+11:52:11 !!! [CE][offlineDB] :: Type 'Land_House_1S1_Dam2' will be ignored. (Type does not exist. (Typo?))
+11:52:11 !!! [CE][offlineDB] :: Type 'Land_House_2M1_Dam1' will be ignored. (Not spawnable. (Scope is not public?))
+11:52:11 !!! [CE][offlineDB] :: Type 'Land_House_2M1_Dam3' will be ignored. (Type does not exist. (Typo?))
+11:52:11 !!! [CE][offlineDB] :: Type 'Land_House_2M2_Dam1' will be ignored. (Not spawnable. (Scope is not public?))
+11:52:11 !!! [CE][offlineDB] :: Type 'Land_House_2M2_Dam3' will be ignored. (Not spawnable. (Scope is not public?))
+11:52:11 !!! [CE][offlineDB] :: Type 'Land_House_2S1_Dam1' will be ignored. (Not spawnable. (Scope is not public?))
+11:52:11 !!! [CE][offlineDB] :: Type 'Land_House_2S1_Dam2' will be ignored. (Not spawnable. (Scope is not public?))
+11:52:11 !!! [CE][offlineDB] :: Type 'Land_House_2S1_Dam4' will be ignored. (Not spawnable. (Scope is not public?))
+11:52:11 !!! [CE][offlineDB] :: Type 'Land_House_3S1_Dam1' will be ignored. (Not spawnable. (Scope is not public?))
+11:52:11 !!! [CE][offlineDB] :: Type 'Land_House_3S1_Dam2' will be ignored. (Not spawnable. (Scope is not public?))
+11:52:11 !!! [CE][offlineDB] :: Type 'Land_House_3S2_Dam1' will be ignored. (Not spawnable. (Scope is not public?))
+11:52:11 !!! [CE][offlineDB] :: Type 'Land_House_3S2_Dam3' will be ignored. (Not spawnable. (Scope is not public?))
+11:52:11 !!! [CE][offlineDB] :: Type 'Static_FrozenScientist_DE' will be ignored. (Type does not exist. (Typo?))
+11:52:11 !!! [CE][offlineDB] :: Type 'Water_Well_N1' will be ignored. (Type does not exist. (Typo?))
+11:52:11 !!! [CE][offlineDB] :: Type 'ZmbM_takiCitizenUrbanB_BlueBright' will be ignored. (Type does not exist. (Typo?))
+11:52:11 [CE][DE][SPAWNS] :: Total positions: 732
+11:52:11 [CE][DE][GROUPS] :: Total eventgroups defined: 27, Eventgroups in use: 23
+11:52:11 [CE][Storage] ver:26 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\events.bin"
+11:52:11 [CE][Storage] ver:26 stamp:15659, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\events.001"
+11:52:11 [CE][Storage] ver:26 stamp:15660, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\events.002"
+11:52:11 [CE][Storage] Restoring file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\events.bin".
+11:52:11 [CE][DynamicEvent] Load  Events:[42] Primary spawners: 42 Secondary spawners: 11
+11:52:11 [CE][InfectedRespawner] (SECArmy) :: Zones:0 Respawner Function DISABLED !!!
+11:52:11 [CE][InfectedRespawner] (SECArmy) :: Zones:0 Respawner Function DISABLED !!!
+11:52:11 [CE][InfectedRespawner] (SECArmy) :: Zones:0 Respawner Function DISABLED !!!
+11:52:11 [CE][InfectedRespawner] (PRIArmy) :: Status
+11:52:11   Zones:69, Unpopulated:0
+11:52:11   SMin:0, SMax:0
+11:52:11   DMin:269, DMax:458
+11:52:11 [CE][InfectedRespawner] (PRIArmyConvoy) :: Zones:0 Respawner Function DISABLED !!!
+11:52:11 [CE][InfectedRespawner] (PRIArmyION) :: Status
+11:52:11   Zones:21, Unpopulated:0
+11:52:11   SMin:0, SMax:0
+11:52:11   DMin:98, DMax:160
+11:52:11 [CE][InfectedRespawner] (PRICity) :: Status
+11:52:11   Zones:28, Unpopulated:0
+11:52:11   SMin:0, SMax:0
+11:52:11   DMin:223, DMax:338
+11:52:11 [CE][InfectedRespawner] (PRIIndustrial) :: Status
+11:52:11   Zones:48, Unpopulated:0
+11:52:11   SMin:0, SMax:0
+11:52:11   DMin:284, DMax:471
+11:52:11 [CE][InfectedRespawner] (PRIMedic) :: Status
+11:52:11   Zones:30, Unpopulated:0
+11:52:11   SMin:0, SMax:0
+11:52:11   DMin:66, DMax:157
+11:52:11 [CE][InfectedRespawner] (PRINBCYellow) :: Status
+11:52:11   Zones:3, Unpopulated:0
+11:52:11   SMin:6, SMax:10
+11:52:11   DMin:0, DMax:0
+11:52:11 [CE][InfectedRespawner] (PRIPolice) :: Status
+11:52:11   Zones:17, Unpopulated:0
+11:52:11   SMin:0, SMax:0
+11:52:11   DMin:64, DMax:108
+11:52:11 [CE][InfectedRespawner] (PRIPoliceHard) :: Zones:0 Respawner Function DISABLED !!!
+11:52:11 [CE][InfectedRespawner] (PRIReligious) :: Zones:0 Respawner Function DISABLED !!!
+11:52:11 [CE][InfectedRespawner] (PRISolitude) :: Status
+11:52:11   Zones:228, Unpopulated:0
+11:52:11   SMin:0, SMax:0
+11:52:11   DMin:301, DMax:723
+11:52:11 [CE][InfectedRespawner] (PRIVillage) :: Status
+11:52:11   Zones:93, Unpopulated:0
+11:52:11   SMin:0, SMax:0
+11:52:11   DMin:409, DMax:618
+11:52:11 [CE][InfectedRespawner] (PRIVillageTier1) :: Status
+11:52:11   Zones:107, Unpopulated:0
+11:52:11   SMin:0, SMax:0
+11:52:11   DMin:484, DMax:762
+11:52:11 [CE][InfectedRespawner] (SECArmy) :: Zones:0 Respawner Function DISABLED !!!
+11:52:11 [CE][InfectedRespawner] (SECArmy) :: Zones:0 Respawner Function DISABLED !!!
+11:52:11 [CE][InfectedRespawner] (SECArmy) :: Zones:0 Respawner Function DISABLED !!!
+11:52:11 [CE][InfectedRespawner] (SECArmyConvoy) :: Zones:0 Respawner Function DISABLED !!!
+11:52:11 [CE][InfectedRespawner] (SECPoliceHard) :: Zones:0 Respawner Function DISABLED !!!
+11:52:11 [CE][InfectedRespawner] (SECIndustrial) :: Zones:0 Respawner Function DISABLED !!!
+11:52:11 [CE][InfectedRespawner] (SECArmy) :: Zones:0 Respawner Function DISABLED !!!
+11:52:11 [CE][InfectedRespawner] (SECArmy) :: Zones:0 Respawner Function DISABLED !!!
+11:52:11 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_000.bin"
+11:52:11 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_000.001"
+11:52:11 [CE][Storage] ver:27 stamp:15660, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_000.002"
+11:52:11 [CE][Storage] Restoring file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_000.bin" 221 items.
+11:52:13   221 items loaded. (0 failed)
+11:52:13 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_001.bin"
+11:52:13 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_001.001"
+11:52:13 [CE][Storage] ver:27 stamp:15660, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_001.002"
+11:52:13 [CE][Storage] Restoring file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_001.bin" 109 items.
+11:52:13   109 items loaded. (0 failed)
+11:52:13 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_002.bin"
+11:52:13 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_002.001"
+11:52:13 [CE][Storage] ver:27 stamp:15660, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_002.002"
+11:52:13 [CE][Storage] Restoring file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_002.bin" 2830 items.
+11:52:16   2830 items loaded. (0 failed)
+11:52:16 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_003.bin"
+11:52:16 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_003.001"
+11:52:16 [CE][Storage] ver:27 stamp:15660, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_003.002"
+11:52:16 [CE][Storage] Restoring file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_003.bin" 2830 items.
+11:52:18   2830 items loaded. (0 failed)
+11:52:18 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_004.bin"
+11:52:18 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_004.001"
+11:52:18 [CE][Storage] ver:27 stamp:15660, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_004.002"
+11:52:18 [CE][Storage] Restoring file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_004.bin" 2616 items.
+11:52:19   2616 items loaded. (0 failed)
+11:52:19 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_005.bin"
+11:52:19 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_005.001"
+11:52:19 [CE][Storage] ver:27 stamp:15660, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_005.002"
+11:52:19 [CE][Storage] Restoring file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_005.bin" 3047 items.
+11:52:22   3047 items loaded. (0 failed)
+11:52:22 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_006.bin"
+11:52:22 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_006.001"
+11:52:22 [CE][Storage] ver:27 stamp:15660, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_006.002"
+11:52:22 [CE][Storage] Restoring file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_006.bin" 3387 items.
+11:52:24   3387 items loaded. (0 failed)
+11:52:24 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_007.bin"
+11:52:24 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_007.001"
+11:52:24 [CE][Storage] ver:27 stamp:15660, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_007.002"
+11:52:24 [CE][Storage] Restoring file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_007.bin" 4700 items.
+11:52:28   4700 items loaded. (0 failed)
+11:52:28 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_008.bin"
+11:52:28 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_008.001"
+11:52:28 [CE][Storage] ver:27 stamp:15660, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_008.002"
+11:52:28 [CE][Storage] Restoring file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_008.bin" 1812 items.
+11:52:30   1812 items loaded. (0 failed)
+11:52:30 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_009.bin"
+11:52:30 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_009.001"
+11:52:30 [CE][Storage] ver:27 stamp:15660, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_009.002"
+11:52:30 [CE][Storage] Restoring file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_009.bin" 750 items.
+11:52:30   750 items loaded. (0 failed)
+11:52:30 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_010.bin"
+11:52:30 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_010.001"
+11:52:30 [CE][Storage] ver:27 stamp:15660, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_010.002"
+11:52:30 [CE][Storage] Restoring file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_010.bin" 343 items.
+11:52:30   343 items loaded. (0 failed)
+11:52:30 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_011.bin"
+11:52:30 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_011.001"
+11:52:30 [CE][Storage] ver:27 stamp:15660, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_011.002"
+11:52:30 [CE][Storage] Restoring file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\dynamic_011.bin" 0 items.
+11:52:30   0 items loaded. (0 failed)
+11:52:30 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_000.bin"
+11:52:30 !!! [CE][Storage] Failed to read [Storage] data file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_000.001".
+11:52:30   File not closed...
+11:52:30 [CE][Storage] ver:27 stamp:15662, valid:NO, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_000.001"
+11:52:30 [CE][Storage] ver:27 stamp:15660, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_000.002"
+11:52:30 [CE][Storage] Restoring file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_000.bin" 0 items.
+11:52:30   0 items loaded. (0 failed)
+11:52:30 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_001.bin"
+11:52:30 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_001.001"
+11:52:30 [CE][Storage] ver:27 stamp:15660, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_001.002"
+11:52:30 [CE][Storage] Restoring file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_001.bin" 5113 items.
+11:52:41   5113 items loaded. (0 failed)
+11:52:41 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_002.bin"
+11:52:41 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_002.001"
+11:52:41 [CE][Storage] ver:27 stamp:15660, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_002.002"
+11:52:41 [CE][Storage] Restoring file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_002.bin" 2 items.
+11:52:41   2 items loaded. (0 failed)
+11:52:41 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_003.bin"
+11:52:41 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_003.001"
+11:52:41 [CE][Storage] ver:27 stamp:15660, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_003.002"
+11:52:41 [CE][Storage] Restoring file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_003.bin" 1 items.
+11:52:41   1 items loaded. (0 failed)
+11:52:41 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_004.bin"
+11:52:41 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_004.001"
+11:52:41 [CE][Storage] ver:27 stamp:15660, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_004.002"
+11:52:41 [CE][Storage] Restoring file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_004.bin" 4 items.
+11:52:41   4 items loaded. (0 failed)
+11:52:41 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_005.bin"
+11:52:41 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_005.001"
+11:52:41 [CE][Storage] ver:27 stamp:15660, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_005.002"
+11:52:41 [CE][Storage] Restoring file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_005.bin" 3 items.
+11:52:41   3 items loaded. (0 failed)
+11:52:41 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_006.bin"
+11:52:41 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_006.001"
+11:52:41 [CE][Storage] ver:27 stamp:15660, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_006.002"
+11:52:41 [CE][Storage] Restoring file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_006.bin" 4 items.
+11:52:41   4 items loaded. (0 failed)
+11:52:41 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_007.bin"
+11:52:41 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_007.001"
+11:52:41 [CE][Storage] ver:27 stamp:15660, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_007.002"
+11:52:41 [CE][Storage] Restoring file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_007.bin" 5 items.
+11:52:41   5 items loaded. (0 failed)
+11:52:41 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_008.bin"
+11:52:41 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_008.001"
+11:52:41 [CE][Storage] ver:27 stamp:15660, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_008.002"
+11:52:41 [CE][Storage] Restoring file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_008.bin" 3 items.
+11:52:41   3 items loaded. (0 failed)
+11:52:41 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_009.bin"
+11:52:41 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_009.001"
+11:52:41 [CE][Storage] ver:27 stamp:15660, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_009.002"
+11:52:41 [CE][Storage] Restoring file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_009.bin" 1 items.
+11:52:41   1 items loaded. (0 failed)
+11:52:41 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_010.bin"
+11:52:41 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_010.001"
+11:52:41 [CE][Storage] ver:27 stamp:15660, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_010.002"
+11:52:41 [CE][Storage] Restoring file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_010.bin" 0 items.
+11:52:41   0 items loaded. (0 failed)
+11:52:41 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_011.bin"
+11:52:41 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_011.001"
+11:52:41 [CE][Storage] ver:27 stamp:15660, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_011.002"
+11:52:41 [CE][Storage] Restoring file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\building_011.bin" 0 items.
+11:52:41   0 items loaded. (0 failed)
+11:52:41 [CE][Storage] ver:0 stamp:0, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\doors.bin"
+11:52:41 [CE][Storage] ver:0 stamp:0, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\doors.001"
+11:52:41 [CE][Storage] ver:0 stamp:0, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\doors.002"
+11:52:41 [CE][Storage] Restoring file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\doors.bin" 2 items.
+11:52:41 Unable to load/ find building from [Storage] at 0x33
+11:52:41   1 items loaded. (1 failed)
+11:52:41 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\vehicles.bin"
+11:52:41 [CE][Storage] ver:27 stamp:15662, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\vehicles.001"
+11:52:41 [CE][Storage] ver:27 stamp:15660, valid:yes, name:"C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\vehicles.002"
+11:52:41 [CE][Storage] Restoring file "C:\SERVICES\ni6156327_1_local\dayzxb\mpmissions\dayzOffline.nasdara\storage_15580969\data\vehicles.bin" 414 items.
+11:52:43   414 items loaded. (0 failed)
+11:52:43 [CE][Hive] :: Storage load took:31.69 seconds, recovery stamp:15662
+11:52:43   entity: 32506, building: 1
+11:52:43   no lifetime: 5208
+11:52:43   skipped: 1
+11:52:43   pathgraph's: 5995
+11:52:43 [CE][Hive] :: Initializing ... 
+11:52:43 [CE][OnInit]
+11:52:43   static groups: 13719
+11:52:43   containers: 25586
+11:52:43   points: 150635
+11:52:43   proxies: 10909
+11:52:43   linked groups: 2215, points: 0
+11:52:43   abandoned groups: 0, points: 0
+11:52:43   dynamic groups: 0
+11:52:43 [CE][InitializeMap] :: initialized: 0
+11:52:43 [CE][Hive] :: Initializing spawners ... 
+11:52:43 [CE][AnimalRespawner] (PRIDog) :: Initial nominal:8 (min:4, max:12)
+11:52:43 [CE][AnimalRespawner] (PRIDog) :: AnimalDog, spawning herds: 8
+11:52:43 !!! [CE][Spawn] Animal "Animal_CanisFamiliaris_Dobermann_Bald" at 7065.270020, 9742.613281
+11:52:43 !!! [CE][Spawn] Animal "Animal_CanisFamiliaris_Dobermann_Bloody" at 7085.625488, 9747.688477
+11:52:43 !!! [CE][Spawn] Animal "Animal_CanisFamiliaris_Dobermann_Bald" at 7439.708984, 7467.771973
+11:52:43 !!! [CE][Spawn] Animal "Animal_CanisFamiliaris_Dobermann_Bald" at 11008.082031, 4006.426514
+11:52:43 !!! [CE][Spawn] Animal "Animal_CanisFamiliaris_Dobermann_Bloody" at 11020.848633, 3992.001953
+11:52:43 !!! [CE][Spawn] Animal "Animal_CanisFamiliaris_Dobermann_Brown" at 3901.470947, 5030.678223
+11:52:43 !!! [CE][Spawn] Animal "Animal_CanisFamiliaris_Dobermann_Vest" at 6174.829102, 9078.734375
+11:52:43 !!! [CE][Spawn] Animal "Animal_CanisFamiliaris_Dobermann_Bloody" at 11413.155273, 8568.505859
+11:52:43 !!! [CE][Spawn] Animal "Animal_CanisFamiliaris_GermanShepherd_Bloody" at 11426.542969, 8576.527344
+11:52:43 !!! [CE][Spawn] Animal "Animal_CanisFamiliaris_Dobermann_Brown" at 5581.314453, 5670.187500
+11:52:43 !!! [CE][Spawn] Animal "Animal_CanisFamiliaris_Dobermann_Bald" at 3105.258057, 5562.699707
+11:52:43 !!! [CE][Spawn] Animal "Animal_CanisFamiliaris_Dobermann_Bloody" at 3104.610596, 5552.424316
+11:52:43 [CE][AnimalRespawner] (PRIDog) :: Initial Spawn:12 animals 8 herds
+11:52:43 [CE][AnimalRespawner] (PRIGoat) :: Initial nominal:16 (min:6, max:18)
+11:52:43 [CE][AnimalRespawner] (PRIGoat) :: AnimalGoat, spawning herds: 16
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircusF" at 4126.087891, 12492.979492
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircus_Black" at 4148.932617, 12510.179688
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircusF" at 3702.311523, 6104.849121
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircus_Black" at 3690.739014, 6089.194336
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircus_White" at 3722.757324, 6108.266602
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircusF" at 4414.633789, 14576.181641
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircusF" at 5622.567383, 13859.963867
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircusF" at 7809.099121, 6698.038574
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircusF" at 5606.015137, 6026.784668
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircus_Black" at 5618.447266, 6036.781250
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircusF" at 9471.842773, 3129.991211
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircus_Black" at 9454.657227, 3134.673340
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircusF" at 5189.508789, 8557.914063
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircus_Black" at 5208.071777, 8551.478516
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircusF" at 3029.600830, 5428.095215
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircus_Brown" at 3012.051025, 5427.140137
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircus_White" at 3035.797852, 5404.261719
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircusF" at 3381.083984, 11106.805664
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircus_Black" at 3366.453125, 11124.741211
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircusF" at 3698.214111, 9229.789063
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircusF" at 9095.552734, 6366.251953
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircus_Black" at 9077.343750, 6353.754883
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircusF" at 8971.479492, 10645.053711
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircus_Black" at 8970.814453, 10645.078125
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircus_Brown" at 8952.416992, 10662.129883
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircusF" at 10372.081055, 3559.275146
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircusF" at 9694.579102, 9660.500000
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircus_Brown" at 9694.372070, 9668.582031
+11:52:43 !!! [CE][Spawn] Animal "Animal_CapraHircusF" at 11830.115234, 2776.363037
+11:52:43 [CE][AnimalRespawner] (PRIGoat) :: Initial Spawn:29 animals 16 herds
+11:52:43 [CE][InfectedRespawner] (SECArmy) :: Initial Spawn: 0
+11:52:43 [CE][AnimalRespawner] (PRIMouflon) :: Initial nominal:13 (min:6, max:18)
+11:52:43 [CE][AnimalRespawner] (PRIMouflon) :: AnimalMouflon, spawning herds: 13
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisGmelini" at 3419.290527, 14581.491211
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisGmelini" at 2905.349121, 12782.676758
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisGmelini" at 5598.340332, 5179.792969
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisGmelini" at 3061.669189, 2769.722412
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisGmelini" at 12601.511719, 511.567719
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisGmelini" at 9032.959961, 11290.499023
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisGmelini" at 2283.403320, 9701.606445
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisGmelini" at 8169.469238, 2613.404785
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisGmelini" at 8494.389648, 6775.877930
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisGmelini" at 7847.377441, 13546.114258
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisGmelini" at 7158.729980, 11731.100586
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisGmelini" at 5282.028809, 14294.506836
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisGmelini" at 13057.853516, 14041.027344
+11:52:43 [CE][AnimalRespawner] (PRIMouflon) :: Initial Spawn:13 animals 13 herds
+11:52:43 [CE][InfectedRespawner] (SECArmy) :: Initial Spawn: 0
+11:52:43 [CE][AnimalRespawner] (PRISheep) :: Initial nominal:13 (min:7, max:21)
+11:52:43 [CE][AnimalRespawner] (PRISheep) :: AnimalSheep, spawning herds: 13
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAriesF" at 7331.349609, 12851.433594
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAriesF" at 7348.008789, 12849.540039
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAriesF" at 8720.406250, 12016.866211
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAriesF" at 8710.949219, 12032.363281
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAriesF" at 8020.423340, 10079.710938
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAries" at 5551.789063, 12820.605469
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAriesF" at 5558.233887, 12813.612305
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAriesF" at 5537.673340, 12824.694336
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAriesF" at 9942.329102, 11151.868164
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAriesF" at 9947.172852, 11169.735352
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAries" at 7659.248047, 4659.230469
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAriesF" at 7666.812988, 4651.133789
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAriesF" at 8019.255371, 9283.193359
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAriesF" at 8008.327148, 9280.230469
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAries" at 7326.491699, 5923.590332
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAriesF" at 7310.016602, 5905.374023
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAries" at 5968.880371, 13480.141602
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAriesF" at 5990.693848, 13468.041016
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAriesF" at 5985.771973, 13461.377930
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAriesF" at 3981.217529, 11297.414063
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAriesF" at 3995.098145, 11313.234375
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAries" at 5320.354492, 10498.489258
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAriesF" at 5312.604004, 10509.548828
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAriesF" at 5310.909180, 10482.816406
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAries" at 4939.944336, 13528.338867
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAriesF" at 4950.853027, 13543.643555
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAriesF" at 4954.630859, 13549.738281
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAries" at 5279.288574, 12004.085938
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAriesF" at 5272.816406, 11991.996094
+11:52:43 !!! [CE][Spawn] Animal "Animal_OvisAriesF" at 5281.690430, 11996.758789
+11:52:43 [CE][AnimalRespawner] (PRISheep) :: Initial Spawn:30 animals 13 herds
+11:52:43 [CE][AnimalRespawner] (PRIWildBoar) :: Initial nominal:18 (min:6, max:18)
+11:52:43 [CE][AnimalRespawner] (PRIWildBoar) :: AnimalWildBoar, spawning herds: 18
+11:52:43 !!! [CE][Spawn] Animal "Animal_SusScrofa" at 7654.898926, 4967.773438
+11:52:43 !!! [CE][Spawn] Animal "Animal_SusScrofa" at 7650.633301, 4969.472168
+11:52:43 !!! [CE][Spawn] Animal "Animal_SusScrofa" at 8810.473633, 7117.599121
+11:52:43 !!! [CE][Spawn] Animal "Animal_SusScrofa" at 8818.694336, 7099.128906
+11:52:43 !!! [CE][Spawn] Animal "Animal_SusScrofa" at 4741.360840, 13406.405273
+11:52:43 !!! [CE][Spawn] Animal "Animal_SusScrofa" at 6888.614258, 10792.733398
+11:52:43 !!! [CE][Spawn] Animal "Animal_SusScrofa" at 6879.567871, 10793.420898
+11:52:43 !!! [CE][Spawn] Animal "Animal_SusScrofa" at 7465.634766, 8170.854004
+11:52:43 !!! [CE][Spawn] Animal "Animal_SusScrofa" at 10085.576172, 9042.208008
+11:52:43 !!! [CE][Spawn] Animal "Animal_SusScrofa" at 9533.472656, 5406.136230
+11:52:43 !!! [CE][Spawn] Animal "Animal_SusScrofa" at 9549.284180, 5417.613281
+11:52:43 !!! [CE][Spawn] Animal "Animal_SusScrofa" at 10117.918945, 11415.851563
+11:52:43 !!! [CE][Spawn] Animal "Animal_SusScrofa" at 4173.415039, 11068.497070
+11:52:43 !!! [CE][Spawn] Animal "Animal_SusScrofa" at 8562.774414, 12173.562500
+11:52:43 !!! [CE][Spawn] Animal "Animal_SusScrofa" at 8569.182617, 12172.635742
+11:52:43 !!! [CE][Spawn] Animal "Animal_SusScrofa" at 8576.483398, 12168.314453
+11:52:43 !!! [CE][Spawn] Animal "Animal_SusScrofa" at 6955.527832, 9250.425781
+11:52:43 !!! [CE][Spawn] Animal "Animal_SusScrofa" at 4953.260742, 11108.613281
+11:52:43 !!! [CE][Spawn] Animal "Animal_SusScrofa" at 6678.509766, 12754.887695
+11:52:43 !!! [CE][Spawn] Animal "Animal_SusScrofa" at 6655.180664, 12759.405273
+11:52:43 !!! [CE][Spawn] Animal "Animal_SusScrofa" at 7999.603516, 10808.049805
+11:52:43 !!! [CE][Spawn] Animal "Animal_SusScrofa" at 8015.553223, 10796.784180
+11:52:43 !!! [CE][Spawn] Animal "Animal_SusScrofa" at 5166.842285, 6406.854492
+11:52:43 !!! [CE][Spawn] Animal "Animal_SusScrofa" at 5184.275879, 6410.097656
+11:52:43 [CE][AnimalRespawner] (PRIWildBoar) :: Initial Spawn:24 animals 15 herds
+11:52:43 [CE][InfectedRespawner] (SECArmy) :: Initial Spawn: 0
+11:52:43 [CE][InfectedRespawner] (PRIArmy) :: Initial Spawn: 0
+11:52:43 [CE][InfectedRespawner] (PRIArmyConvoy) :: Initial Spawn: 0
+11:52:43 [CE][InfectedRespawner] (PRIArmyION) :: Initial Spawn: 0
+11:52:43 [CE][InfectedRespawner] (PRICity) :: Initial Spawn: 0
+11:52:43 [CE][InfectedRespawner] (PRIIndustrial) :: Initial Spawn: 0
+11:52:43 [CE][InfectedRespawner] (PRIMedic) :: Initial Spawn: 0
+11:52:43 !!! [CE][Spawn] Character "ZmbM_NBC_Yellow" at 5856.092285, 5693.160156
+11:52:43 !!! [CE][Spawn] Character "ZmbM_NBC_Yellow" at 5841.078613, 5659.514160
+11:52:43 !!! [CE][Spawn] Character "ZmbM_NBC_Yellow" at 5836.198242, 5635.791504
+11:52:43 !!! [CE][Spawn] Character "ZmbM_NBC_Yellow" at 14223.602539, 14370.237305
+11:52:43 !!! [CE][Spawn] Character "ZmbM_NBC_Yellow" at 14195.616211, 14351.352539
+11:52:43 !!! [CE][Spawn] Character "ZmbM_NBC_Yellow" at 5253.906250, 5482.875488
+11:52:43 !!! [CE][Spawn] Character "ZmbM_NBC_Yellow" at 5260.521484, 5508.984863
+11:52:43 !!! [CE][Spawn] Character "ZmbM_NBC_Yellow" at 5299.710449, 5517.631348
+11:52:43 [CE][InfectedRespawner] (PRINBCYellow) :: Initial Spawn: 8
+11:52:43 [CE][InfectedRespawner] (PRIPolice) :: Initial Spawn: 0
+11:52:43 [CE][InfectedRespawner] (PRIPoliceHard) :: Initial Spawn: 0
+11:52:43 [CE][InfectedRespawner] (PRIReligious) :: Initial Spawn: 0
+11:52:43 [CE][InfectedRespawner] (PRISolitude) :: Initial Spawn: 0
+11:52:43 [CE][InfectedRespawner] (PRIVillage) :: Initial Spawn: 0
+11:52:43 [CE][InfectedRespawner] (PRIVillageTier1) :: Initial Spawn: 0
+11:52:43 [CE][InfectedRespawner] (SECArmy) :: Initial Spawn: 0
+11:52:43 [CE][LootRespawner] (PRIDummy) :: Initially (re)spawned:0, Nominal:24672, Total in Map: 23030 at 0 (sec)
+11:52:43   tests:0, repeats:0 fails:0, overtime:0
+11:52:43 [CE][InfectedRespawner] (SECArmy) :: Initial Spawn: 0
+11:52:43 [CE][InfectedRespawner] (SECArmy) :: Initial Spawn: 0
+11:52:43 [CE][InfectedRespawner] (SECArmyConvoy) :: Initial Spawn: 0
+11:52:43 [CE][InfectedRespawner] (SECPoliceHard) :: Initial Spawn: 0
+11:52:43 [CE][InfectedRespawner] (SECIndustrial) :: Initial Spawn: 0
+11:52:43 [CE][TrajectoryRespawner] (PRIFig) :: Initial Spawn is DISABLED
+11:52:43 [CE][TrajectoryRespawner] (PRIStones) :: Initial Spawn is DISABLED
+11:52:43 [CE][InfectedRespawner] (SECArmy) :: Initial Spawn: 0
+11:52:43 ! [CE][DE] DynamicEvent "VehicleOffroadHatchback" has <limit> 'child' or 'mixed', but <child max> for "OffroadHatchback" is set to 0.
+11:52:43 ! [CE][DE] DynamicEvent "VehicleOffroadHatchback" has <limit> 'child' or 'mixed', but <child max> for "OffroadHatchback_Blue" is set to 0.
+11:52:43 ! [CE][DE] DynamicEvent "VehicleSedan02" has <limit> 'child' or 'mixed', but <child max> for "Sedan_02" is set to 0.
+11:52:43 [CE][InfectedRespawner] (SECArmy) :: Initial Spawn: 0
+11:52:43 !!! [CE][DE] DynamicEvent "AmbientAmbientQADog9e44d2" has no children defined, at least one is required for this type of event.
+11:52:43 !!!!!! [CE][DE] DynamicEvent "AmbientAmbientQADog9e44d2" setup is invalid, event will be disabled.
+11:52:43 [CE][DynEvent] :: 42 types
+11:52:43 [00] AmbientFox
+11:52:43   Primary Spawner: "Ambient", active: yes, repeat: 1
+11:52:43 [01] AmbientHare
+11:52:43   Primary Spawner: "Ambient", active: yes, repeat: 1
+11:52:43 [02] AmbientHen
+11:52:43   Primary Spawner: "Ambient", active: yes, repeat: 1
+11:52:43 [03] AmbientLizard
+11:52:43   Primary Spawner: "Ambient", active: yes, repeat: 1
+11:52:43 [04] AnimalDog
+11:52:43   Primary Spawner: "Animal", active: yes, repeat: 1
+11:52:43 [05] AnimalGoat
+11:52:43   Primary Spawner: "Animal", active: yes, repeat: 1
+11:52:43   Secondary Spawner: "Infected", active: yes, repeat: 1
+11:52:43 [06] AnimalMouflon
+11:52:43   Primary Spawner: "Animal", active: yes, repeat: 1
+11:52:43   Secondary Spawner: "Infected", active: yes, repeat: 1
+11:52:43 [07] AnimalSheep
+11:52:43   Primary Spawner: "Animal", active: yes, repeat: 1
+11:52:43 [08] AnimalWildBoar
+11:52:43   Primary Spawner: "Animal", active: yes, repeat: 1
+11:52:43   Secondary Spawner: "Infected", active: yes, repeat: 1
+11:52:43 [09] InfectedArmy
+11:52:43   Primary Spawner: "Infected", active: yes, repeat: 1
+11:52:43 [10] InfectedArmyConvoy
+11:52:43   Primary Spawner: "Infected", active: yes, repeat: 1
+11:52:43 [11] InfectedArmyION
+11:52:43   Primary Spawner: "Infected", active: yes, repeat: 1
+11:52:43 [12] InfectedCity
+11:52:43   Primary Spawner: "Infected", active: yes, repeat: 1
+11:52:43 [13] InfectedIndustrial
+11:52:43   Primary Spawner: "Infected", active: yes, repeat: 1
+11:52:43 [14] InfectedMedic
+11:52:43   Primary Spawner: "Infected", active: yes, repeat: 1
+11:52:43 [15] InfectedNBCYellow
+11:52:43   Primary Spawner: "Infected", active: yes, repeat: 1
+11:52:43 [16] InfectedPolice
+11:52:43   Primary Spawner: "Infected", active: yes, repeat: 1
+11:52:43 [17] InfectedPoliceHard
+11:52:43   Primary Spawner: "Infected", active: yes, repeat: 1
+11:52:43 [18] InfectedReligious
+11:52:43   Primary Spawner: "Infected", active: yes, repeat: 1
+11:52:43 [19] InfectedSolitude
+11:52:43   Primary Spawner: "Infected", active: yes, repeat: 1
+11:52:43 [20] InfectedVillage
+11:52:43   Primary Spawner: "Infected", active: yes, repeat: 1
+11:52:43 [21] InfectedVillageTier1
+11:52:43   Primary Spawner: "Infected", active: yes, repeat: 1
+11:52:43 [22] ItemBricks
+11:52:43   Primary Spawner: "Item", active: yes, repeat: 1
+11:52:43   Secondary Spawner: "Infected", active: yes, repeat: 1
+11:52:43 [23] Loot
+11:52:43   Primary Spawner: "Loot", active: yes, repeat: 2
+11:52:43 [24] StaticContainerLocked
+11:52:43   Primary Spawner: "Static", active: yes, repeat: 1
+11:52:43 [25] StaticHeliCrash
+11:52:43   Primary Spawner: "Static", active: yes, repeat: 1
+11:52:43   Secondary Spawner: "Infected", active: yes, repeat: 1
+11:52:43 [26] StaticHeliCrashBig
+11:52:43   Primary Spawner: "Static", active: yes, repeat: 1
+11:52:43   Secondary Spawner: "Infected", active: yes, repeat: 1
+11:52:43 [27] StaticMilitaryConvoy
+11:52:43   Primary Spawner: "Static", active: yes, repeat: 1
+11:52:43   Secondary Spawner: "Infected", active: yes, repeat: 1
+11:52:43 [28] StaticPoliceCar
+11:52:43   Primary Spawner: "Static", active: yes, repeat: 1
+11:52:43   Secondary Spawner: "Infected", active: yes, repeat: 1
+11:52:43 [29] StaticWaterTruck
+11:52:43   Primary Spawner: "Static", active: yes, repeat: 1
+11:52:43   Secondary Spawner: "Infected", active: yes, repeat: 1
+11:52:43 [30] TrajectoryFig
+11:52:43   Primary Spawner: "Trajectory", active: yes, repeat: 1
+11:52:43 [31] TrajectoryStones
+11:52:43   Primary Spawner: "Trajectory", active: yes, repeat: 1
+11:52:43 [32] VehicleCivilianSedan
+11:52:43   Primary Spawner: "Vehicle", active: yes, repeat: 1
+11:52:43 [33] VehicleHatchback02
+11:52:43   Primary Spawner: "Vehicle", active: yes, repeat: 1
+11:52:43 [34] VehicleMotorbike
+11:52:43   Primary Spawner: "Vehicle", active: yes, repeat: 1
+11:52:43 [35] VehicleOffroad02
+11:52:43   Primary Spawner: "Vehicle", active: yes, repeat: 1
+11:52:43   Secondary Spawner: "Infected", active: yes, repeat: 1
+11:52:43 [36] VehicleOffroadHatchback
+11:52:43   Primary Spawner: "Vehicle", active: yes, repeat: 1
+11:52:43 [37] VehicleSedan02
+11:52:43   Primary Spawner: "Vehicle", active: yes, repeat: 1
+11:52:43 [38] VehicleTruck01
+11:52:43   Primary Spawner: "Vehicle", active: yes, repeat: 1
+11:52:43   Secondary Spawner: "Infected", active: yes, repeat: 1
+11:52:43 [39] VehicleRental524
+11:52:43   Primary Spawner: "Vehicle", active: yes, repeat: 1
+11:52:43 [40] VehicleRental531
+11:52:43   Primary Spawner: "Vehicle", active: yes, repeat: 1
+11:52:43 [41] AmbientAmbientQADog9e44d2
+11:52:43   Primary Spawner: "Ambient", active: no, repeat: 1
+11:52:43 [CE][Hive] :: Initializing of spawners done.
+11:52:43   Items batched for deletion: 0, of: 24430
+11:52:43 [CE][Hive] :: Init sequence finished.
+11:52:45 BIOS clientVersion: "1.30.164200" and hostname of server: ""
+11:52:45 [BIOS] Register server returned: {"id":"8797e116-24ef-4993-b256-71bda9f83e72"}
+11:52:45   Adding WeaponCleaningKit at [8177,7933]
+11:52:45   Adding WeaponCleaningKit at [8810,6795]
+11:52:45   Adding WeaponCleaningKit at [220,4395]
+11:52:45   Adding WeaponCleaningKit at [143,4378]
+11:52:45   Adding WeaponCleaningKit at [356,4401]
+11:52:45   Adding WeaponCleaningKit at [171,4388]
+11:52:45   Adding WeaponCleaningKit at [4068,6272]
+11:52:45   Adding WeaponCleaningKit at [5555,6227]
+11:52:45   Adding WeaponCleaningKit at [193,4503]
+11:52:45   Adding WeaponCleaningKit at [312,4560]
+11:52:45   Adding WeaponCleaningKit at [197,4392]
+11:52:45   Adding WeaponCleaningKit at [340,4403]
+11:52:45   Adding WeaponCleaningKit at [426,4413]
+11:52:45   Adding WeaponCleaningKit at [102,4201]
+11:52:47 Connected to BIOS (server registration) with id 8797e116-24ef-4993-b256-71bda9f83e72
+11:52:47   Adding StorageBox_Wooden at [9160,11949]
+11:52:47   Adding StorageBox_Wooden at [10415,8063]
+11:52:47   Adding StorageBox_Wooden at [9635,5441]
+11:52:55   Items deleted: 1, of: 1
+11:52:56   Items deleted: 1, of: 1
+11:52:56   Items deleted: 2, of: 2
+11:52:56   Items deleted: 1, of: 1
+11:52:57   Items deleted: 3, of: 3
+11:52:57   Items deleted: 2, of: 2
+11:52:57   Items deleted: 1, of: 1
+11:52:59 [CE][Storage] Saved data file [0] items.
+11:53:00 [CE][Storage] Saved data file [343] items.
+11:53:02 [CE][Storage] Saved data file [750] items.
+11:53:03 [CE][Storage] Saved data file [1811] items.
+11:53:04 [CE][Storage] Saved data file [4701] items.
+11:53:05 [CE][Storage] Saved data file [3386] items.
+11:53:07 [CE][Storage] Saved data file [3046] items.
+11:53:08 [CE][Storage] Saved data file [2613] items.
+11:53:09 [CE][Storage] Saved data file [2828] items.
+11:53:11 [CE][Storage] Saved data file [2829] items.
+11:53:12 [CE][Storage] Saved data file [109] items.
+11:53:13 [CE][Storage] Saved data file [221] items.
+11:53:14 [CE][Storage] Saved data file [414] items.
+11:53:15 [CE][Storage] Saved data file [0] items.
+11:53:17 [CE][Storage] Saved data file [0] items.
+11:53:20 [CE][Storage] Saved data file [1] items.
+11:53:22 [CE][Storage] Saved data file [3] items.
+11:53:24 [CE][Storage] Saved data file [5] items.
+11:53:26 [Login]: Adding player Frosty1024 (958640449) to login queue at position 0
+11:53:26 [LoginMachine]: Add player Frosty1024 (958640449)
+11:53:26 [StateMachine]: Player Frosty1024 (dpnid 958640449 uid ) Entering AuthPlayerLoginState
+11:53:26 Player Frosty1024 (id=) connecting
+11:53:26 [StateMachine]: Player Frosty1024 (dpnid 958640449 uid ) Entering WaitAuthPlayerLoginState
+11:53:26 [CE][Storage] Saved data file [4] items.
+11:53:26 BattlEye Server: Player #0 Frosty1024 (141.151.27.128:64408) connected
+11:53:26 BattlEye Server: Player #0 Frosty1024 - BE GUID: d129a4293fcb2d752fb9f71f00cbb356
+11:53:26 Player Frosty1024 (id=366B4BCC01FF278DDBB8F4ABECBB807D2CBC1B82) connecting
+11:53:26 [StateMachine]: Player Frosty1024 (dpnid 958640449 uid ) Entering WaitPlayerAssignedLoginState
+11:53:27 [StateMachine]: Player Frosty1024 (dpnid 958640449 uid ) Entering PlayerAssignedLoginState
+11:53:27 [StateMachine]: Player Frosty1024 (dpnid 958640449 uid 366B4BCC01FF278DDBB8F4ABECBB807D2CBC1B82) Entering DBGetLoginTimeLoginState
+11:53:27 [StateMachine]: Player Frosty1024 (dpnid 958640449 uid 366B4BCC01FF278DDBB8F4ABECBB807D2CBC1B82) Entering DBWaitLoginTimeLoginState
+11:53:28 [CE][Storage] Saved data file [3] items.
+11:53:30 [CE][Storage] Saved data file [4] items.

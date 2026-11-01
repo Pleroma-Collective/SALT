@@ -3,6 +3,9 @@
     "node": true,
     "es2020": true
   },
+  "globals": {
+    "DataFreshness": "readonly"
+  },
   "extends": "eslint:recommended",
   "parserOptions": {
     "ecmaVersion": 2020

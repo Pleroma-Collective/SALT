@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bot Config - Admin Panel</title>
+  <link rel="stylesheet" href="/css/theme.css">
+  <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="/css/components.css">
+</head>
+<body class="bg-gray-900 text-white">
+  <div class="container mx-auto p-6 max-w-7xl">
+    <div class="flex justify-between items-center mb-6">
+      <div>
+        <h1 class="text-4xl font-bold">🤖 Bot Config</h1>
+        <p class="text-gray-400 mt-2">Channels &amp; feeds — the same settings the bot's setup commands manage. The bot picks changes up on its normal read cadence.</p>
+      </div>
+      <div class="flex gap-2">
+        <a href="/admin" class="bg-orange-600 hover:bg-orange-700 px-4 py-2 rounded">← Admin Dashboard</a>
+        <a href="/logout" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded">Logout</a>
+      </div>
+    </div>
+
+    <div class="bg-gray-800 p-4 rounded-lg shadow-lg mb-6 flex items-center gap-3">
+      <label for="guildSelect" class="font-semibold">Guild:</label>
+      <select id="guildSelect" class="bg-gray-700 p-2 rounded w-72">
+        <option value="">Loading guilds…</option>
+      </select>
+    </div>
+
+    <div id="bot-config-container" class="hidden">
+      <div id="guild-sections"></div>
+      <div id="server-sections"></div>
+    </div>
+
+    <div id="empty-state" class="hidden bg-gray-800 p-6 rounded-lg shadow-lg text-center text-gray-400">
+      Select a guild to see its bot configuration.
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/csrf-helper.js"></script>
+  <script src="/js/admin-bot-config.js"></script>
+</body>
+</html>

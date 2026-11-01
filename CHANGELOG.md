@@ -4,6 +4,32 @@ All notable public changes to S.A.L.T. will be documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project intends to use semantic versioning once stable releases are tagged.
 
+## [2026-11-01] — Map Accuracy, Terrain & New Tools
+
+### Fixed
+
+- **Map coordinate accuracy** — positions picked on the map now match real in-game coordinates. The Nasadara map transform was recalibrated against in-game reference data, and the other maps are locked in against the same reference set so their coordinates stay correct.
+
+### Added
+
+- Terrain elevation heat-map and an object-footprint placement layer on the map
+- Live "recently spawned loot" map layer — real runtime spawn data that fades with age
+- Consolidated map page — loot finder and admin map merged into one page with toggleable layers
+- Loadout Generator tool — compose and export loadouts and CE spawn configs
+- Spawnabletypes Generator tool — compose and export `cfgspawnabletypes.xml`
+- Death-cause breakdown and PVP leaderboard from server kill data
+- CE dynamic events feed and rate monitor — per-type spawn counts and daily trends
+- Item catalog detail — rarity, storage, insulation, and in-game description on items and loadouts
+- Player last-known location on the shop map, plus per-player item hotkeys
+- Server-health indicator
+- Keyboard and focus-visible accessibility pass across every page
+
+### Changed
+
+- Mobile player portal — full-bleed layout with a layers sheet
+- Consolidated command-palette map entries
+- Data-freshness indicators — freshness timestamps, and stale rows stay visible when a refresh fails
+
 ## [2026-10-17] — Nasadara + Toolkit Update
 
 ### Added

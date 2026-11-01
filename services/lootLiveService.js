@@ -10,6 +10,8 @@
  */
 
 const fs = require('fs');
+const path = require('path');
+const readline = require('readline');
 const { getGuildDownloadPath } = require('./logSyncService');
 const {
   listContainedDirectorySync,
@@ -17,6 +19,8 @@ const {
   resolveExistingContainedPath,
   statContainedFileSync,
 } = require('../utils/safePath');
+const { parseLootSpawns } = require('../utils/lootSpawns');
+const { createRptChronology, parseRptClockTimestamp } = require('../utils/rptChronology');
 
 // Regex patterns for RPT log parsing
 const RE_RESPAWN_CANDIDATE = /\[CE\]\[LootRespawner\].*RESPAWN CANDIDATE\]\s+(\S+)\s+missing:(\d+)\s+\[cnt:(\d+),\s*nom:(\d+),\s*min:(\d+)\]/;
@@ -301,7 +305,184 @@ function listAvailableLogs(guildDiscordId, serverId) {
   }));
 }
 
+// ─── Live recent-spawn layer (server.log "Adding X at [x,z]") ─────────────────
+//
+// The map's live "recently spawned loot" layer sources its points from the
+// coord-bearing `Adding <Item> at [east,north]` lines that the CE respawner
+// writes to server.log. We read only the tail of the current server.log (the
+// most recent lines are the recent spawns) so the parse stays bounded in
+// memory, then reuse the Event Feed pipeline pieces: parseLootSpawns (regex
+// parse + dedupe) and its getMapDefinition bounds check (rejects corrupt
+// coords), plus the RPT clock→timestamp resolver with midnight-rollover
+// chronology. Timestamps are anchored to the file's mtime date, exactly as
+// routes/logParser.js anchors server.log for CE dynamic events.
+
+// Tail read cap: recent spawns are at the end of the file; 16 MB comfortably
+// covers the default window plus bursty spawner startup flushes.
+const RECENT_SPAWN_TAIL_BYTES = 16 * 1024 * 1024;
+
+/**
+ * Stream the last `maxBytes` of a contained log file as complete lines.
+ * For files within the cap the whole file is streamed; larger files stream
+ * only the tail and drop the (possibly partial) first line.
+ */
+async function* streamLogTail(logDir, fileName, maxBytes) {
+  const { fd, stat } = openContainedFileSync(logDir, fileName);
+  const start = Math.max(0, stat.size - maxBytes);
+  const fileStream = fs.createReadStream(path.join(logDir, fileName), {
+    fd,
+    start,
+    end: stat.size - 1,
+    encoding: 'utf8',
+    autoClose: true,
+  });
+  const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+  let skipFirst = start > 0;
+  try {
+    for await (const line of rl) {
+      if (skipFirst) { skipFirst = false; continue; }
+      yield line;
+    }
+  } finally {
+    rl.close();
+    fileStream.destroy();
+  }
+}
+
+/**
+ * The mtime date of a contained log file as YYYY-MM-DD (clock→timestamp
+ * anchor), or null if the file can't be stat'd.
+ */
+function fileMtimeDate(logDir, fileName) {
+  try {
+    return new Date(statContainedFileSync(logDir, fileName).mtimeMs).toISOString().slice(0, 10);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Read + parse recent loot spawns from an explicit log directory.
+ * The core of the live layer; kept dir-explicit so it is unit-testable
+ * against a temp dir without the fixed downloads/ root.
+ *
+ * Sources: the current server.log AND the newest RPT — both carry the
+ * coord-bearing `Adding <Item> at [east,north]` lines (verified against the
+ * dayzxb log set; the RPT `[CE][LootRespawner]` bookkeeping lines carry
+ * counts, NOT coords, so they are not a source). The same physical spawn is
+ * logged to both files within the same wall-clock second, so the merged set
+ * is deduped on a per-second bucket. Each file's clocks are anchored to that
+ * file's own mtime date.
+ *
+ * @returns {{
+ *   spawns: Array<{item, east, north, timestampMs, ageMs}>,
+ *   newestMs: number|null, count: number, windowMinutes: number, limit: number,
+ *   sourceFile: string|null, rejected: number, duplicates: number,
+ *   error: string|null }}
+ *   spawns are newest-first, within the recent window, capped at `limit`.
+ *   `ageMs` is relative to the newest spawn in the batch (robust to any clock
+ *   offset): newest = 0, older = larger.
+ */
+async function readRecentLootSpawnsFromDir(logDir, mapName, {
+  windowMinutes = 60,
+  limit = 500,
+} = {}) {
+  if (!logDir) {
+    return { spawns: [], newestMs: null, count: 0, windowMinutes, limit, sourceFile: null, rejected: 0, duplicates: 0, error: 'No log directory found for this server.' };
+  }
+
+  // Candidate sources: server.log (always present when a server has run) plus
+  // the newest RPT file (superset of the same Adding lines, with ms clocks).
+  const sources = [];
+  let serverLogSize = 0;
+  try { serverLogSize = statContainedFileSync(logDir, 'server.log').size; } catch { /* no server.log */ }
+  if (serverLogSize > 0) {
+    sources.push({ file: 'server.log', date: fileMtimeDate(logDir, 'server.log') });
+  }
+  const newestRpt = listRptFiles(logDir)[0];
+  if (newestRpt) {
+    sources.push({ file: newestRpt.name, date: fileMtimeDate(logDir, newestRpt.name) });
+  }
+  if (sources.length === 0) {
+    return { spawns: [], newestMs: null, count: 0, windowMinutes, limit, sourceFile: null, rejected: 0, duplicates: 0, error: 'No server.log or RPT found for this server.' };
+  }
+
+  const resolved = [];
+  let rejected = 0;
+  let duplicates = 0;
+  for (const source of sources) {
+    const chronology = createRptChronology();
+    const parsed = await parseLootSpawns(
+      streamLogTail(logDir, source.file, RECENT_SPAWN_TAIL_BYTES),
+      { mapName }
+    );
+    rejected += parsed.rejected;
+    duplicates += parsed.duplicates;
+    for (const spawn of parsed.spawns) {
+      const timestampMs = source.date
+        ? parseRptClockTimestamp(spawn.clock, source.date, chronology)
+        : null;
+      if (timestampMs === null) { rejected += 1; continue; }
+      resolved.push({ item: spawn.item, east: spawn.x, north: spawn.z, timestampMs });
+    }
+  }
+
+  if (resolved.length === 0) {
+    return { spawns: [], newestMs: null, count: 0, windowMinutes, limit, sourceFile: sources[0].file, rejected, duplicates, error: null };
+  }
+
+  // Cross-source dedupe: the same spawn lands in server.log (clock truncated
+  // to seconds) and the RPT (clock keeps the ms fraction) within the same
+  // wall-clock second. Bucket on the second so both copies collapse to one.
+  const seen = new Set();
+  const unique = [];
+  for (const r of resolved) {
+    const key = `${r.item}:${r.east}:${r.north}:${Math.floor(r.timestampMs / 1000)}`;
+    if (seen.has(key)) { duplicates += 1; continue; }
+    seen.add(key);
+    unique.push(r);
+  }
+
+  let newestMs = unique[0].timestampMs;
+  for (const r of unique) if (r.timestampMs > newestMs) newestMs = r.timestampMs;
+
+  const windowStart = newestMs - windowMinutes * 60000;
+  const spawns = unique
+    .filter(r => r.timestampMs >= windowStart)
+    .sort((a, b) => b.timestampMs - a.timestampMs)
+    .slice(0, limit)
+    .map(r => ({
+      item: r.item,
+      east: r.east,
+      north: r.north,
+      timestampMs: r.timestampMs,
+      ageMs: newestMs - r.timestampMs,
+    }));
+
+  return {
+    spawns,
+    newestMs,
+    count: spawns.length,
+    windowMinutes,
+    limit,
+    sourceFile: sources.map(s => s.file).join(', '),
+    rejected,
+    duplicates,
+    error: null,
+  };
+}
+
+/**
+ * Get the most-recent loot spawns for a map from the current server.log,
+ * resolving the server's log directory via the guild download path.
+ */
+async function getRecentLootSpawns(mapName, guildDiscordId, serverId, opts = {}) {
+  return readRecentLootSpawnsFromDir(getLogDir(guildDiscordId, serverId), mapName, opts);
+}
+
 module.exports = {
   getLiveSpawns,
   listAvailableLogs,
+  getRecentLootSpawns,
+  readRecentLootSpawnsFromDir,
 };

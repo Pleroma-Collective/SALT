@@ -113,14 +113,17 @@
     const grid = def.gridSize;
     const adv = def.tileAdvancement;
     const phys = def.physicalTileSize;
-    // imageWidth === imageHeight for every registry definition (square).
-    const imageW = def.imageWidth;
-    const imageH = def.imageHeight;
+    // Scale by the CONTENT extent (world<->image), not the full image: bleed
+    // grids (nasdara) carry a clamped edge band past the real canvas, and the
+    // marker must land where the main map places it (contentWidth == imageWidth
+    // for legacy maps, so this is a no-op for them).
+    const contentW = def.contentWidth;
+    const contentH = def.contentHeight;
 
     // Leaflet image-space pixels (world min is 0 for these maps); clamp keeps
     // an out-of-bounds destination on the edge tile instead of wrapping.
-    const lng = clamp(east, 0, def.worldWidth) * imageW / def.worldWidth;
-    const lat = clamp(north, 0, def.worldHeight) * imageH / def.worldHeight;
+    const lng = clamp(east, 0, def.worldWidth) * contentW / def.worldWidth;
+    const lat = clamp(north, 0, def.worldHeight) * contentH / def.worldHeight;
 
     const tileX = clamp(Math.floor(lng / adv), 0, grid - 1);
     const tileY = clamp(Math.floor(lat / adv), 0, grid - 1);

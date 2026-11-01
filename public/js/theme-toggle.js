@@ -86,10 +86,13 @@
     var btn = document.createElement('button');
     btn.id = 'dayz-theme-toggle';
     btn.type = 'button';
-    btn.setAttribute('aria-label', 'Choose theme');
+    btn.setAttribute('aria-label', 'Toggle color theme');
     btn.setAttribute('title', 'Theme');
     btn.setAttribute('aria-haspopup', 'menu');
     btn.setAttribute('aria-expanded', 'false');
+    // aria-pressed reflects the dark/light state the icon shows: true while
+    // a dark theme is active, false on the light (sakhal) theme.
+    btn.setAttribute('aria-pressed', String(!isLight(currentTheme())));
     btn.style.cssText =
       'position:fixed;top:12px;right:12px;z-index:1000;border:1px solid var(--dzc-border,#37492f);' +
       'background:var(--dzc-surface-2,#172019);color:var(--dzc-text,#eaf2e9);' +
@@ -144,11 +147,23 @@
 
       menu.appendChild(row);
     });
+    // WAI-ARIA menu radio keyboard pattern: arrows move between rows.
+    menu.addEventListener('keydown', function (ev) {
+      if (ev.key !== 'ArrowDown' && ev.key !== 'ArrowUp') return;
+      ev.preventDefault();
+      var rs = menu.querySelectorAll('button[role="menuitemradio"]');
+      var i = Array.prototype.indexOf.call(rs, document.activeElement);
+      i = ev.key === 'ArrowDown' ? (i + 1) % rs.length : (i - 1 + rs.length) % rs.length;
+      rs[i].focus();
+    });
     return menu;
   }
 
   function setButtonIcon(theme) {
-    if (currentBtn) currentBtn.textContent = iconFor(theme);
+    if (currentBtn) {
+      currentBtn.textContent = iconFor(theme);
+      currentBtn.setAttribute('aria-pressed', String(!isLight(theme)));
+    }
   }
 
   function syncMenuChecks(menu) {
@@ -169,9 +184,20 @@
     syncMenuChecks(menuEl);
     menuEl.style.display = 'block';
     if (currentBtn) currentBtn.setAttribute('aria-expanded', 'true');
+    // Keyboard: focus lands on the current theme's row (menu containment +
+    // Esc-to-close come from the shared overlay helper).
+    if (window.DzcOverlayFocus) {
+      var rows = menuEl.querySelectorAll('button[role="menuitemradio"]');
+      var curIdx = 0;
+      Array.prototype.forEach.call(rows, function (row, i) {
+        if (row.getAttribute('aria-checked') === 'true') curIdx = i;
+      });
+      window.DzcOverlayFocus.open(menuEl, { onClose: closeMenu, focusEl: rows[curIdx] || rows[0] });
+    }
   }
 
   function closeMenu() {
+    if (menuEl && window.DzcOverlayFocus) window.DzcOverlayFocus.close(menuEl);
     if (menuEl) menuEl.style.display = 'none';
     if (currentBtn) currentBtn.setAttribute('aria-expanded', 'false');
   }

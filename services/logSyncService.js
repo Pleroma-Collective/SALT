@@ -215,6 +215,76 @@ async function resolveOperationalServer(db, userId, serverId, token) {
   return servers[0];
 }
 
+// Reasons for which a requested sync server cannot be resolved. Only drift
+// reasons (a server that was deactivated after being saved) may be dropped
+// automatically from a saved config; everything else signals a permission or
+// config decision and keeps the operation fail-closed.
+const SYNC_DRIFT_REASONS = new Set(['inactive']);
+
+/**
+ * Diagnose each requested platform server id individually. The batch
+ * resolveOperationalServers is fail-closed and returns null when ANY single id
+ * is unresolvable, which is fine for the sync pipeline but useless for telling
+ * a user which saved server broke their automation (and whether it is safe to
+ * drop). Returns one structured result per unique requested id:
+ *   { serverId, reason, detail }
+ * reason: 'operational' | 'inactive' | 'unknown' | 'ambiguous' |
+ *         'guild_disabled' | 'no_token' | 'unauthorized'
+ */
+async function diagnoseSyncServerAccess(db, userId, serverIds) {
+  const results = [];
+  for (const platformId of Array.from(new Set((serverIds || []).map(id => String(id).trim()).filter(Boolean)))) {
+    const sql = `SELECT s.id, s.name, s.status AS server_status, g.status AS guild_status,
+            gt.id AS token_id, gt.nitrado_user_id,
+            gr.role AS guild_role,
+            EXISTS (
+              SELECT 1 FROM server_role_assignments sra
+              WHERE sra.server_id = s.id AND sra.guild_id = g.id
+                AND sra.user_id = ? AND sra.role = 'admin' AND sra.status = 'active'
+            ) AS sra_admin
+     FROM servers s
+     JOIN guilds g ON g.id = s.guild_id
+     LEFT JOIN guild_roles gr ON gr.guild_id = g.id AND gr.user_id = ?
+     LEFT JOIN guild_tokens gt ON gt.guild_id = g.id AND gt.token_type = 'nitrado'
+     WHERE CAST(s.platform_server_id AS TEXT) = ?`;
+    const params = [userId, userId, platformId];
+    const rows = typeof db.query === 'function'
+      ? await db.query(sql, params)
+      : [await db.get(sql, params)].filter(Boolean);
+    if (!rows || rows.length === 0) {
+      results.push({ serverId: platformId, reason: 'unknown', detail: 'no registered server with this platform id' });
+      continue;
+    }
+    if (rows.length > 1) {
+      results.push({ serverId: platformId, reason: 'ambiguous', detail: `${rows.length} servers share this platform id` });
+      continue;
+    }
+    const row = rows[0];
+    if (row.guild_status !== 'approved') {
+      results.push({ serverId: platformId, reason: 'guild_disabled', detail: `guild is ${row.guild_status}` });
+      continue;
+    }
+    if (!row.token_id) {
+      results.push({ serverId: platformId, reason: 'no_token', detail: 'guild has no Nitrado token bound' });
+      continue;
+    }
+    if (row.nitrado_user_id === null || row.nitrado_user_id === undefined) {
+      results.push({ serverId: platformId, reason: 'no_token', detail: 'Nitrado token lacks a nitrado_user_id' });
+      continue;
+    }
+    if (row.guild_role !== 'owner' && row.guild_role !== 'admin' && !row.sra_admin) {
+      results.push({ serverId: platformId, reason: 'unauthorized', detail: `user ${userId} has no owner/admin role in the guild` });
+      continue;
+    }
+    if (row.server_status !== 'active') {
+      results.push({ serverId: platformId, reason: 'inactive', detail: `server is ${row.server_status}` });
+      continue;
+    }
+    results.push({ serverId: platformId, reason: 'operational', detail: '' });
+  }
+  return results;
+}
+
 async function resolveOperationalServerByInternalId(db, serverId, token) {
   const rows = await db.query(
     `SELECT s.id, s.platform_server_id, g.discord_guild_id, gt.token_hash
@@ -368,7 +438,7 @@ function configListPathForStructure(structure) {
  * server.log under the RAW ftproot path and refuses noftp downloads with
  * "Permission denied". The normal sync listing therefore misses it.
  *
- * Live-verified in production (2026-10-11): the RAW ftproot DIRECTORY
+ * Live-verified on saltskrew (2026-10-11): the RAW ftproot DIRECTORY
  * LISTING is what Nitrado's WAF 401s per egress IP, while the
  * file_server DOWNLOAD endpoint for the deterministic raw path
  * (.../ftproot/<game>/config/server.log) issues a transfer token without
@@ -387,6 +457,7 @@ async function fetchServerLogEntryFromRawConfigPath(http, token, serverId, struc
   breaker = ftprootListingBreaker,
   breakerKey = `nitrado:${token}`,
   nowMs = Date.now,
+  diagnostics = null,
 } = {}) {
   if (!structure || !structure.configPath) return null;
   const rawConfigPath = structure.configPath.replace(/\/+$/, '');
@@ -400,6 +471,9 @@ async function fetchServerLogEntryFromRawConfigPath(http, token, serverId, struc
 
   const rawServerLogPath = `${rawConfigPath}/server.log`;
   const directEntry = { type: 'file', name: 'server.log', path: rawServerLogPath, size: null };
+  const noteDiagnosis = (fields) => {
+    if (diagnostics && typeof diagnostics === 'object') Object.assign(diagnostics, fields);
+  };
   try {
     await http.get(
       `https://api.nitrado.net/services/${serverId}/gameservers/file_server/download?file=${encodeURIComponent(rawServerLogPath)}`,
@@ -412,6 +486,8 @@ async function fetchServerLogEntryFromRawConfigPath(http, token, serverId, struc
     // noftp paths, or a missing file). The raw listing is the only other
     // view that can confirm existence, but it is the WAF-blocked endpoint
     // — run it best-effort behind the per-guild circuit breaker.
+    const directStatus = Number(error?.response?.status);
+    noteDiagnosis({ directStatus: Number.isFinite(directStatus) ? directStatus : null });
     if (breaker.isTripped(breakerKey, nowMs())) {
       const retryAtMs = breaker.retryAt(breakerKey);
       console.log(
@@ -445,7 +521,28 @@ async function fetchServerLogEntryFromRawConfigPath(http, token, serverId, struc
     const entries = getNitradoFileEntries(listRes);
     const entry = entries.find(item => item?.type === 'file' && item.name === 'server.log');
     if (!entry) {
-      console.log(`   ⚠️  server.log ftproot fallback: not present in raw listing for ${serverId} (${entries.length} entries)`);
+      // Sentinel (audit t_ac25cb2b §4, observed 2026-10-16 on node i6156327 /
+      // service 15580969): a RAW ftproot config-dir listing that comes back
+      // with ZERO entries while the noftp listing (done by the caller) was
+      // healthy is a node-level file-server glitch — not a missing file. A
+      // healthy console node always advertises its raw config directory, and
+      // server.log exists on it as soon as the server has run once. Report
+      // the diagnosis so ops sees a distinguishable, greppable
+      // NITRADO_PROVIDER_GLITCH error instead of a misleading "file not
+      // found" that reads as operator error.
+      const glitch = entries.length === 0;
+      noteDiagnosis({ rawListingEntries: entries.length, glitch });
+      if (glitch) {
+        console.error(
+          `   🚨 [logsync] NITRADO_PROVIDER_GLITCH server ${serverId}: raw ftproot config listing `
+          + `returned 0 entries (direct server.log transfer refused with `
+          + `${diagnostics && diagnostics.directStatus != null ? 'HTTP ' + diagnostics.directStatus : 'a non-HTTP failure'}) `
+          + `while the noftp listing is healthy — provider node file-server degraded; `
+          + `server.log ingestion suspended until the node heals (not a missing file)`
+        );
+      } else {
+        console.log(`   ⚠️  server.log ftproot fallback: not present in raw listing for ${serverId} (${entries.length} entries)`);
+      }
       return null;
     }
     try {
@@ -711,6 +808,7 @@ async function performLogSync(db, userId, token, serverIds, {
   const failedServerIds = new Set();
   const parseBlockedServerIds = new Set();
   const rptBlockedServerIds = new Set();
+  const providerGlitchServerIds = new Set();
   const recordError = (
     serverId,
     message,
@@ -732,6 +830,7 @@ async function performLogSync(db, userId, token, serverIds, {
 
   for (const serverId of serverIds) {
     let serverChanged = false;
+    let serverLogDiagnostics = null;
     try {
       console.log(`\n📥 Syncing logs from server ${serverId}...`);
       const authorizedServer = await resolveOperationalServer(db, userId, serverId, token);
@@ -788,13 +887,25 @@ async function performLogSync(db, userId, token, serverIds, {
         // The noftp listing does not expose server.log on some console
         // servers; try the raw ftproot view where the file_server API
         // actually serves it.
-        serverLogEntry = await fetchServerLogEntryFromRawConfigPath(http, token, serverId, structure);
+        serverLogDiagnostics = {};
+        serverLogEntry = await fetchServerLogEntryFromRawConfigPath(http, token, serverId, structure, { diagnostics: serverLogDiagnostics });
       }
       if (preflight.accepted.length === 0) {
         recordError(serverId, `Server ${serverId}: No ADM/RPT log files found`);
       }
       if (!serverLogEntry) {
-        recordError(serverId, `Server ${serverId}: No server.log file found (direct ftproot transfer refused and raw listing inconclusive)`, { blocksParsing: false });
+        if (serverLogDiagnostics && serverLogDiagnostics.glitch) {
+          providerGlitchServerIds.add(String(serverId));
+          recordError(serverId,
+            `Server ${serverId}: NITRADO_PROVIDER_GLITCH — provider node file-server degraded: `
+            + `raw ftproot config listing returned 0 entries and the direct server.log transfer was refused `
+            + `(${serverLogDiagnostics.directStatus != null ? 'HTTP ' + serverLogDiagnostics.directStatus : 'non-HTTP failure'}) `
+            + `while the noftp listing is healthy. This is a node-level provider glitch, not a missing file; `
+            + `server.log ingestion stays suspended (ADM/RPT sync continues) until the provider node heals.`,
+            { blocksParsing: false });
+        } else {
+          recordError(serverId, `Server ${serverId}: No server.log file found (direct ftproot transfer refused and raw listing inconclusive)`, { blocksParsing: false });
+        }
       }
 
       let serverLogLocalPath = null;
@@ -872,6 +983,7 @@ async function performLogSync(db, userId, token, serverIds, {
     failedServerIds: Array.from(failedServerIds),
     parseBlockedServerIds: Array.from(parseBlockedServerIds),
     rptBlockedServerIds: Array.from(rptBlockedServerIds),
+    providerGlitchServerIds: Array.from(providerGlitchServerIds),
     serverLogPaths,
     restartEvidence,
     changedServerIds,
@@ -901,6 +1013,7 @@ async function performLogSyncConcurrent(
   const failedServerIds = new Set();
   const parseBlockedServerIds = new Set();
   const rptBlockedServerIds = new Set();
+  const providerGlitchServerIds = new Set();
   const recordError = (
     serverId,
     message,
@@ -938,6 +1051,7 @@ async function performLogSyncConcurrent(
   async function syncServer(serverId) {
     return telemetry.timeAsync(`logSync:server:${serverId}`, async () => {
       let serverChanged = false;
+      let serverLogDiagnostics = null;
       try {
         console.log(`\n📥 Syncing logs from server ${serverId}...`);
 
@@ -991,13 +1105,25 @@ async function performLogSyncConcurrent(
           // The noftp listing does not expose server.log on some console
           // servers; try the raw ftproot view where the file_server API
           // actually serves it.
-          serverLogEntry = await fetchServerLogEntryFromRawConfigPath(http, token, serverId, structure);
+          serverLogDiagnostics = {};
+          serverLogEntry = await fetchServerLogEntryFromRawConfigPath(http, token, serverId, structure, { diagnostics: serverLogDiagnostics });
         }
         if (preflight.accepted.length === 0) {
           recordError(serverId, `Server ${serverId}: No ADM/RPT log files found`);
         }
         if (!serverLogEntry) {
-          recordError(serverId, `Server ${serverId}: No server.log file found (direct ftproot transfer refused and raw listing inconclusive)`, { blocksParsing: false });
+          if (serverLogDiagnostics && serverLogDiagnostics.glitch) {
+            providerGlitchServerIds.add(String(serverId));
+            recordError(serverId,
+              `Server ${serverId}: NITRADO_PROVIDER_GLITCH — provider node file-server degraded: `
+              + `raw ftproot config listing returned 0 entries and the direct server.log transfer was refused `
+              + `(${serverLogDiagnostics.directStatus != null ? 'HTTP ' + serverLogDiagnostics.directStatus : 'non-HTTP failure'}) `
+              + `while the noftp listing is healthy. This is a node-level provider glitch, not a missing file; `
+              + `server.log ingestion stays suspended (ADM/RPT sync continues) until the provider node heals.`,
+              { blocksParsing: false });
+          } else {
+            recordError(serverId, `Server ${serverId}: No server.log file found (direct ftproot transfer refused and raw listing inconclusive)`, { blocksParsing: false });
+          }
         }
 
         let serverLogLocalPath = null;
@@ -1080,6 +1206,7 @@ async function performLogSyncConcurrent(
     failedServerIds: Array.from(failedServerIds),
     parseBlockedServerIds: Array.from(parseBlockedServerIds),
     rptBlockedServerIds: Array.from(rptBlockedServerIds),
+    providerGlitchServerIds: Array.from(providerGlitchServerIds),
     serverLogPaths,
     restartEvidence,
     changedServerIds,
@@ -1177,6 +1304,8 @@ module.exports = {
   resolveOperationalServers,
   resolveOperationalServer,
   resolveOperationalServerByInternalId,
+  diagnoseSyncServerAccess,
+  SYNC_DRIFT_REASONS,
   getDecryptedToken,
   downloadActiveServerLog,
   downloadLogFile,

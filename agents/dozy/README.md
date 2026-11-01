@@ -4,9 +4,11 @@ Purpose
 
 Dozy runs lightweight performance checks to capture basic metrics:
 
-- Measures HTTP response times for key endpoints
-- Captures memory usage snapshot when run against local node processes
-- Emits a short summary report (stdout) and exits with non-zero if thresholds are exceeded
+- Measures complete HTTP 200 response transfers, draining bodies without buffering them
+- Rejects all other statuses (including redirects and partial responses), request/response errors and aborted transfers
+- Emits a short summary report (stdout) and exits 2 on failures or when a completed transfer exceeds THRESHOLD_MS (default 500ms; equality passes)
+- TIMEOUT_MS (default 5000ms) is a positive integer total request deadline, including connection and body transfer; trickling bytes do not reset it
+- Run local regression fixtures with `node scripts/dozy-profile-test.js`; CI and the weekly workflow run these before profiling real static assets
 
 Design
 

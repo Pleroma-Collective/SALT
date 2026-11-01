@@ -6,19 +6,11 @@
   <title>Shop - DayZ Dashboard</title>
   <link rel="stylesheet" href="/css/theme.css">
   <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="/css/components.css">
   <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
   <style>
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .spinner { animation: spin 1s linear infinite; }
-    .form-select {
-      background: #374151; border: 1px solid #4b5563; border-radius: 0.375rem;
-      color: white; padding: 0.375rem 0.625rem; font-size: 0.875rem;
-    }
-    .form-input {
-      background: #374151; border: 1px solid #4b5563; border-radius: 0.375rem;
-      color: white; padding: 0.375rem 0.625rem; font-size: 0.875rem; width: 100%;
-    }
-    .form-input:focus { outline: none; border-color: #3b82f6; }
     /* Modal overlay */
     #atc-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:50;
       align-items:center; justify-content:center; }
@@ -50,13 +42,13 @@
     <!-- Selectors + Balance -->
     <div class="bg-gray-800 rounded-lg p-4 mb-6 border border-gray-700 flex flex-wrap gap-4 items-end">
       <div>
-        <label class="block text-gray-400 text-sm mb-1">Server</label>
+        <label class="block text-gray-400 text-sm mb-1" for="serverSelect">Server</label>
         <select id="serverSelect" class="form-select min-w-48">
           <option value="">-- Select a server --</option>
         </select>
       </div>
       <div>
-        <label class="block text-gray-400 text-sm mb-1">My Identity</label>
+        <label class="block text-gray-400 text-sm mb-1" for="identitySelect">My Identity</label>
         <select id="identitySelect" class="form-select min-w-48">
           <option value="">-- Select identity --</option>
         </select>
@@ -77,6 +69,7 @@
       <button id="tab-btn-cart"    class="tab-btn bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded">🛒 Cart <span id="cart-badge" class="hidden bg-green-600 text-xs rounded-full px-1.5 ml-1">0</span></button>
       <button id="tab-btn-rentals" class="tab-btn bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded">📦 Rentals</button>
       <button id="tab-btn-orders"  class="tab-btn bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded">📜 Orders</button>
+      <button id="tab-btn-hotkeys" class="tab-btn bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded">⌨️ Hotkeys</button>
     </div>
 
     <!-- Shop tab -->
@@ -135,6 +128,15 @@
 
     <!-- Orders tab -->
     <div id="tab-orders" style="display:none;">
+      <div class="mb-3 rounded-lg border border-cyan-800 bg-cyan-950/30 p-3 text-xs text-cyan-200">
+        <strong>ℹ️ How orders work:</strong> checkout charges your wallet (then your bank for any remainder) and
+        <strong>writes your items to the server files immediately</strong>. Capability items (like radar) activate
+        in-game right away; everything else appears in-game on the <strong>next server restart</strong>.
+        Rentals consume <strong>one restart per scheduled server restart</strong> — when the count reaches 0, the
+        in-game entries are removed and the order is marked <strong>expired</strong>.
+        A server admin can <strong>refund</strong> an order: any remaining in-game entries are removed and the money
+        is returned (rentals are refunded pro-rata for restarts not yet used).
+      </div>
       <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-x-auto">
         <table class="w-full text-sm">
           <thead class="bg-gray-700">
@@ -150,6 +152,36 @@
             <tr><td colspan="5" class="text-center py-6 text-gray-400">No orders yet.</td></tr>
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- Hotkeys tab -->
+    <div id="tab-hotkeys" style="display:none;">
+      <div class="mb-4 rounded-lg border border-indigo-800 bg-indigo-950/30 p-3 text-xs text-indigo-200">
+        <strong>ℹ️ How hotkeys work:</strong> bind a key to an item below. While you are on this page,
+        pressing that key adds the item to your cart at your <strong>last known in-game position</strong>
+        and checks it out immediately — it is charged to your wallet like any other purchase. Your
+        position is updated by the server every few minutes while you play.
+      </div>
+      <div class="flex flex-wrap items-end gap-3 mb-4">
+        <div>
+          <label class="block text-gray-400 text-sm mb-1" for="hk-item-select">Item</label>
+          <select id="hk-item-select" class="form-select min-w-56">
+            <option value="">-- Select an item --</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-gray-400 text-sm mb-1" for="hk-key-input">Hotkey</label>
+          <input id="hk-key-input" type="text" maxlength="3" placeholder="e.g. F5"
+            class="form-input w-24" autocomplete="off">
+        </div>
+        <button id="hk-bind-btn" class="bg-indigo-700 hover:bg-indigo-600 px-4 py-2 rounded font-semibold">
+          ⌨️ Bind
+        </button>
+        <span id="hk-status" class="hidden text-sm text-gray-300" role="status" aria-live="polite"></span>
+      </div>
+      <div id="hotkeys-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        <p class="text-gray-400 col-span-full text-center py-12">Select a server and identity to manage hotkeys.</p>
       </div>
     </div>
 
@@ -170,7 +202,7 @@
       </div>
 
       <div id="atc-qty-section" class="mb-4">
-        <label id="atc-qty-label" class="block text-gray-400 text-sm mb-1">Quantity</label>
+        <label id="atc-qty-label" for="atc-qty" class="block text-gray-400 text-sm mb-1">Quantity</label>
         <div class="flex items-center gap-3">
           <input id="atc-qty" type="number" min="1" value="1" class="form-input w-24">
           <span id="atc-rental-price" class="text-green-400 text-sm hidden"></span>
@@ -184,7 +216,7 @@
 
         <!-- Preset picker (only shown when item has presets) -->
         <div id="atc-preset-row" class="hidden mb-2">
-          <select id="atc-preset" class="form-select w-full">
+          <select id="atc-preset" aria-label="Preset spawn location" class="form-select w-full">
             <option value="">-- Pick a preset location --</option>
           </select>
         </div>
@@ -192,15 +224,15 @@
         <!-- Coordinate inputs -->
         <div class="grid grid-cols-3 gap-2">
           <div>
-            <label class="text-gray-500 text-xs">X</label>
+            <label class="text-gray-500 text-xs" for="atc-pos-x">X</label>
             <input id="atc-pos-x" type="number" step="0.001" placeholder="X" class="form-input mt-0.5">
           </div>
           <div>
-            <label class="text-gray-500 text-xs">Y (elevation; 0 = ground)</label>
+            <label class="text-gray-500 text-xs" for="atc-pos-y">Y (elevation; 0 = ground)</label>
             <input id="atc-pos-y" type="number" step="0.001" placeholder="0" class="form-input mt-0.5">
           </div>
           <div>
-            <label class="text-gray-500 text-xs">Z</label>
+            <label class="text-gray-500 text-xs" for="atc-pos-z">Z</label>
             <input id="atc-pos-z" type="number" step="0.001" placeholder="Z" class="form-input mt-0.5">
           </div>
         </div>
@@ -231,7 +263,7 @@
       <span class="font-semibold text-sm text-white">📍 Pick Spawn Location</span>
 
       <!-- Map selector populated at runtime from /api/server-maps/:id -->
-      <select id="mp-map-select" class="form-select text-sm">
+      <select id="mp-map-select" aria-label="Map" class="form-select text-sm">
         <option value="chernarusplus">Chernarus+</option>
         <option value="enoch">Livonia</option>
         <option value="sakhal">Sakhal</option>
@@ -273,6 +305,6 @@
   <script src="/vendor/leaflet/leaflet.js"></script>
   <script src="/js/dayz-map-coordinates.js"></script>
   <script src="/js/checkout-state.js?v=checkout-idempotency-v1"></script>
-  <script src="/js/shop.js?v=checkout-idempotency-v1"></script>
+  <script src="/js/shop.js?v=shop-lkl-hotkeys-v2"></script>
 </body>
 </html>

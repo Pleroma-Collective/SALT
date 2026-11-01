@@ -1,0 +1,40 @@
+{
+  "_comment": "Holiday event windows (roadmap P1). Config-driven: add/edit events here, no code changes. 'missions' are case-insensitive folder-name prefixes from the server download dir (DayZ-Central-Economy packs). 'windows' are inclusive calendar-day ranges in the viewer's local timezone: [[start, end], ...]. While a window is live, that mission's marker set is on by default on map.html; outside a window it is off by default (staff can still toggle it).",
+  "events": [
+    {
+      "id": "christmas",
+      "label": "Christmas",
+      "icon": "🎄",
+      "missions": ["ChristmasOffline"],
+      "windows": [["2026-12-01", "2026-12-24"]]
+    },
+    {
+      "id": "halloween",
+      "label": "Halloween",
+      "icon": "🎃",
+      "missions": ["halloweenOffline"],
+      "windows": [["2026-10-24", "2026-10-31"]]
+    },
+    {
+      "id": "payday",
+      "label": "Payday",
+      "icon": "💰",
+      "missions": ["PaydayOffline"],
+      "windows": [["2027-01-13", "2027-01-19"]]
+    },
+    {
+      "id": "walpurgis",
+      "label": "Walpurgis Night",
+      "icon": "🔮",
+      "missions": ["WalpurgisNightOffline"],
+      "windows": [["2027-04-24", "2027-04-30"]]
+    },
+    {
+      "id": "valentines",
+      "label": "Valentine's Day",
+      "icon": "💘",
+      "missions": ["valentinesOffline"],
+      "windows": [["2027-02-12", "2027-02-14"]]
+    }
+  ]
+}

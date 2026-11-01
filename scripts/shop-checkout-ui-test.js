@@ -92,7 +92,7 @@ const {
   );
   assert.match(shopHtml, /\/js\/checkout-state\.js\?v=checkout-idempotency-v1/,
     'the checkout state contract must use a cache-busting asset URL');
-  assert.match(shopHtml, /\/js\/shop\.js\?v=checkout-idempotency-v1/,
+  assert.match(shopHtml, /\/js\/shop\.js\?v=shop-lkl-hotkeys-v2/,
     'the checkout transport must use a cache-busting asset URL');
   assert.match(routeSource, /app\.get\('\/shop'[\s\S]*?Cache-Control', 'no-store'[\s\S]*?renderWithCsrf\(pub\('shop\.html'/,
     'the authenticated shop document must not be reused across checkout contract deployments');

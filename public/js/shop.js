@@ -21,6 +21,10 @@ let atcItem   = null;    // item being added via the modal
 let atcModalToken = 0;   // distinct identity for each modal lifecycle
 let displayedCatalogServerId = null;
 let emoteCapturePollTimer = null;
+let catalogItems = [];   // active catalog items for the selected server
+let hotkeyBindings = []; // this player's hotkey bindings on the selected server
+let shopLkl = null;      // last-known location { pos_x, pos_y, pos_z, timestamp, age_seconds } | null
+let hotkeyUseBusy = false;
 
 const {
   CHECKOUT_STATES,
@@ -170,9 +174,15 @@ function onSelectorsChange() {
     '<p class="text-gray-400 col-span-full text-center py-12">Select a server and identity to view active rentals.</p>';
   document.getElementById('orders-tbody').innerHTML =
     '<tr><td colspan="5" class="text-center py-4 text-gray-400">Select a server and identity to view orders.</td></tr>';
+  document.getElementById('hotkeys-list').innerHTML =
+    '<p class="text-gray-400 col-span-full text-center py-12">Select a server and identity to manage hotkeys.</p>';
+  hotkeyBindings = [];
+  shopLkl = null;
+  clearShopLklMarker();
   if (currentServerId && currentIdentityId) {
     if (document.getElementById('tab-rentals').style.display === 'block') loadActiveRentals();
     if (document.getElementById('tab-orders').style.display === 'block') loadOrders();
+    if (document.getElementById('tab-hotkeys').style.display === 'block') loadPlayerHotkeys();
   }
 
   if (currentServerId) {
@@ -231,10 +241,14 @@ function setupTabListeners() {
     showTab('orders');
     loadOrders();
   });
+  document.getElementById('tab-btn-hotkeys').addEventListener('click', () => {
+    showTab('hotkeys');
+    loadPlayerHotkeys();
+  });
 }
 
 function showTab(name) {
-  ['shop', 'cart', 'rentals', 'orders'].forEach(t => {
+  ['shop', 'cart', 'rentals', 'orders', 'hotkeys'].forEach(t => {
     document.getElementById(`tab-${t}`).style.display = t === name ? 'block' : 'none';
     const btn = document.getElementById(`tab-btn-${t}`);
     btn.classList.toggle('bg-blue-600', t === name);
@@ -261,6 +275,7 @@ async function loadItems(serverId) {
     if (!json.success) throw new Error(json.error || 'Failed to load items');
     const items = json.data || [];
     displayedCatalogServerId = serverId;
+    catalogItems = items;
 
     if (!items.length) {
       grid.innerHTML = '<div class="dzc-empty"><div class="dzc-empty-title">No items available.</div></div>';
@@ -436,10 +451,20 @@ function openAtcModal(item) {
       : 'Enter spawn coordinates.';
   }
 
+  // Last-known position note — appended when the fetch resolves (non-blocking)
+  loadShopLkl().then(() => {
+    if (atcItem !== item || !document.getElementById('atc-modal').classList.contains('open')) return;
+    if (shopLkl) {
+      hint.textContent += ` · Your last known position: (x ${shopLkl.pos_x.toFixed(0)}, z ${shopLkl.pos_y.toFixed(0)}) — ${relativeAge(shopLkl.age_seconds)} ago`;
+    }
+  });
+
   document.getElementById('atc-modal').classList.add('open');
+  if (window.DzcOverlayFocus) window.DzcOverlayFocus.open(document.getElementById('atc-modal'), { onClose: closeAtcModal });
 }
 
 function closeAtcModal() {
+  if (window.DzcOverlayFocus) window.DzcOverlayFocus.close(document.getElementById('atc-modal'));
   atcModalToken++;
   document.getElementById('atc-modal').classList.remove('open');
   atcItem = null;
@@ -961,7 +986,34 @@ function fulfillmentBadge(fulfillment) {
   };
   const label = fulfillment?.label || labels[state] || labels.awaiting_spawn_evidence;
   const icon = state === 'spawn_confirmed' ? '✅' : (state === 'spawn_failed' ? '⚠️' : '⏳');
-  return `<span class="${styles[state] || styles.awaiting_spawn_evidence} text-xs px-2 py-0.5 rounded">${icon} ${escapeHtml(label)}</span>`;
+  const at = value => value ? new Date(value).toLocaleString() : null;
+  const confirmedTime = at(fulfillment?.confirmedAt);
+  const observedTime = at(fulfillment?.observedAt);
+  const left = fulfillment?.respawnsRemaining != null
+    ? ` · ${fulfillment.respawnsRemaining} restart${fulfillment.respawnsRemaining === 1 ? '' : 's'} left`
+    : '';
+  const helpers = {
+    spawn_confirmed: confirmedTime
+      ? `Spawned in-game — confirmed ${confirmedTime}.`
+      : 'Spawned in-game — confirmed in the server log.',
+    spawn_failed: observedTime
+      ? `Server log shows the spawn failed at ${observedTime} — it becomes active once it spawns successfully.`
+      : 'Server log shows the spawn failed — it becomes active once it spawns successfully.',
+    spawn_refused: observedTime
+      ? `Server log shows the spawn was refused at ${observedTime} (e.g. placement not allowed).`
+      : 'Server log shows the spawn was refused (e.g. placement not allowed).',
+    spawn_attempted: observedTime
+      ? `Server log shows a spawn attempt at ${observedTime} — no success recorded yet.`
+      : 'Server log shows a spawn attempt — no success recorded yet.',
+    activated: 'Active in-game immediately — enabled at checkout, no restart needed.',
+    provisioned: `Written to the server files — appears in-game on the next server restart${left}.`,
+    inactive: 'No longer active — removed from the server (expired or refunded).',
+    evidence_unavailable: 'Written to the server files — the server log is not available yet to verify the spawn.',
+    awaiting_spawn_evidence: `Written to the server files — waiting for the server log to confirm the spawn (applies on the next restart)${left}.`,
+  };
+  const helper = helpers[state] || helpers.awaiting_spawn_evidence;
+  return `<span class="${styles[state] || styles.awaiting_spawn_evidence} text-xs px-2 py-0.5 rounded" title="${escapeHtml(state)}">${icon} ${escapeHtml(label)}</span>` +
+    `<div class="text-xs text-gray-500 mt-1 max-w-md">${escapeHtml(helper)}</div>`;
 }
 
 function buildRentalCard(r) {
@@ -1036,10 +1088,12 @@ async function loadOrders() {
       const tr = document.createElement('tr');
       tr.className = 'border-b border-gray-700 cursor-pointer hover:bg-gray-700/40';
       const itemCount = (order.items || []).length;
+      const status = orderStatusMeta(order.status);
       tr.innerHTML = `
         <td class="py-2 px-3 font-mono text-gray-400">#${order.id}</td>
         <td class="py-2 px-3">
-          <span class="px-2 py-0.5 rounded text-xs ${statusClass(order.status)}">${escapeHtml(order.status)}</span>
+          <span class="px-2 py-0.5 rounded text-xs ${status.cls}" title="${escapeHtml(order.status)}">${escapeHtml(status.label)}</span>
+          <div class="text-xs text-gray-500 mt-1 max-w-md">${escapeHtml(status.helper)}</div>
         </td>
         <td class="py-2 px-3 text-green-400">💰 ${formatPrice(order.total_price)}</td>
         <td class="py-2 px-3 text-gray-400 text-xs">${new Date(order.checked_out_at || order.created_at).toLocaleString()}</td>
@@ -1053,8 +1107,9 @@ async function loadOrders() {
       const paymentBreakdown = (order.payment_allocations || []).length
         ? order.payment_allocations.map(a => `${escapeHtml(a.account_type)} ${formatPrice(a.amount)}`).join(' · ')
         : 'Unavailable for legacy order';
+      const refundStatusLabel = REFUND_STATUS_LABEL[order.refund_status] || order.refund_status;
       const refundSummary = order.refund_status
-        ? `<div class="mt-2 rounded bg-blue-950 p-2 text-xs text-blue-200">Refund ${formatPrice(order.refunded_amount)} · ${escapeHtml(order.refund_status)} · ${order.refunded_at ? new Date(order.refunded_at).toLocaleString() : 'time unknown'}</div>`
+        ? `<div class="mt-2 rounded bg-blue-950 p-2 text-xs text-blue-200">Refund 💰 ${formatPrice(order.refunded_amount)} — ${escapeHtml(refundStatusLabel)} · ${order.refunded_at ? new Date(order.refunded_at).toLocaleString() : 'time unknown'}</div>`
         : '<div class="mt-2 text-xs text-gray-500">No refund recorded.</div>';
       detailTr.innerHTML = `
         <td colspan="5" class="bg-gray-900 px-6 py-3">
@@ -1190,15 +1245,48 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
-function statusClass(status) {
-  switch (status) {
-    case 'completed': return 'bg-green-800 text-green-200';
-    case 'pending':   return 'bg-yellow-800 text-yellow-200';
-    case 'refunded':  return 'bg-red-800 text-red-200';
-    case 'expired':   return 'bg-gray-600 text-gray-300';
-    default:          return 'bg-gray-700 text-gray-300';
-  }
+function orderStatusMeta(status) {
+  const metas = {
+    completed: {
+      label: 'Completed',
+      cls: 'bg-green-800 text-green-200',
+      helper: 'Paid and written to the server files. The item lines below show what is live and when it applies.',
+    },
+    expired: {
+      label: 'Expired',
+      cls: 'bg-gray-600 text-gray-300',
+      helper: 'All lines ran out of their restarts — in-game entries were removed from the server. No further effect.',
+    },
+    refunded: {
+      label: 'Refunded',
+      cls: 'bg-red-800 text-red-200',
+      helper: 'A server admin refunded this order: in-game entries were removed and the money returned (see the refund line below).',
+    },
+    pending: {
+      label: 'Pending',
+      cls: 'bg-yellow-800 text-yellow-200',
+      helper: 'Checkout was not fully confirmed — retry checkout or contact a server admin.',
+    },
+    cancelled: {
+      label: 'Cancelled',
+      cls: 'bg-gray-700 text-gray-300',
+      helper: 'This order was cancelled before it completed.',
+    },
+  };
+  const known = metas[status];
+  if (known) return known;
+  return {
+    label: status ? String(status).replace(/^./, c => c.toUpperCase()) : 'Unknown',
+    cls: 'bg-gray-700 text-gray-300',
+    helper: `Order status “${status}” — see the item lines below for details.`,
+  };
 }
+
+const REFUND_STATUS_LABEL = {
+  credited: 'in your wallet',
+  pending: 'pending — not in your wallet yet',
+  claimed: 'claimed into your wallet',
+};
 
 /** Brief toast notification shown in the bottom-right corner. */
 function showToast(msg) {
@@ -1284,6 +1372,7 @@ function switchShopMap(mapName) {
     shopPinMarker = null;
   }
   shopPickedCoords = null;
+  clearShopLklMarker();
   document.getElementById('mp-confirm-btn').disabled = true;
   document.getElementById('mp-coord-display').textContent = 'Click the map to place a pin';
 
@@ -1359,6 +1448,7 @@ async function openMapPicker() {
   const item = atcItem;
   const modal = document.getElementById('map-picker-modal');
   modal.classList.add('open');
+  if (window.DzcOverlayFocus) window.DzcOverlayFocus.open(modal, { onClose: closeMapPicker, focusEl: document.getElementById('mp-map-select') });
 
   // Fetch available maps for this server and restrict selector
   try {
@@ -1395,14 +1485,25 @@ async function openMapPicker() {
       if (requestId !== shopRequestSequence.mapPicker || generation !== shopContextGeneration ||
           serverId !== currentServerId || item !== atcItem || !modal.classList.contains('open')) return;
       initShopLeafletMap(shopCurrentMapName);
+      plotShopLklMarker();
     }, 50);
   } else {
     shopLeafletMap.invalidateSize();
+    plotShopLklMarker();
   }
+
+  // Show the player's last-known position on the map (fetched in parallel)
+  loadShopLkl().then(() => {
+    if (requestId !== shopRequestSequence.mapPicker || generation !== shopContextGeneration ||
+        serverId !== currentServerId || item !== atcItem || !modal.classList.contains('open')) return;
+    plotShopLklMarker();
+  });
 }
 
 /** Close the map picker without applying coordinates. */
 function closeMapPicker() {
+  if (window.DzcOverlayFocus) window.DzcOverlayFocus.close(document.getElementById('map-picker-modal'));
+  clearShopLklMarker();
   document.getElementById('map-picker-modal').classList.remove('open');
 }
 
@@ -1428,4 +1529,275 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('mp-map-select').addEventListener('change', e => {
     switchShopMap(e.target.value);
   });
+
+  // ── Item hotkeys ─────────────────────────────────────────────────────
+  document.getElementById('hk-bind-btn').addEventListener('click', bindHotkey);
+  document.addEventListener('keydown', onShopHotkeyPress);
 });
+
+// ── Last-known position (LKL) ───────────────────────────────────────────────
+
+let shopLklMarker = null; // L.LayerGroup: dashed ring + dot at the player's LKL
+
+/**
+ * Fetch the player's last-known in-game position on the current server.
+ * Stored in shopLkl ({ pos_x, pos_y, pos_z, timestamp, age_seconds } | null).
+ */
+async function loadShopLkl() {
+  if (!currentIdentityId || !currentServerId) return;
+  try {
+    const res = await fetch(`/api/shop/last-position/${currentIdentityId}/${currentServerId}`);
+    const json = await res.json();
+    if (json.success) shopLkl = json.data; // may be null
+  } catch (_) {
+    shopLkl = null;
+  }
+}
+
+/** Format an age in seconds as a short relative string. */
+function relativeAge(ageSeconds) {
+  const s = Math.max(0, Number(ageSeconds) || 0);
+  if (s < 60) return 'just now';
+  if (s < 3600) {
+    const m = Math.floor(s / 60);
+    return `${m} minute${m === 1 ? '' : 's'} ago`;
+  }
+  if (s < 86400) {
+    const h = Math.floor(s / 3600);
+    return `${h} hour${h === 1 ? '' : 's'} ago`;
+  }
+  const d = Math.floor(s / 86400);
+  return `${d} day${d === 1 ? '' : 's'} ago`;
+}
+
+/** Draw (or re-draw) the LKL marker on the map picker. Snapshot order: x=east, y=north. */
+function plotShopLklMarker() {
+  clearShopLklMarker();
+  if (!shopLeafletMap || !shopLkl) return;
+
+  const latlng = shopGameToLeaflet(shopLkl.pos_x, shopLkl.pos_y, shopCurrentMapName);
+  shopLklMarker = L.layerGroup();
+  L.circleMarker(latlng, {
+    radius: 14, fillColor: 'transparent', color: '#3b82f6',
+    weight: 2, opacity: 0.55, dashArray: '4 4', interactive: false,
+  }).addTo(shopLklMarker);
+  L.circleMarker(latlng, {
+    radius: 7, fillColor: '#3b82f6', color: '#ffffff',
+    weight: 2, opacity: 1, fillOpacity: 1,
+  })
+    .bindPopup(`<b>📍 Your last known position</b><br>Recorded ${relativeAge(shopLkl.age_seconds)}<br>x: ${shopLkl.pos_x.toFixed(1)}, z: ${shopLkl.pos_y.toFixed(1)}`, { closeButton: false })
+    .addTo(shopLklMarker);
+  shopLklMarker.addTo(shopLeafletMap);
+
+  // If nothing else anchors the view, centre on the player
+  if (!shopPinMarker) {
+    shopLeafletMap.setView(latlng, Math.max(shopLeafletMap.getZoom(), 1));
+  }
+}
+
+/** Remove the LKL marker from the map. */
+function clearShopLklMarker() {
+  if (shopLklMarker) {
+    if (shopLeafletMap) shopLeafletMap.removeLayer(shopLklMarker);
+    shopLklMarker = null;
+  }
+}
+
+// ── Item hotkeys ────────────────────────────────────────────────────────────
+
+/** Load + render this player's hotkey bindings for the selected server. */
+async function loadPlayerHotkeys() {
+  const listEl = document.getElementById('hotkeys-list');
+  const generation = shopContextGeneration;
+  const identityId = currentIdentityId;
+  const serverId = currentServerId;
+
+  if (!identityId || !serverId) {
+    listEl.innerHTML = '<p class="text-gray-400 col-span-full text-center py-12">Select a server and identity to manage hotkeys.</p>';
+    return;
+  }
+
+  listEl.innerHTML = '<div class="dzc-skeleton" style="height:1.25rem;width:220px"></div>';
+  try {
+    const res = await fetch(`/api/shop/hotkeys/${identityId}/${serverId}`);
+    const json = await res.json();
+    if (generation !== shopContextGeneration || identityId !== currentIdentityId || serverId !== currentServerId) return;
+    if (!json.success) throw new Error(json.error || 'Failed to load hotkeys');
+    hotkeyBindings = json.data || [];
+    renderHotkeysList();
+  } catch (err) {
+    if (generation !== shopContextGeneration || identityId !== currentIdentityId || serverId !== currentServerId) return;
+    listEl.innerHTML = `<div class="dzc-empty col-span-full"><div class="dzc-empty-title">Could not load hotkeys</div><div class="text-gray-500 text-sm">${escapeHtml(err.message)}</div></div>`;
+  }
+}
+
+/** Render bound hotkey cards; keep the bind-form item select in sync. */
+function renderHotkeysList() {
+  const listEl = document.getElementById('hotkeys-list');
+  const sel = document.getElementById('hk-item-select');
+  const prevValue = sel.value;
+  sel.innerHTML = '<option value="">-- Select an item --</option>';
+  catalogItems.forEach(item => {
+    const opt = document.createElement('option');
+    opt.value = item.id;
+    opt.textContent = `${item.name} — ${formatPrice(item.price)}${item.item_type === 'event_rental' ? '/restart' : ''}`;
+    sel.appendChild(opt);
+  });
+  sel.value = prevValue;
+
+  if (!hotkeyBindings.length) {
+    listEl.innerHTML = '<div class="dzc-empty col-span-full"><div class="dzc-empty-title">No hotkeys bound yet.</div><div class="text-gray-500 text-sm">Pick an item and a key above, then press Bind.</div></div>';
+    return;
+  }
+  listEl.innerHTML = '';
+  hotkeyBindings.forEach(hk => {
+    const card = document.createElement('div');
+    card.className = 'bg-gray-800 rounded-lg p-4 border border-indigo-900/60 flex items-center gap-3';
+    card.innerHTML = `
+      <span class="bg-indigo-700 rounded px-2.5 py-1.5 font-mono font-bold text-lg">${escapeHtml(hk.hotkey)}</span>
+      <div class="flex-1 min-w-0">
+        <p class="font-semibold truncate">${escapeHtml(hk.item_name || '')}</p>
+        <p class="text-gray-400 text-xs">💰 ${formatPrice(hk.item_price)}${hk.item_type === 'event_rental' ? ' / restart' : ''}</p>
+      </div>
+      <button type="button" class="hk-unbind-btn bg-red-700 hover:bg-red-600 px-3 py-1 rounded text-sm">✕</button>
+    `;
+    card.querySelector('.hk-unbind-btn').addEventListener('click', () => unbindHotkey(hk.hotkey));
+    listEl.appendChild(card);
+  });
+}
+
+/** Bind the selected key to the selected item (PUT upsert). */
+async function bindHotkey() {
+  const generation = shopContextGeneration;
+  const identityId = currentIdentityId;
+  const serverId = currentServerId;
+  if (!identityId || !serverId) { showHkStatus('Select a server and identity first.', false); return; }
+
+  const shopItemId = document.getElementById('hk-item-select').value;
+  const hotkey = document.getElementById('hk-key-input').value;
+  if (!shopItemId) { showHkStatus('Pick an item first.', false); return; }
+  if (!hotkey) { showHkStatus('Enter a key, e.g. F5 or A.', false); return; }
+
+  try {
+    const res = await fetchWithCsrf('/api/shop/hotkeys', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identityId, serverId, shopItemId, hotkey }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (generation !== shopContextGeneration || identityId !== currentIdentityId || serverId !== currentServerId) return;
+    if (!res.ok) throw new Error(json.error || 'Failed to bind hotkey');
+    showHkStatus(`Bound ${json.data.hotkey} →`, true);
+    await loadPlayerHotkeys();
+  } catch (err) {
+    if (generation !== shopContextGeneration || identityId !== currentIdentityId || serverId !== currentServerId) return;
+    showHkStatus(err.message || 'Failed to bind hotkey.', false);
+  }
+}
+
+/** Remove one binding. */
+async function unbindHotkey(hotkey) {
+  const generation = shopContextGeneration;
+  const identityId = currentIdentityId;
+  const serverId = currentServerId;
+  if (!identityId || !serverId) return;
+  try {
+    const res = await fetchWithCsrf(`/api/shop/hotkeys/${encodeURIComponent(hotkey)}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identityId, serverId }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (generation !== shopContextGeneration || identityId !== currentIdentityId || serverId !== currentServerId) return;
+    if (!res.ok) throw new Error(json.error || 'Failed to remove hotkey');
+    showToast('Hotkey removed.');
+    await loadPlayerHotkeys();
+  } catch (err) {
+    if (generation !== shopContextGeneration || identityId !== currentIdentityId || serverId !== currentServerId) return;
+    alert(err.message || 'Failed to remove hotkey.');
+  }
+}
+
+/** Show/clear the inline hotkey status line. */
+function showHkStatus(message, ok) {
+  const el = document.getElementById('hk-status');
+  el.textContent = message;
+  el.classList.toggle('hidden', !message);
+  el.classList.toggle('text-red-300', !ok);
+  el.classList.toggle('text-green-300', ok);
+}
+
+/**
+ * Global keypress → use a bound hotkey. Ignored while typing, while a
+ * modal is open, or when the key is not one of the player's bindings.
+ */
+function onShopHotkeyPress(e) {
+  if (e.repeat || e.ctrlKey || e.metaKey || e.altKey || hotkeyUseBusy) return;
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+  if (document.getElementById('atc-modal').classList.contains('open')) return;
+  if (document.getElementById('map-picker-modal').classList.contains('open')) return;
+  if (!currentServerId || !currentIdentityId) return;
+
+  const key = normalizeShopHotkeyKey(e.key);
+  if (!key) return;
+  const binding = hotkeyBindings.find(hk => hk.hotkey === key);
+  if (!binding) return;
+
+  e.preventDefault();
+  requestHotkeyUse(binding);
+}
+
+/** Accept the same key set the server accepts (A-Z, 0-9, F1-F12). */
+function normalizeShopHotkeyKey(key) {
+  if (typeof key !== 'string') return null;
+  const k = key.trim().toUpperCase();
+  return /^[A-Z0-9]$|^(F[1-9]|F1[0-2])$/.test(k) ? k : null;
+}
+
+/**
+ * Use a bound hotkey: confirm, then add-to-cart at the last-known position
+ * and check out. A fresh Idempotency-Key per request keeps retried
+ * keypresses from double-charging.
+ */
+async function requestHotkeyUse(binding) {
+  const generation = shopContextGeneration;
+  const identityId = currentIdentityId;
+  const serverId = currentServerId;
+  const cartCount = cartItems.length;
+  const locText = shopLkl
+    ? `Your last known position was recorded ${relativeAge(shopLkl.age_seconds)} ago.`
+    : 'Your last known position will be used.';
+
+  const msg = `Spawn ${binding.item_name}?\n\n${locText}\nThis adds it to your cart and checks out immediately (charged to your wallet).`
+    + (cartCount ? `\nYour cart already has ${cartCount} item(s) — they will be included in this checkout.` : '');
+  if (!confirm(msg)) return;
+
+  hotkeyUseBusy = true;
+  try {
+    const idempotencyKey = (globalThis.crypto && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : `hotkey-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const res = await fetchWithCsrf('/api/shop/hotkeys/use', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
+      body: JSON.stringify({ identityId, serverId, hotkey: binding.hotkey }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (generation !== shopContextGeneration || identityId !== currentIdentityId || serverId !== currentServerId) return;
+    if (!res.ok) throw new Error(json.error || 'Hotkey checkout failed');
+
+    const spawn = (json.data && json.data.spawn) || {};
+    showToast(`📦 ${spawn.item_name || 'Item'} will spawn at your last known position — see Orders for delivery status.`);
+    cartItems = []; // the whole cart was checked out
+    updateCartBadge(0);
+    loadBalance();
+    showTab('orders');
+    loadOrders();
+  } catch (err) {
+    if (generation !== shopContextGeneration || identityId !== currentIdentityId || serverId !== currentServerId) return;
+    alert(err.message || 'Hotkey checkout failed.');
+  } finally {
+    hotkeyUseBusy = false;
+  }
+}

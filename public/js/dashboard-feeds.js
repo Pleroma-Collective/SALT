@@ -110,6 +110,7 @@ async function loadGuildChannels(guildId) {
       const selectors = [
         document.getElementById('killFeedChannel'),
         document.getElementById('factionFeedChannel'),
+        document.getElementById('deFeedChannel'),
       ];
 
       selectors.forEach(select => {
@@ -142,6 +143,7 @@ async function loadFeedConfiguration(guildId) {
     if (feedsData.success) {
       const killFeed    = feedsData.feeds.find(f => f.feedType === 'kill_feed');
       const factionFeed = feedsData.feeds.find(f => f.feedType === 'faction_feed');
+      const deFeed      = feedsData.feeds.find(f => f.feedType === 'dynamic_events');
 
       if (killFeed) {
         // Set toggle
@@ -175,6 +177,19 @@ async function loadFeedConfiguration(guildId) {
         document.getElementById('factionFeedUseEmbed').checked  = fs.useEmbed   || false;
         document.getElementById('factionFeedEmbedColor').value  = fs.embedColor || '#ffa500';
         document.getElementById('factionFeedEmbedSettings').style.display = fs.useEmbed ? 'block' : 'none';
+      }
+
+      if (deFeed) {
+        document.getElementById('deFeedEnabled').checked = deFeed.enabled;
+        document.getElementById('deFeedSettings').style.display = deFeed.enabled ? 'block' : 'none';
+        document.getElementById('deFeedChannel').value  = deFeed.channelId  || '';
+        document.getElementById('deFeedWebhook').value  = deFeed.webhookUrl || '';
+        const ds = deFeed.settings || {};
+        const suppress = Array.isArray(ds.suppress) ? ds.suppress : [];
+        document.querySelectorAll('#deFeedTypeToggles input[data-de-type-group]').forEach(input => {
+          input.checked = !suppress.includes(input.dataset.deTypeGroup);
+        });
+        document.getElementById('deFeedIncludeMapLink').checked = ds.includeMapLink !== false;
       }
     }
 
@@ -225,6 +240,91 @@ document.getElementById('killFeedUseEmbed').addEventListener('change', (e) => {
 function toggleEmbedSettings(enabled) {
   document.getElementById('killFeedEmbedSettings').style.display = enabled ? 'block' : 'none';
 }
+
+// ─── Dynamic Events feed ─────────────────────────────────────────────────────
+// Groups mirror DE_TYPE_GROUPS in utils/ceDynamicEvents.js (labels are what
+// the server's suppress/announce settings store).
+const DE_TYPE_GROUPS = [
+  'Locked container / armory',
+  'Heli crash',
+  'Police-car wreck',
+  'Water-truck wreck',
+  'Military convoy',
+  'Rental property',
+  'Rental vehicle',
+  'Loot',
+];
+
+function initDeFeedTypeToggles() {
+  const container = document.getElementById('deFeedTypeToggles');
+  if (!container) return;
+  DE_TYPE_GROUPS.forEach(label => {
+    const wrap = document.createElement('label');
+    wrap.className = 'flex items-center gap-2 cursor-pointer';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = true;
+    input.className = 'w-4 h-4';
+    input.dataset.deTypeGroup = label;
+    const text = document.createElement('span');
+    text.className = 'text-sm text-gray-300';
+    text.textContent = label;
+    wrap.append(input, text);
+    container.appendChild(wrap);
+  });
+}
+initDeFeedTypeToggles();
+
+// Toggle dynamic events feed settings visibility
+document.getElementById('deFeedEnabled').addEventListener('change', (e) => {
+  document.getElementById('deFeedSettings').style.display = e.target.checked ? 'block' : 'none';
+});
+
+// Save dynamic events feed configuration
+document.getElementById('saveDeFeed').addEventListener('click', async () => {
+  if (!currentGuildId || !currentServerId) return;
+
+  const btn = document.getElementById('saveDeFeed');
+  btn.disabled = true;
+  btn.textContent = '💾 Saving...';
+
+  try {
+    const enabled = document.getElementById('deFeedEnabled').checked;
+    const channelId = document.getElementById('deFeedChannel').value;
+    const webhookUrl = document.getElementById('deFeedWebhook').value;
+
+    const suppress = Array.from(document.querySelectorAll('#deFeedTypeToggles input[data-de-type-group]'))
+      .filter(input => !input.checked)
+      .map(input => input.dataset.deTypeGroup);
+    const settings = {
+      includeMapLink: document.getElementById('deFeedIncludeMapLink').checked,
+      suppress,
+    };
+
+    const feedRes = await fetchWithCsrf(`/api/feeds/${currentGuildId}/${currentServerId}`, {
+      method: 'POST',
+      body: JSON.stringify({
+        feedType: 'dynamic_events',
+        enabled,
+        channelId,
+        webhookUrl,
+        settings
+      })
+    });
+
+    const feedData = await feedRes.json();
+    if (!feedData.success) throw new Error(feedData.error);
+
+    showSuccess('✅ Dynamic events feed configuration saved!');
+
+  } catch (error) {
+    console.error('Error saving configuration:', error);
+    showError('❌ Failed to save configuration: ' + error.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '💾 Save Configuration';
+  }
+});
 
 // Save kill feed configuration
 document.getElementById('saveKillFeed').addEventListener('click', async () => {

@@ -6,6 +6,7 @@
   <title>Dashboard - DayZ Dashboard</title>
   <link rel="stylesheet" href="/css/theme.css">
   <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="/css/components.css">
   <style>
     .server-card { transition: all 0.3s; }
     .server-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
@@ -105,6 +106,14 @@
     .dzc-ops-emptyline { font-size: 0.85rem; color: var(--dzc-text-faint); margin-bottom: 4px; }
     .dzc-ops-suggest { font-size: 0.8rem; color: var(--dzc-text-muted); margin-bottom: 4px; }
     .dzc-ops-link { font-size: 0.8rem; color: var(--dzc-info); display: inline-block; margin-bottom: 4px; }
+    /* Server-health indicator chip (card t_e60827a8): state + icon, token-based
+     * so it holds under all 5 themes; the icon is the non-color cue. */
+    .dzc-health-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 0.05em; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--dzc-border); }
+    .dzc-health-chip[data-state='healthy']  { border-color: var(--dzc-info);    color: var(--dzc-info); }
+    .dzc-health-chip[data-state='degraded'] { border-color: var(--dzc-warning); color: var(--dzc-warning); }
+    .dzc-health-chip[data-state='critical'] { border-color: var(--dzc-danger);  color: var(--dzc-danger); }
+    .dzc-health-chip[data-state='unknown']  { color: var(--dzc-text-faint); }
 
     /* High-contrast theme: match the 2px border treatment from theme.css. */
     html[data-theme='high-contrast'] .dzc-kpi,

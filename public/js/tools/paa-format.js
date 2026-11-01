@@ -1,5 +1,5 @@
 /*
- * DayZ Toolkit — PAA texture + PBO archive format logic.
+ * DayZ Toolkit — PAA texture + PBO archive format logic (card t_27450d2f).
  *
  * Pure, dependency-free, browser-safe (no DOM, no fetch). UMD: in Node it
  * exports via module.exports (used by scripts/paa-format-test.js); in the

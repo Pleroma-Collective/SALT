@@ -56,6 +56,7 @@ function loadGuilds() {
         document.getElementById('deleteWarning').textContent = count
           ? `Warning: ${count} Nitrado server(s), tenant roles, and related data may be removed.` : '';
         document.getElementById('deleteModal').classList.remove('hidden');
+        window.DzcOverlayFocus.open(document.getElementById('deleteModal'), { onClose: closeDeleteModal });
       }));
     })
     .catch(error => {
@@ -64,6 +65,7 @@ function loadGuilds() {
 }
 
 function closeDeleteModal() {
+  window.DzcOverlayFocus.close(document.getElementById('deleteModal'));
   document.getElementById('deleteModal').classList.add('hidden');
   deleteGuildId = null;
 }

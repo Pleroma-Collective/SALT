@@ -12,7 +12,12 @@
  *   filters  comma list of HIDDEN event type names (default: none hidden)
  *   radius   radius-search meters (default 500)
  *   refresh  "0" disables auto-refresh (default: on)
- *   open     comma list of OPEN panel sections. Omitted = all sections open.
+ *   open     comma list of OPEN panel sections. Omitted = all sections open,
+ *            except the spawn filter rail ('spawnfilters'), which is
+ *            collapsed by default (iZurvive rule: nothing on until asked).
+ *   rail     comma list of ENABLED spawn-filter paths (P0-C). Omitted = none.
+ *            Path forms: cat:<category>:<high|med|low>, tier:<1|2|3|4|unique>,
+ *            evt:<id>. Unknown/malformed entries are dropped.
  *   panel    "0" collapses the whole control panel (default: open)
  */
 (function (root, factory) {
@@ -22,7 +27,10 @@
 })(typeof window !== 'undefined' ? window : globalThis, function () {
   'use strict';
 
-  var SECTION_KEYS = ['server', 'layers', 'filters', 'radius', 'data', 'health'];
+  var SECTION_KEYS = ['place', 'server', 'layers', 'spawnfilters', 'filters', 'radius', 'data', 'health'];
+
+  // Spawn-filter rail path forms (P0-C), one per enabled rail checkbox.
+  var RAIL_PATH_RE = /^(cat:[a-z0-9]+:(high|med|low)|tier:(?:[1-4]|unique)|evt:[a-z0-9-]+)$/;
 
   // Layer key -> checkbox control id in map.html (map.js owns the listeners).
   var LAYER_CONTROLS = {
@@ -39,6 +47,7 @@
     'kill': 'kill-heatmap-toggle',
     'death': 'death-heatmap-toggle',
     'movement': 'movement-heatmap-toggle',
+    'recentloot': 'recent-loot-toggle',
   };
 
   var DEFAULT_ENABLED_LAYERS = [
@@ -80,7 +89,11 @@
     var open = parseList(p.get('open'));
     var openSections = new Set(open !== null
       ? open.filter(function (k) { return SECTION_KEYS.indexOf(k) !== -1; })
-      : SECTION_KEYS);
+      : SECTION_KEYS.filter(function (k) { return k !== 'spawnfilters'; }));
+
+    var rail = (parseList(p.get('rail')) || []).filter(function (path) {
+      return RAIL_PATH_RE.test(path);
+    });
 
     var panelOpen = p.get('panel') !== '0';
 
@@ -92,6 +105,7 @@
       radius: radius,
       autoRefresh: autoRefresh,
       openSections: openSections,
+      rail: new Set(rail),
       panelOpen: panelOpen,
     };
   }
@@ -117,13 +131,19 @@
     var hidden = (state.hiddenFilters || []).filter(Boolean);
     if (hidden.length) q.set('filters', hidden.join(','));
 
+    var rail = state.rail instanceof Set ? Array.from(state.rail) : (state.rail || []);
+    if (rail.length) q.set('rail', rail.join(','));
+
     if (state.radius && state.radius !== DEFAULT_RADIUS) q.set('radius', String(state.radius));
     if (state.autoRefresh === false) q.set('refresh', '0');
 
+    var DEFAULT_OPEN_SECTIONS = SECTION_KEYS.filter(function (k) { return k !== 'spawnfilters'; });
     var open = state.openSections instanceof Set
       ? SECTION_KEYS.filter(function (k) { return state.openSections.has(k); })
-      : SECTION_KEYS.slice();
-    if (open.length < SECTION_KEYS.length) q.set('open', open.join(','));
+      : DEFAULT_OPEN_SECTIONS.slice();
+    var isDefaultOpen = open.length === DEFAULT_OPEN_SECTIONS.length
+      && open.every(function (k) { return DEFAULT_OPEN_SECTIONS.indexOf(k) !== -1; });
+    if (!isDefaultOpen) q.set('open', open.join(','));
     if (state.panelOpen === false) q.set('panel', '0');
 
     return q.toString();

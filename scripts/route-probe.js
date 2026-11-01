@@ -67,7 +67,7 @@ const ROUTES = [
   ['GET', '/dashboard/roles', 302, [200, 302]],
   ['GET', '/shop', 302, 200],
   ['GET', '/map', 302, [200, 302]],
-  ['GET', '/loot-finder', 302, 200],
+  ['GET', '/loot-finder', 302, 301],
   ['GET', '/mission-editor', 302, [200, 302]],
   ['GET', '/logs', 302, [200, 302]],
   ['GET', '/server-players', 302, 200],

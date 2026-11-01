@@ -682,6 +682,9 @@ async function main() {
   assert.match(rotationRouteSource,
     /fileServiceResolver:[\s\S]*mission_init[\s\S]*createMissionInitFileService/,
     'generic provider recovery must select the hardened mission init transfer adapter');
+  assert.match(rotationRouteSource,
+    /fileServiceResolver:[\s\S]*server_lifecycle[\s\S]*createServerLifecycleFileService/,
+    'generic provider recovery must select the lifecycle state adapter for durable lifecycle operations');
 
   const tasksRouteSource = fs.readFileSync(path.join(__dirname, '..', 'routes/tasks.js'), 'utf8');
   const taskMutationSource = tasksRouteSource.slice(tasksRouteSource.indexOf("router.post('/:serverId'"));
@@ -693,7 +696,6 @@ async function main() {
 
   for (const [relativePath, label] of [
     ['routes/ownerDashboard.js', 'owner dashboard'],
-    ['routes/admin.js', 'admin API'],
     ['scripts/tui-admin.js', 'admin TUI'],
   ]) {
     const deletionSource = fs.readFileSync(path.join(__dirname, '..', relativePath), 'utf8');
@@ -704,11 +706,12 @@ async function main() {
   }
 
   const adminLifecycleSource = fs.readFileSync(path.join(__dirname, '..', 'routes/admin.js'), 'utf8');
-  assert.doesNotMatch(adminLifecycleSource, /DELETE FROM guilds\b/,
-    'admin guild removal must retain guild and server tombstones required by provider recovery history');
   assert.match(adminLifecycleSource,
-    /UPDATE guilds[\s\S]*SET status = 'disabled'[\s\S]*UPDATE servers[\s\S]*SET status = 'inactive'/,
-    'admin guild removal must use explicit disabled/inactive lifecycle states');
+    /FROM provider_mutations[\s\S]*status NOT IN \('completed','compensated','failed','rolled_back','recovery_pending'\)/,
+    'admin server/guild deletion must be fenced while provider mutations are in flight');
+  assert.match(adminLifecycleSource,
+    /removeServerOwnedHistory\(db, serverId\);[\s\S]*DELETE FROM servers WHERE id = \?/,
+    'terminal provider mutation journal rows must travel with the server');
 
   const economy = require('../services/economyOverrideService');
   assert.strictEqual(typeof economy.collectOverridePaths, 'function',
@@ -767,6 +770,230 @@ async function main() {
   assert.match(teleportSource,
     /finalizeProviderMutation\(tx, prepared\.operationId, 'completed'/,
     'teleport provider completion must commit with its local lifecycle transition');
+
+  // ── Server lifecycle: journaled start/stop/restart ─────────────────────────
+  const lifecycle = require('../services/serverLifecycleMutationService');
+  const nitrado = require('../services/nitradoService');
+  assert.strictEqual(lifecycle.LIFECYCLE_STATE_PATH, '/server-lifecycle/state.json');
+  const lifecycleRestorations = [
+    ['getAuthenticatedUser', nitrado.getAuthenticatedUser],
+    ['listGameServers', nitrado.listGameServers],
+    ['getServerStatus', nitrado.getServerStatus],
+    ['controlServer', nitrado.controlServer],
+  ];
+  try {
+    nitrado.getAuthenticatedUser = async () => ({ id: '77' });
+    nitrado.listGameServers = async () => [{ id: 'provider-7', platform: 'xbox' }];
+    const installProvider = provider => {
+      nitrado.getServerStatus = provider.getServerStatus;
+      nitrado.controlServer = provider.controlServer;
+    };
+
+    const lifecycleProvider = (startState = 'started', { failActions = new Set() } = {}) => {
+      const controlCalls = [];
+      const provider = {
+        state: startState,
+        controlCalls,
+        async getServerStatus() { return { status: provider.state }; },
+        async controlServer(_token, _serviceId, action) {
+          controlCalls.push(action);
+          if (failActions.has(action)) throw new Error(`Nitrado refused the ${action} command`);
+          provider.state = action === 'stop' ? 'stopped' : 'started';
+        },
+      };
+      return provider;
+    };
+
+    const createLifecycleDb = () => {
+      const events = [];
+      const db = {
+        events,
+        async acquireTransactionAdvisoryLock() {},
+        async onTransactionRollback() {},
+        async independentTransaction(callback) { return callback(this); },
+        async get(sqlText) {
+          if (/INSERT INTO provider_mutations/.test(sqlText)) return { id: 501 };
+          if (/SELECT id, status FROM provider_mutations/.test(sqlText)) return null;
+          if (/SELECT s\.platform_server_id, gt\.token_hash/.test(sqlText)) {
+            return {
+              platform_server_id: 'provider-7',
+              token_hash: encryptToken('token'),
+              nitrado_user_id: '77',
+            };
+          }
+          if (/LEFT JOIN guild_roles/.test(sqlText)) {
+            return { server_id: 7, guild_id: 70, platform_server_id: 'provider-7', guild_role: 'owner' };
+          }
+          if (/FOR NO KEY UPDATE/.test(sqlText)) return { id: 1 };
+          throw new Error(`Unexpected lifecycle get: ${sqlText.slice(0, 80)}`);
+        },
+        async run(sqlText) {
+          if (/INSERT INTO provider_mutation_files/.test(sqlText)) events.push({ type: 'journal-file' });
+          else if (/UPDATE provider_mutations/.test(sqlText)) events.push({ type: 'finalize' });
+          else events.push({ type: 'run' });
+          return { changes: 1 };
+        },
+        async transaction(callback) {
+          const hooks = { hook: null, options: null };
+          const txDb = Object.create(db);
+          txDb.onTransactionRollback = (hook, options) => { hooks.hook = hook; hooks.options = options; };
+          try {
+            return await callback(txDb);
+          } catch (error) {
+            if (hooks.hook) await hooks.hook();
+            if (hooks.options?.afterRollback) await hooks.options.afterRollback();
+            throw error;
+          }
+        },
+      };
+      return db;
+    };
+
+    const lifecycleOptions = {
+      internalServerId: 7,
+      actor: { id: 3 },
+      settle: { timeoutMs: 200, pollMs: 1 },
+    };
+
+    // stop: snapshots the online pre-image, issues the stop, settles, finalizes.
+    {
+      const provider = lifecycleProvider('started');
+      installProvider(provider);
+      const db = createLifecycleDb();
+      const result = await lifecycle.controlServerLifecycle({ ...lifecycleOptions, db, action: 'stop' });
+      assert.deepStrictEqual(result, { operationId: '501', message: 'stop initiated' });
+      assert.deepStrictEqual(provider.controlCalls, ['stop']);
+      assert.deepStrictEqual(db.events, [{ type: 'journal-file' }, { type: 'finalize' }]);
+    }
+
+    // stop on a stopped server fails the precondition without journaling.
+    {
+      const provider = lifecycleProvider('stopped');
+      installProvider(provider);
+      const db = createLifecycleDb();
+      await assert.rejects(
+        () => lifecycle.controlServerLifecycle({ ...lifecycleOptions, db, action: 'stop' }),
+        error => error.code === 'LIFECYCLE_PRECONDITION' && error.status === 409
+      );
+      assert.deepStrictEqual(provider.controlCalls, []);
+      assert.deepStrictEqual(db.events, [], 'precondition failures must not create provider journal rows');
+    }
+
+    // start: journals the offline pre-image and settles online.
+    {
+      const provider = lifecycleProvider('stopped');
+      installProvider(provider);
+      const db = createLifecycleDb();
+      const result = await lifecycle.controlServerLifecycle({ ...lifecycleOptions, db, action: 'start' });
+      assert.strictEqual(result.message, 'start initiated');
+      assert.deepStrictEqual(provider.controlCalls, ['start']);
+      assert.strictEqual(provider.state, 'started');
+    }
+
+    // failed stop rolls the journal back to compensated without re-issuing control.
+    {
+      const provider = lifecycleProvider('started', { failActions: new Set(['stop']) });
+      installProvider(provider);
+      const db = createLifecycleDb();
+      await assert.rejects(
+        () => lifecycle.controlServerLifecycle({ ...lifecycleOptions, db, action: 'stop' }),
+        /Nitrado refused the stop command/
+      );
+      assert.deepStrictEqual(provider.controlCalls, ['stop'],
+        'rollback must restore the pre-image without re-running the failed control action');
+      assert.deepStrictEqual(db.events, [{ type: 'journal-file' }, { type: 'finalize' }],
+        'failed lifecycle mutations must finalize durably');
+    }
+
+    // restart journals the online pre-image and issues exactly one control call.
+    {
+      const provider = lifecycleProvider('started');
+      installProvider(provider);
+      const db = createLifecycleDb();
+      const result = await lifecycle.controlServerLifecycle({ ...lifecycleOptions, db, action: 'restart' });
+      assert.strictEqual(result.message, 'restart initiated');
+      assert.deepStrictEqual(provider.controlCalls, ['restart']);
+    }
+
+    // restart that dips offline mid-flight waits for settle without forcing a start.
+    {
+      const controlCalls = [];
+      let statusCalls = 0;
+      const sequence = ['started', 'stopped', 'started'];
+      installProvider({
+        controlCalls,
+        async getServerStatus() {
+          return { status: sequence[Math.min(statusCalls++, sequence.length - 1)] };
+        },
+        async controlServer(_token, _serviceId, action) { controlCalls.push(action); },
+      });
+      const db = createLifecycleDb();
+      await lifecycle.controlServerLifecycle({ ...lifecycleOptions, db, action: 'restart' });
+      assert.deepStrictEqual(controlCalls, ['restart'],
+        'restart verification must not issue a competing start while the provider restarts');
+    }
+
+    // durable reconciliation restores the snapshotted pre-action state.
+    {
+      const controlCalls = [];
+      const providerState = { value: 'stopped' };
+      installProvider({
+        controlCalls,
+        async getServerStatus() { return { status: providerState.value }; },
+        async controlServer(_token, _serviceId, action) {
+          controlCalls.push(action);
+          providerState.value = action === 'start' ? 'started' : 'stopped';
+        },
+      });
+      const reconciliationDb = {
+        async transaction(callback) { return callback(this); },
+        async get(sqlText) {
+          if (/FROM provider_mutations[\s\S]*FOR UPDATE/.test(sqlText)) {
+            return {
+              id: '502', server_id: 7, provider_service_id: 'provider-7',
+              workflow: 'server_lifecycle', status: 'prepared',
+              plan_json: { filePaths: [lifecycle.LIFECYCLE_STATE_PATH] },
+            };
+          }
+          throw new Error(`Unexpected reconciliation get: ${sqlText.slice(0, 80)}`);
+        },
+        async query(sqlText) {
+          if (/FROM provider_mutation_files/.test(sqlText)) {
+            return [{
+              file_path: lifecycle.LIFECYCLE_STATE_PATH,
+              original_exists: true,
+              original_content: lifecycle.stateEnvelope(true),
+            }];
+          }
+          throw new Error(`Unexpected reconciliation query: ${sqlText.slice(0, 80)}`);
+        },
+        async run(sqlText) {
+          if (!/UPDATE provider_mutations/.test(sqlText)) {
+            throw new Error(`Unexpected reconciliation run: ${sqlText.slice(0, 80)}`);
+          }
+          return { changes: 1 };
+        },
+      };
+      const offlineFingerprint = 'sha256:'
+        + crypto.createHash('sha256').update(lifecycle.stateEnvelope(false)).digest('hex');
+      const reconciliation = await recovery.reconcileProviderMutation(reconciliationDb, {
+        serverId: 7,
+        operationId: 502,
+        reconciledBy: 'user:3',
+        acquireLock: async () => {},
+        resolveProviderContext: async () => ({ platformServerId: 'provider-7', token: 'token' }),
+        fileServiceResolver: ({ operation }) => (operation.workflow === 'server_lifecycle'
+          ? lifecycle.createServerLifecycleFileService(nitrado, { timeoutMs: 200, pollMs: 1 })
+          : null),
+        expectedCurrentHashes: { [lifecycle.LIFECYCLE_STATE_PATH]: offlineFingerprint },
+      });
+      assert.deepStrictEqual(reconciliation, { operationId: '502', status: 'compensated' });
+      assert.deepStrictEqual(controlCalls, ['start'],
+        'lifecycle recovery must restore the snapshotted pre-action state');
+    }
+  } finally {
+    for (const [name, original] of lifecycleRestorations) nitrado[name] = original;
+  }
 
   console.log('provider mutation recovery tests passed');
 }

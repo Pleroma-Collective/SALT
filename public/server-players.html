@@ -6,6 +6,7 @@
   <title>Player Management - DayZ Dashboard</title>
   <link rel="stylesheet" href="/css/theme.css">
   <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="/css/components.css">
   <script src="/js/instance-config.js" defer></script>
 </head>
 <body class="dzc-page min-h-screen">
@@ -13,7 +14,7 @@
 
     <!-- Page header (breadcrumb + context pill live in the shell topbar) -->
     <div class="mb-4">
-      <h1 class="text-2xl font-bold">👥 Player Management</h1>
+      <h1 class="text-4xl font-bold">👥 Player Management</h1>
     </div>
 
     <!-- Server Selector -->
@@ -59,6 +60,7 @@
         <option value="50" selected>50/page</option>
         <option value="100">100/page</option>
       </select>
+      <div id="players-freshness" class="flex items-center gap-2"></div>
     </div>
 
     <!-- Player Table (reference table contract — see docs/reference-table-contract.md) -->
@@ -95,7 +97,7 @@
         </tbody>
       </table>
 
-      <!-- Pagination footer: showing X of Y · page controls · freshness -->
+      <!-- Pagination footer: showing X of Y · page controls -->
       <div class="dzc-table-foot">
         <span id="showingText">—</span>
         <div class="flex items-center gap-1 ml-auto">
@@ -105,7 +107,6 @@
           <button id="nextBtn"  disabled class="dzc-btn" aria-label="Next page">›</button>
           <button id="lastBtn"  disabled class="dzc-btn" aria-label="Last page">»</button>
         </div>
-        <span id="freshness" class="dzc-freshness" aria-live="polite"></span>
       </div>
     </div>
 
@@ -200,6 +201,7 @@
 
   <script src="/js/api.js"></script>
   <script src="/js/csrf-helper.js"></script>
+  <script src="/js/data-freshness.js"></script>
   <script src="/js/server-players.js"></script>
 </body>
 </html>

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deaths &amp; PVP - DayZ Dashboard</title>
+  <link rel="stylesheet" href="/css/theme.css">
+  <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g" crossorigin="anonymous"></script>
+  <script src="/js/instance-config.js" defer></script>
+</head>
+<body class="bg-gray-900 text-white">
+  <div class="container mx-auto max-w-7xl p-4 sm:p-6">
+    <header class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider text-blue-300">Operations</p>
+        <h1 class="text-3xl font-bold sm:text-4xl">Deaths &amp; PVP</h1>
+        <p class="mt-1 text-sm text-gray-400">Death-cause distribution and PVP leaderboard from server ADM logs.</p>
+      </div>
+      <a href="/dashboard" class="rounded bg-gray-700 px-4 py-2 hover:bg-gray-600">Back</a>
+    </header>
+
+    <section aria-labelledby="scope-heading" class="mb-4 rounded-lg border border-gray-700 bg-gray-800 p-4">
+      <h2 id="scope-heading" class="sr-only">Server and range</h2>
+      <div class="flex flex-col gap-4 lg:flex-row lg:items-end">
+        <div class="min-w-0 flex-1">
+          <label for="serverSelect" class="mb-2 block text-sm font-semibold">Server</label>
+          <select id="serverSelect" class="w-full rounded border border-gray-600 bg-gray-700 p-2 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">Loading servers…</option>
+          </select>
+        </div>
+        <fieldset>
+          <legend class="mb-2 text-sm font-semibold">Range</legend>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" data-days="1" aria-pressed="false" class="range-btn rounded bg-gray-700 px-3 py-2 text-sm hover:bg-gray-600">24h</button>
+            <button type="button" data-days="7" aria-pressed="true" class="range-btn rounded bg-blue-600 px-3 py-2 text-sm font-semibold">7d</button>
+            <button type="button" data-days="30" aria-pressed="false" class="range-btn rounded bg-gray-700 px-3 py-2 text-sm hover:bg-gray-600">30d</button>
+            <button type="button" data-days="90" aria-pressed="false" class="range-btn rounded bg-gray-700 px-3 py-2 text-sm hover:bg-gray-600">90d</button>
+          </div>
+        </fieldset>
+      </div>
+    </section>
+
+    <div id="statusBanner" class="hidden mb-4 rounded-lg border p-4 text-sm" role="status" aria-live="polite"></div>
+
+    <div id="emptyState" class="rounded-lg border border-gray-700 bg-gray-800 p-8 text-center text-gray-400">
+      Select a server to view death causes and the PVP leaderboard.
+    </div>
+
+    <div id="content" class="hidden space-y-6">
+      <section aria-labelledby="causeHeading">
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 id="causeHeading" class="text-xl font-bold">Death-cause distribution</h2>
+          <span id="causeSummary" class="text-sm text-gray-400">—</span>
+        </div>
+        <div class="rounded-lg border border-gray-700 bg-gray-800 p-4 sm:p-6">
+          <div id="causeChips" class="mb-4 flex flex-wrap gap-2"></div>
+          <div class="relative h-72"><canvas id="causeChart" aria-label="Death cause distribution over time" role="img"></canvas></div>
+        </div>
+      </section>
+
+      <section class="grid gap-6 lg:grid-cols-3" aria-labelledby="leaderboardHeading">
+        <div class="lg:col-span-2">
+          <h2 id="leaderboardHeading" class="mb-3 text-xl font-bold">PVP leaderboard</h2>
+          <div class="overflow-hidden rounded-lg border border-gray-700 bg-gray-800">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-gray-700 text-left text-xs uppercase tracking-wide text-gray-400">
+                  <th class="px-4 py-3">Rank</th>
+                  <th class="px-4 py-3">Killer</th>
+                  <th class="px-4 py-3 text-right">Kills</th>
+                  <th class="px-4 py-3">Top weapon</th>
+                  <th class="px-4 py-3 text-right">Avg distance</th>
+                </tr>
+              </thead>
+              <tbody id="leaderboardBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <h2 class="mb-3 text-xl font-bold">Top kill weapons</h2>
+          <div id="topWeapons" class="rounded-lg border border-gray-700 bg-gray-800 p-4"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script src="/js/dashboard-death-causes.js"></script>
+</body>
+</html>

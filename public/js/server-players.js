@@ -87,18 +87,12 @@ function updateSortIndicators() {
   });
 }
 
-// ─── Freshness ("updated Xs ago") ────────────────────────────────────────────
+// ─── Freshness ("Last updated HH:MM:SS") + Refresh ──────────────────────────
+// Shared DataFreshness helper; loadPlayers marks the outcome, the Refresh
+// button re-runs the current page's query.
 
-let lastLoadedAt = 0;
-
-function updateFreshness() {
-  const el = document.getElementById('freshness');
-  if (!el) return;
-  if (!lastLoadedAt) { el.textContent = ''; return; }
-  const s = Math.round((Date.now() - lastLoadedAt) / 1000);
-  el.textContent = s < 90 ? `updated ${s}s ago` : `updated ${relativeTime(new Date(lastLoadedAt).toISOString())}`;
-}
-setInterval(updateFreshness, 15000);
+let dfh = null;
+let hasLoadedPlayers = false;
 
 // ─── Pagination controls ──────────────────────────────────────────────────────
 
@@ -149,8 +143,10 @@ async function loadServers() {
 
 // ─── Player list (paginated, sorted, filtered) ────────────────────────────────
 
+let lastPlayers = [];
+
 async function loadPlayers() {
-  if (!currentServerId) return;
+  if (!currentServerId) return { ok: false, message: 'No server selected' };
 
   const tbody = document.getElementById('playerTableBody');
   tbody.innerHTML = '<tr class="dzc-state-row"><td colspan="8">Loading…</td></tr>';
@@ -163,8 +159,8 @@ async function loadPlayers() {
     const res  = await fetch(`/api/owner/servers/${currentServerId}/players?${params}`);
     const data = await res.json();
     if (!data.success) throw new Error(data.error || 'Unknown error');
-    lastLoadedAt = Date.now();
-    updateFreshness();
+    hasLoadedPlayers = true;
+    if (dfh) dfh.markSuccess();
 
     // Update stats bar
     if (data.stats) {
@@ -174,9 +170,19 @@ async function loadPlayers() {
     }
 
     updatePagination(data.total || 0);
-    renderTable(data.players || []);
+    lastPlayers = data.players || [];
+    renderTable(lastPlayers);
+    return { ok: true };
   } catch (err) {
-    tbody.innerHTML = `<tr class="dzc-state-row is-error"><td colspan="8">❌ ${escHtml(err.message)}</td></tr>`;
+    if (hasLoadedPlayers) {
+      // Keep the stale rows visible; the freshness row reports the error.
+      updatePagination(totalFiltered);
+      renderTable(lastPlayers);
+      if (dfh) dfh.markError(err.message);
+    } else {
+      tbody.innerHTML = `<tr class="dzc-state-row is-error"><td colspan="8">❌ ${escHtml(err.message)}</td></tr>`;
+    }
+    return { ok: false, message: err.message };
   }
 }
 
@@ -490,8 +496,9 @@ function resetUI() {
   document.getElementById('wipeServerBtn').classList.add('hidden');
   document.getElementById('playerTableBody').innerHTML =
     '<tr class="dzc-state-row"><td colspan="8">Select a server above to view players.</td></tr>';
-  lastLoadedAt = 0;
-  updateFreshness();
+  hasLoadedPlayers = false;
+  lastPlayers = [];
+  if (dfh) dfh.reset();
 }
 
 // ─── DOMContentLoaded ─────────────────────────────────────────────────────────
@@ -692,10 +699,21 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById(id).textContent = '—';
     });
 
+    // New server: no stale data to show on failure, timestamp restarts.
+    hasLoadedPlayers = false;
+    lastPlayers = [];
+    if (dfh) dfh.reset();
+
     await loadPlayers();
   });
 
   // Initial setup
+  if (window.DataFreshness) {
+    dfh = window.DataFreshness.mount('players-freshness', async () => {
+      const r = await loadPlayers();
+      if (!r.ok) throw new Error(r.message);
+    }, { auto: false });
+  }
   updateSortIndicators();
   loadServers();
 });

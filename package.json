@@ -42,7 +42,7 @@
   "dependencies": {
     "@github/copilot": "1.0.79",
     "@github/copilot-sdk": "1.0.11",
-    "axios": "^1.20.0",
+    "axios": "^1.21.0",
     "blessed": "^0.1.81",
     "blessed-contrib": "^4.11.0",
     "connect-pg-simple": "^10.0.0",
@@ -50,7 +50,7 @@
     "csurf": "^1.11.0",
     "dotenv": "^17.3.0",
     "enquirer": "^2.3.6",
-    "express": "4.22.2",
+    "express": "5.3.0",
     "express-rate-limit": "^8.2.1",
     "express-session": "^1.18.0",
     "express-validator": "^7.3.1",
@@ -60,7 +60,7 @@
     "node-cron": "^4.6.0",
     "passport": "^0.7.0",
     "passport-discord": "^0.1.4",
-    "pg": "^8.20.0",
+    "pg": "^8.23.1",
     "winston": "^3.19.0",
     "xml2js": "^0.6.2"
   },
